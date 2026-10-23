@@ -12,7 +12,8 @@ const usage: &str = "usage: parity <command> [options]
 
 commands:
   run            check each registered algorithm against the C library: the base case and the
-                 variations
+                 variations. A stateful scheme runs after the others, and its variations are the
+                 signatures of one key, at most its remaining count
   snapshot       print the snapshot of the C library, in the format of the Swift and Zig ports
   known-answers  run the liboqs known-answer programs on the C algorithms through the Rust
                  harness and on the registered Rust algorithms, and compare each digest with
@@ -45,6 +46,7 @@ fn run(options: &ParityOptions) -> usize {
     let jobs = ParityJob::parityJobs(
         Registry::mechanisms(),
         Registry::signatureSchemes(),
+        Registry::statefulSignatureSchemes(),
         options,
     );
     let algorithmCount = jobs

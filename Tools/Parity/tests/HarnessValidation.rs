@@ -6,13 +6,17 @@
 //! reported at its own step.
 
 use OQSNativeAlgorithmTests::{KEMKnownAnswerTest, KnownAnswerDigests, SignatureKnownAnswerTest};
-use OQSNativeCOracle::{OracleMechanism, OracleSignatureScheme};
-use OQSNativeDomain::{KeyEncapsulating, RandomGenerating, Signing};
+use OQSNativeCOracle::{OracleMechanism, OracleSignatureScheme, OracleStatefulScheme};
+use OQSNativeDomain::{
+    KeyEncapsulating, KeyStatePersisting, RandomGenerating, Signing, StatefulSigning,
+};
 use OQSNativeEntities::{
     Encapsulation, KEMDescription, KeyPair, OQSError, SecretBytes, SignatureDescription,
+    StatefulSignatureDescription,
 };
 use OQSNativeParity::{
-    KEMParity, LargeStack, ParityJob, ParityOptions, ParitySettings, SignatureParity,
+    KEMParity, LargeStack, ParityJob, ParityMismatch, ParityOptions, ParitySettings,
+    SignatureParity, StatefulParity,
 };
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -25,6 +29,10 @@ fn mechanism(name: &str) -> OracleMechanism {
 
 fn scheme(name: &str) -> OracleSignatureScheme {
     OracleSignatureScheme::named(name).unwrap_or_else(|| panic!("the C library has {name}"))
+}
+
+fn statefulScheme(name: &str) -> OracleStatefulScheme {
+    OracleStatefulScheme::named(name).unwrap_or_else(|| panic!("the C library has {name}"))
 }
 
 #[test]
@@ -466,6 +474,261 @@ fn eachSignatureDefectIsReportedAtItsStep() {
 }
 
 #[test]
+fn cStatefulSchemesPassEveryStatefulCheck() {
+    LargeStack::run(|| {
+        for name in [
+            "XMSS-SHA2_10_256",
+            "XMSSMT-SHA2_20/2_256",
+            "LMS_SHA256_H5_W1",
+            "LMS_SHA256_H5_W8_H5_W8",
+        ] {
+            let result = StatefulParity::new(&statefulScheme(name), ParitySettings::defaultSeed)
+                .checkEveryCase(caseCount);
+            assert_eq!(result, Ok(caseCount), "{name}");
+        }
+    });
+}
+
+#[test]
+fn aStatefulRunSignsAtMostTheRemainingCountOfTheKey() {
+    // A new key of LMS_SHA256_H5_W1 has 31 signatures left. Its job says so, and a run of fewer
+    // cases than the remaining count signs each case.
+    let scheme = statefulScheme("LMS_SHA256_H5_W1");
+    let statefulSchemes: [&dyn StatefulSigning; 1] = [&scheme];
+    let summary = |cases: &str| {
+        let options =
+            ParityOptions::parse(&["--cases".to_string(), cases.to_string()]).expect("valid");
+        let jobs = ParityJob::parityJobs(&[], &[], &statefulSchemes, &options);
+        let lines = Mutex::new(Vec::new());
+        assert_eq!(
+            ParityJob::runAll(jobs, &|line| lines.lock().expect("lines").push(line)),
+            0
+        );
+        lines.into_inner().expect("lines").join("\n")
+    };
+    let capped = summary("1000");
+    assert!(
+        capped.starts_with(
+            "ok    LMS_SHA256_H5_W1 (base case and 31 of 1000 variations identical, the remaining count of the key, "
+        ),
+        "{capped}"
+    );
+    let full = summary("31");
+    assert!(
+        full.starts_with("ok    LMS_SHA256_H5_W1 (base case and 31 variations identical, "),
+        "{full}"
+    );
+}
+
+/// The defects that a broken stateful scheme can have.
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum StatefulDefect {
+    keyPairFails,
+    publicKeyByte,
+    secretKeyByte,
+    totalCountsOneMore,
+    signingFails,
+    signatureByte,
+    savesNoKey,
+    advancedKeyByte,
+    keepsTheKeyInMemory,
+    rejectsCSignatures,
+    acceptsEverySignature,
+    acceptsAChangedMessage,
+    acceptsShortSignature,
+    countsOneMoreRemaining,
+}
+
+/// A store that keeps nothing, for the inner signatures of a broken scheme.
+struct DiscardingStore;
+
+impl KeyStatePersisting for DiscardingStore {
+    fn persist(&mut self, _: &[u8]) -> Result<(), OQSError> {
+        Ok(())
+    }
+}
+
+/// A C stateful scheme with one defect.
+struct BrokenStatefulScheme {
+    inner: OracleStatefulScheme,
+    defect: StatefulDefect,
+    /// The message of the last signature, for the defect that verifies it in place of the
+    /// message that it gets.
+    lastMessage: Mutex<Vec<u8>>,
+}
+
+impl BrokenStatefulScheme {
+    fn new(name: &str, defect: StatefulDefect) -> Self {
+        BrokenStatefulScheme {
+            inner: statefulScheme(name),
+            defect,
+            lastMessage: Mutex::new(Vec::new()),
+        }
+    }
+}
+
+impl StatefulSigning for BrokenStatefulScheme {
+    fn description(&self) -> &'static StatefulSignatureDescription {
+        self.inner.description()
+    }
+
+    fn generateKeyPair(&self, random: &mut dyn RandomGenerating) -> Result<KeyPair, OQSError> {
+        if self.defect == StatefulDefect::keyPairFails {
+            return Err(OQSError::operationFailed);
+        }
+        let mut keyPair = self.inner.generateKeyPair(random)?;
+        match self.defect {
+            StatefulDefect::publicKeyByte => keyPair.publicKey[3] ^= 0x10,
+            StatefulDefect::secretKeyByte => {
+                let last = keyPair.secretKey.bytes().len() - 1;
+                keyPair.secretKey.mutableBytes()[last] ^= 1;
+            }
+            _ => {}
+        }
+        Ok(keyPair)
+    }
+
+    fn sign(
+        &self,
+        message: &[u8],
+        secretKey: &mut SecretBytes,
+        persisting: &mut dyn KeyStatePersisting,
+    ) -> Result<Vec<u8>, OQSError> {
+        *self.lastMessage.lock().expect("the last message") = message.to_vec();
+        match self.defect {
+            StatefulDefect::signingFails => Err(OQSError::operationFailed),
+            StatefulDefect::signatureByte => {
+                let mut signature = self.inner.sign(message, secretKey, persisting)?;
+                signature[0] ^= 4;
+                Ok(signature)
+            }
+            StatefulDefect::savesNoKey => self.inner.sign(message, secretKey, &mut DiscardingStore),
+            StatefulDefect::advancedKeyByte => {
+                let signature = self.inner.sign(message, secretKey, &mut DiscardingStore)?;
+                let last = secretKey.bytes().len() - 1;
+                secretKey.mutableBytes()[last] ^= 1;
+                self.releaseSignature(signature, secretKey.bytes(), persisting)
+            }
+            StatefulDefect::keepsTheKeyInMemory => {
+                // The scheme saves the advanced key, but the key of the caller stays as it was.
+                let mut advanced = secretKey.clone();
+                self.inner.sign(message, &mut advanced, persisting)
+            }
+            _ => self.inner.sign(message, secretKey, persisting),
+        }
+    }
+
+    fn isValidSignature(&self, signature: &[u8], message: &[u8], publicKey: &[u8]) -> bool {
+        let isShort = signature.len() + 1 == self.description().signatureLength;
+        match self.defect {
+            StatefulDefect::rejectsCSignatures => false,
+            StatefulDefect::acceptsEverySignature => true,
+            StatefulDefect::acceptsShortSignature if isShort => true,
+            StatefulDefect::acceptsAChangedMessage => {
+                let lastMessage = self.lastMessage.lock().expect("the last message").clone();
+                self.inner
+                    .isValidSignature(signature, &lastMessage, publicKey)
+            }
+            _ => self.inner.isValidSignature(signature, message, publicKey),
+        }
+    }
+
+    fn remainingSignatureCount(&self, secretKey: &[u8]) -> Result<u64, OQSError> {
+        let remaining = self.inner.remainingSignatureCount(secretKey)?;
+        if self.defect == StatefulDefect::countsOneMoreRemaining {
+            return Ok(remaining + 1);
+        }
+        Ok(remaining)
+    }
+
+    fn totalSignatureCount(&self, secretKey: &[u8]) -> Result<u64, OQSError> {
+        let total = self.inner.totalSignatureCount(secretKey)?;
+        if self.defect == StatefulDefect::totalCountsOneMore {
+            return Ok(total + 1);
+        }
+        Ok(total)
+    }
+}
+
+/// The first mismatch of a broken LMS_SHA256_H5_W1 over a few cases.
+fn firstStatefulMismatch(defect: StatefulDefect) -> ParityMismatch {
+    LargeStack::run(|| {
+        let broken = BrokenStatefulScheme::new("LMS_SHA256_H5_W1", defect);
+        let mismatch = StatefulParity::new(&broken, ParitySettings::defaultSeed)
+            .checkEveryCase(caseCount)
+            .expect_err("a broken scheme fails");
+        assert_eq!(mismatch.algorithm, "LMS_SHA256_H5_W1");
+        mismatch
+    })
+}
+
+#[test]
+fn eachStatefulDefectIsReportedAtItsStep() {
+    let step = |defect| {
+        let mismatch = firstStatefulMismatch(defect);
+        (mismatch.case, mismatch.step)
+    };
+    assert_eq!(step(StatefulDefect::keyPairFails), (None, "Rust base case"));
+    assert_eq!(step(StatefulDefect::publicKeyByte), (None, "pk"));
+    assert_eq!(step(StatefulDefect::secretKeyByte), (None, "sk"));
+    assert_eq!(
+        step(StatefulDefect::totalCountsOneMore),
+        (None, "total count")
+    );
+    assert_eq!(step(StatefulDefect::signingFails), (Some(0), "signature"));
+    assert_eq!(step(StatefulDefect::signatureByte), (Some(0), "signature"));
+    assert_eq!(step(StatefulDefect::savesNoKey), (Some(0), "advanced key"));
+    assert_eq!(
+        step(StatefulDefect::advancedKeyByte),
+        (Some(0), "advanced key")
+    );
+    assert_eq!(
+        step(StatefulDefect::keepsTheKeyInMemory),
+        (Some(0), "key in memory")
+    );
+    assert_eq!(
+        step(StatefulDefect::rejectsCSignatures),
+        (Some(0), "Rust verification of the C signature")
+    );
+    assert_eq!(
+        step(StatefulDefect::acceptsEverySignature),
+        (Some(0), "verification of a changed signature")
+    );
+    assert_eq!(
+        step(StatefulDefect::acceptsAChangedMessage),
+        (Some(0), "verification of a changed message")
+    );
+    assert_eq!(
+        step(StatefulDefect::acceptsShortSignature),
+        (Some(0), "verification of a short signature")
+    );
+    assert_eq!(
+        step(StatefulDefect::countsOneMoreRemaining),
+        (Some(0), "remaining count")
+    );
+}
+
+#[test]
+fn aStatefulMismatchNamesTheFailingSideAndTheCounts() {
+    assert_eq!(
+        firstStatefulMismatch(StatefulDefect::signingFails).detail,
+        "C succeeds and Rust fails: the operation failed"
+    );
+    assert_eq!(
+        firstStatefulMismatch(StatefulDefect::savesNoKey).detail,
+        "Rust released the signature and saved no key"
+    );
+    assert_eq!(
+        firstStatefulMismatch(StatefulDefect::totalCountsOneMore).detail,
+        "C counts 31 and Rust counts 32"
+    );
+    assert_eq!(
+        firstStatefulMismatch(StatefulDefect::countsOneMoreRemaining).detail,
+        "C counts 30 and Rust counts 31"
+    );
+}
+
+#[test]
 fn knownAnswerHarnessReproducesTheDigestsOfLiboqsForEachForm() {
     // One KEM of each generator and one scheme of each signed-message form. The `parity
     // known-answers` program runs every algorithm of the files.
@@ -503,18 +766,30 @@ fn parityJobsReportExactlyTheBrokenAlgorithms() {
         inner: scheme("Falcon-512"),
         defect: SignatureDefect::signatureByte,
     };
+    let correctStatefulScheme = statefulScheme("LMS_SHA256_H5_W1");
+    let brokenStatefulScheme =
+        BrokenStatefulScheme::new("LMS_SHA256_H5_W2", StatefulDefect::advancedKeyByte);
     let mechanisms: [&dyn KeyEncapsulating; 2] = [&correctMechanism, &brokenMechanism];
     let schemes: [&dyn Signing; 2] = [&correctScheme, &brokenScheme];
+    let statefulSchemes: [&dyn StatefulSigning; 2] =
+        [&correctStatefulScheme, &brokenStatefulScheme];
     let options = ParityOptions::parse(&["--cases".to_string(), "1".to_string()]).expect("valid");
-    let jobs = ParityJob::parityJobs(&mechanisms, &schemes, &options);
+    let jobs = ParityJob::parityJobs(&mechanisms, &schemes, &statefulSchemes, &options);
     let names: Vec<&str> = jobs.iter().map(|job| job.name).collect();
     assert_eq!(
         names,
-        vec!["ML-KEM-512", "ML-KEM-768", "ML-DSA-44", "Falcon-512"]
+        vec![
+            "ML-KEM-512",
+            "ML-KEM-768",
+            "ML-DSA-44",
+            "Falcon-512",
+            "LMS_SHA256_H5_W1",
+            "LMS_SHA256_H5_W2"
+        ]
     );
     let lines = Mutex::new(Vec::new());
     let failures = ParityJob::runAll(jobs, &|line| lines.lock().expect("lines").push(line));
-    assert_eq!(failures, 2);
+    assert_eq!(failures, 3);
     let mut lines = lines.into_inner().expect("lines");
     lines.sort();
     assert!(
@@ -522,11 +797,22 @@ fn parityJobsReportExactlyTheBrokenAlgorithms() {
         "{lines:?}"
     );
     assert!(
-        lines[1].starts_with("FAIL  ML-KEM-768: ML-KEM-768, base case: ct: "),
+        lines[1].starts_with(&format!(
+            "FAIL  LMS_SHA256_H5_W2: LMS_SHA256_H5_W2, case 0 of seed {:#x}: advanced key: ",
+            ParitySettings::defaultSeed
+        )),
         "{lines:?}"
     );
-    assert!(lines[2].starts_with("ok    ML-DSA-44 (base case and 1 variations identical, "));
-    assert!(lines[3].starts_with("ok    ML-KEM-512 (base case and 1 variations identical, "));
+    assert!(
+        lines[2].starts_with("FAIL  ML-KEM-768: ML-KEM-768, base case: ct: "),
+        "{lines:?}"
+    );
+    assert!(
+        lines[3].starts_with("ok    LMS_SHA256_H5_W1 (base case and 1 variations identical, "),
+        "{lines:?}"
+    );
+    assert!(lines[4].starts_with("ok    ML-DSA-44 (base case and 1 variations identical, "));
+    assert!(lines[5].starts_with("ok    ML-KEM-512 (base case and 1 variations identical, "));
 }
 
 /// A C mechanism that counts its key pairs. The base case and each variation make one.
@@ -641,7 +927,7 @@ fn parityJobsSplitTheVariationsOfEachAlgorithmIntoBlocksThatTheShardsSplit() {
     let words =
         |text: &str| -> Vec<String> { text.split_whitespace().map(str::to_string).collect() };
     let options = ParityOptions::parse(&words("--cases 5 --block-size 2")).expect("valid");
-    let jobs = ParityJob::parityJobs(&mechanisms, &schemes, &options);
+    let jobs = ParityJob::parityJobs(&mechanisms, &schemes, &[], &options);
     let names: Vec<&str> = jobs.iter().map(|job| job.name).collect();
     assert_eq!(
         names,
@@ -675,7 +961,7 @@ fn parityJobsSplitTheVariationsOfEachAlgorithmIntoBlocksThatTheShardsSplit() {
     let shard =
         ParityOptions::parse(&words("--cases 5 --block-size 2 --shard 1/2")).expect("valid");
     let shardSummaries: Vec<String> = LargeStack::run(|| {
-        ParityJob::parityJobs(&mechanisms, &schemes, &shard)
+        ParityJob::parityJobs(&mechanisms, &schemes, &[], &shard)
             .iter()
             .map(|job| (job.check)().expect("the C algorithms are identical"))
             .collect()
@@ -687,27 +973,56 @@ fn parityJobsSplitTheVariationsOfEachAlgorithmIntoBlocksThatTheShardsSplit() {
 }
 
 #[test]
+fn aStatefulSchemeIsOneJobInARunInBlocks() {
+    // The signatures of a key depend on each other, so the stateful job comes after the blocks
+    // of the other algorithms, checks every case and is never split.
+    let first = mechanism("ML-KEM-512");
+    let stateful = statefulScheme("LMS_SHA256_H5_W1");
+    let mechanisms: [&dyn KeyEncapsulating; 1] = [&first];
+    let statefulSchemes: [&dyn StatefulSigning; 1] = [&stateful];
+    let options = ParityOptions::parse(&["--cases", "5", "--block-size", "2"].map(String::from))
+        .expect("valid");
+    let jobs = ParityJob::parityJobs(&mechanisms, &[], &statefulSchemes, &options);
+    let names: Vec<&str> = jobs.iter().map(|job| job.name).collect();
+    assert_eq!(
+        names,
+        vec!["ML-KEM-512", "ML-KEM-512", "ML-KEM-512", "LMS_SHA256_H5_W1"]
+    );
+    let summary = LargeStack::run(|| (jobs[3].check)());
+    assert_eq!(
+        summary,
+        Ok("base case and 5 variations identical".to_string())
+    );
+}
+
+#[test]
 fn parityJobsTakeOnlyTheSelectedAlgorithms() {
     let first = mechanism("ML-KEM-512");
     let second = mechanism("ML-KEM-768");
     let third = scheme("ML-DSA-44");
+    let fourth = statefulScheme("LMS_SHA256_H5_W1");
     let mechanisms: [&dyn KeyEncapsulating; 2] = [&first, &second];
     let schemes: [&dyn Signing; 1] = [&third];
+    let statefulSchemes: [&dyn StatefulSigning; 1] = [&fourth];
     let words =
         |text: &str| -> Vec<String> { text.split_whitespace().map(str::to_string).collect() };
     let names = |options: &str| -> Vec<&str> {
         ParityJob::parityJobs(
             &mechanisms,
             &schemes,
+            &statefulSchemes,
             &ParityOptions::parse(&words(options)).expect("valid"),
         )
         .iter()
         .map(|job| job.name)
         .collect()
     };
-    assert_eq!(names("--shard 1/2"), vec!["ML-KEM-768"]);
+    // The positions of the shard count over the three lists, so the stateful scheme is at 3.
+    assert_eq!(names("--shard 1/2"), vec!["ML-KEM-768", "LMS_SHA256_H5_W1"]);
     assert_eq!(names("--shard 0/2"), vec!["ML-KEM-512", "ML-DSA-44"]);
+    assert_eq!(names("--shard 0/4"), vec!["ML-KEM-512"]);
     assert_eq!(names("--only ML-DSA-44"), vec!["ML-DSA-44"]);
+    assert_eq!(names("--only LMS_SHA256_H5_W1"), vec!["LMS_SHA256_H5_W1"]);
     assert!(names("--only nothing").is_empty());
 }
 
