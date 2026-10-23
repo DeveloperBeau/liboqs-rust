@@ -379,4 +379,24 @@ mod tests {
             },
         );
     }
+
+    #[test]
+    #[should_panic(expected = "the target has v rows and o columns")]
+    fn aTargetOfAnotherShapeIsRefused() {
+        // Two rows and two columns of entries of two bytes are 8 bytes. The target has one
+        // entry more, which the product would leave as it is.
+        let oilBytes = [0u8; 4];
+        let oil = OilMatrix::<GF256>::new(&oilBytes, 2, 2);
+        BatchedMatrix::addTriangleProduct(&mut [0u8; 10], &[0u8; 6], &oil, 2);
+    }
+
+    #[test]
+    #[should_panic(expected = "the triangle has v rows")]
+    fn aTriangleOfAnotherShapeIsRefused() {
+        // The triangle of two rows has three entries of two bytes. This one has two, so the
+        // last row of the product would get no entry.
+        let oilBytes = [0u8; 4];
+        let oil = OilMatrix::<GF256>::new(&oilBytes, 2, 2);
+        BatchedMatrix::addTriangleProduct(&mut [0u8; 8], &[0u8; 4], &oil, 2);
+    }
 }
