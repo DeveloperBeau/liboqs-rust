@@ -21,7 +21,9 @@ A name writes each acronym in this table as one unit: all upper case (`MLKEM768`
 | `FFI` | Foreign function interface |
 | `FFT` | Fast Fourier transform |
 | `FIPS` | Federal Information Processing Standard |
+| `HPS` | Hoffstein, Pipher and Silverman, the NTRU-HPS parameter sets |
 | `HQC` | Hamming Quasi-Cyclic |
+| `HRSS` | Hülsing, Rijneveld, Schanck and Schwabe, the NTRU-HRSS parameter sets |
 | `ID` | Identifier |
 | `IEEE` | Institute of Electrical and Electronics Engineers |
 | `IND` | Indistinguishability |

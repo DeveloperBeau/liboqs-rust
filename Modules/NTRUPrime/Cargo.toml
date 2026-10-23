@@ -1,0 +1,35 @@
+[package]
+name = "oqs-native-ntru-prime"
+description = "Streamlined NTRU Prime, the sntrup761 key encapsulation mechanism, a native port of the NTRU Prime algorithm of liboqs."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# The upstream code of the NTRU Prime team, through OpenSSH, is in the public domain, so the
+# crate keeps the license of the workspace.
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[package.metadata]
+ring = "features"
+
+[lib]
+name = "OQSNativeNTRUPrime"
+path = "src/lib.rs"
+
+[dependencies]
+oqs-native-domain = { path = "../Domain", default-features = false }
+oqs-native-entities = { path = "../Entities", default-features = false }
+oqs-native-sha2 = { path = "../SHA2", default-features = false }
+
+[dev-dependencies]
+oqs-native-algorithm-tests = { path = "../AlgorithmTests" }
+oqs-native-kat-random = { path = "../KATRandom" }
+
+[features]
+default = ["std"]
+# Without `std` the crate builds with `core` and `alloc` only.
+std = ["oqs-native-domain/std", "oqs-native-entities/std", "oqs-native-sha2/std"]
+
+[lints]
+workspace = true
