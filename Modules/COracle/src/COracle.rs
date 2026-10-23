@@ -298,6 +298,18 @@ fn contextPointer(context: &[u8]) -> *const u8 {
     }
 }
 
+/// The buffer of a signature for a C verification: the signature, and zeros after it up to the
+/// signature length of the scheme. The CROSS code verifies the whole signature of its scheme
+/// before liboqs checks the given length, so a shorter signature must not end the memory that
+/// the C code reads. The C code still receives the length of the signature.
+fn verifiedSignature(signature: &[u8], schemeLength: usize) -> Vec<u8> {
+    let mut buffer = signature.to_vec();
+    if buffer.len() < schemeLength {
+        buffer.resize(schemeLength, 0);
+    }
+    buffer
+}
+
 /// Checks that an input has the length that the C code reads.
 fn checkedLength(input: &[u8], expected: usize) -> Result<(), OQSError> {
     if input.len() == expected {
@@ -666,13 +678,14 @@ impl<'random> COracle<'random> {
         let Ok((name, description)) = self.signatureScheme(name) else {
             return false;
         };
+        let buffer = verifiedSignature(signature, description.signatureLength);
         checkedLength(publicKey, description.publicKeyLength).is_ok()
             && unsafe {
                 oracleVerify(
                     name.as_ptr(),
                     message.as_ptr(),
                     message.len(),
-                    signature.as_ptr(),
+                    buffer.as_ptr(),
                     signature.len(),
                     publicKey.as_ptr(),
                 )
@@ -691,13 +704,14 @@ impl<'random> COracle<'random> {
         let Ok((name, description)) = self.signatureScheme(name) else {
             return false;
         };
+        let buffer = verifiedSignature(signature, description.signatureLength);
         checkedLength(publicKey, description.publicKeyLength).is_ok()
             && unsafe {
                 oracleVerifyWithContext(
                     name.as_ptr(),
                     message.as_ptr(),
                     message.len(),
-                    signature.as_ptr(),
+                    buffer.as_ptr(),
                     signature.len(),
                     contextPointer(context),
                     context.len(),
