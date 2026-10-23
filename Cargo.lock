@@ -33,6 +33,7 @@ version = "0.16.0"
 name = "oqs-native-algorithm-tests"
 version = "0.16.0"
 dependencies = [
+ "oqs-native-c-oracle",
  "oqs-native-domain",
  "oqs-native-entities",
  "oqs-native-kat-random",

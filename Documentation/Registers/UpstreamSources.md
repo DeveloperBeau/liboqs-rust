@@ -54,3 +54,5 @@ The folder SHA-256 is the SHA-256 of each file under the upstream paths of the r
 | `Modules/AlgorithmTests` (`SignatureFuzzTest`) | `tests/fuzz_test_sig.c` | liboqs | `8bd4a5e34512bdf021fcb9c8c4b7bfc31e23963a800cd46ae575a421fd83eea0` | MIT |
 | `Modules/AlgorithmTests` (`SignatureMemoryTest`) | `tests/test_sig_mem.c` | liboqs | `a36939b3124a5713423d32efa0d1b61f7088d22d762f5e2675099aad23b2f966` | MIT |
 | `Modules/AlgorithmTests` (`VectorRandom`) | `tests/vectors_sig.c` | liboqs | `b700ff3da8887af7f0414b54522232fd200d0ebfe7aab243c20e544d6c663270` | MIT |
+| `Modules/AlgorithmTests` (`StatefulSignatureCorrectnessTest`) | `tests/test_sig_stfl.c`, `tests/test_helpers.c` | liboqs | `b83a09d3c33e3f69ffc57b194407c6f98f442bb0528a6b880dfcd4c02dd9f6ac` | MIT |
+| `Modules/AlgorithmTests` (`StatefulSignatureFuzzTest`) | `tests/fuzz_test_sig_stfl_xmss.c`, `tests/fuzz_test_sig_stfl_lms.c` | liboqs | `cdb02a9f6d49db25469474e75771daf429ee8042b65520e693a8d3f4d033a8fc` | MIT |

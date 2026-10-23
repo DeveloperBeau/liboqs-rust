@@ -1,10 +1,11 @@
 use crate::kemKnownAnswerTest::lowerHex;
 use crate::{KnownAnswerRandom, KnownAnswerText, ResponseFile};
 use OQSNativeDomain::{KeyStatePersisting, StatefulSigning};
-use OQSNativeEntities::{OQSError, SecretBytes};
+use OQSNativeEntities::{OQSError, SecretBytes, StatefulSignatureDescription};
 use OQSNativeSHA2::SHA256;
 use alloc::format;
 use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 
 /// The known-answer program of liboqs for stateful signature schemes, `tests/kat_sig_stfl.c`,
 /// on a Rust scheme.
@@ -113,13 +114,14 @@ impl StatefulKnownAnswerTest {
         Ok(text.text().to_string())
     }
 
-    /// The run of `test_lms_kat`, for LMS: the file has no secret key, so the program only
-    /// verifies the signature of the file.
-    fn verifiedText(
-        scheme: &dyn StatefulSigning,
+    /// The message, the signature and the public key of a response file, read as `test_lms_kat`
+    /// reads them: the message and the public key take the length of their line, which for a
+    /// public key may be shorter than the length of the scheme, and the signature takes the
+    /// length of the scheme. The values of an XMSS file read the same way.
+    pub(crate) fn verificationValues(
+        description: &StatefulSignatureDescription,
         file: &ResponseFile<'_>,
-    ) -> Result<String, String> {
-        let description = scheme.description();
+    ) -> Result<VerificationValues, String> {
         let name = description.name;
         let missing =
             |what: &str| format!("{name}: unable to read '{what}' from the response file");
@@ -143,6 +145,26 @@ impl StatefulKnownAnswerTest {
         let (signature, _) = file
             .value("sm = ", 0, description.signatureLength)
             .ok_or_else(|| missing("sm"))?;
+        Ok(VerificationValues {
+            message,
+            signature,
+            publicKey,
+        })
+    }
+
+    /// The run of `test_lms_kat`, for LMS: the file has no secret key, so the program only
+    /// verifies the signature of the file.
+    fn verifiedText(
+        scheme: &dyn StatefulSigning,
+        file: &ResponseFile<'_>,
+    ) -> Result<String, String> {
+        let description = scheme.description();
+        let name = description.name;
+        let VerificationValues {
+            message,
+            signature,
+            publicKey,
+        } = Self::verificationValues(description, file)?;
         if !scheme.isValidSignature(&signature, &message, &publicKey) {
             return Err(format!(
                 "{name}: the signature of the response file does not verify"
@@ -155,6 +177,17 @@ impl StatefulKnownAnswerTest {
         }
         Ok(text.text().to_string())
     }
+}
+
+/// The message, the signature and the public key of a response file, which the signature
+/// verifies.
+pub(crate) struct VerificationValues {
+    /// The signed message.
+    pub(crate) message: Vec<u8>,
+    /// The signature of the message.
+    pub(crate) signature: Vec<u8>,
+    /// The public key of the signature.
+    pub(crate) publicKey: Vec<u8>,
 }
 
 /// The store of `do_nothing_save` of the C program: it accepts the advanced key and keeps
