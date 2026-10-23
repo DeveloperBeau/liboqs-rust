@@ -163,6 +163,29 @@ compensation and under reasonable terms and conditions that are
 demonstrably free of any unfair discrimination".
 ```
 
+## MAYO
+
+- Algorithm: MAYO, by Ward Beullens, with Fabio Campos, Sofía Celi, Basil Hess and Matthias J. Kannwischer, the principal submitters that liboqs names in `docs/algorithms/sig/mayo.yml`. MAYO is a candidate of round 2 of the NIST call for additional signatures. See https://pqmayo.org.
+- MAYO in liboqs: the portable implementation of the MAYO team, [PQCMayo/MAYO-C](https://github.com/PQCMayo/MAYO-C), commit `64e15c622dec1f59aa5bbaf7f7c8f4f20af75106` with the liboqs patches, in the folders `src/sig/mayo/pqmayo_mayo-<n>_opt`.
+- Copyright 2023-2025 the MAYO team. All rights reserved. License: Apache-2.0, in the `LICENSE` and `NOTICE` files of each folder and in the `SPDX-License-Identifier` line of each file. The liboqs wrappers `src/sig/mayo/sig_mayo.h` and `sig_mayo_1.c` to `sig_mayo_5.c` are MIT.
+- Use in this repository: `Modules/MAYO` translates the portable code into Rust and gives its bytes. The port is a modified work: it takes its random bytes as an argument, and it keeps its large arrays on the heap. The crate is under MIT AND Apache-2.0.
+
+```text
+Copyright 2023-2025 the MAYO team. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+```
+
 ## Test vectors
 
 - [NIST ACVP-Server](https://github.com/usnistgov/ACVP-Server), tag `v1.1.0.41`: the ML-KEM and ML-DSA vectors. Works of the United States government are not subject to copyright in the United States.
