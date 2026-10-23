@@ -1,9 +1,9 @@
 name: Mutants
 
 # The mutation tests of one package, in ten shards. A push to a branch `mutants/<package>`,
-# such as `mutants/oqs-native-falcon`, runs them on that commit. Each shard prints its
-# outcomes and keeps its `mutants.out` folder as an artifact, and the summary job adds the
-# outcomes of the ten shards.
+# such as `mutants/oqs-native-falcon`, or `mutants/<package>/<label>` runs them on that
+# commit. Each shard prints its outcomes and keeps its `mutants.out` folder as an artifact,
+# and the summary job adds the outcomes of the ten shards.
 # Documentation/Registers/MutationResults.md records the results.
 on:
   push:
@@ -46,7 +46,9 @@ jobs:
         run: cargo xtask fetch-oracle
       - name: Mutation tests of the shard
         run: |
+          # A branch `mutants/<package>/<label>` runs the package again on another commit.
           package="${GITHUB_REF_NAME#mutants/}"
+          package="${package%%/*}"
           options=()
           if [ "$package" = "oqs-native" ]; then
             # The coverage tests of the parity crate are the tests that see a wrong registry.
