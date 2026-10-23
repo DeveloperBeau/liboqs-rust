@@ -1,6 +1,6 @@
 [package]
 name = "oqs-native-sha2"
-description = "SHA-256, SHA-384 and SHA-512, as liboqs uses them."
+description = "The SHA-2 hash functions of FIPS 180-4, with the API that liboqs uses."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
