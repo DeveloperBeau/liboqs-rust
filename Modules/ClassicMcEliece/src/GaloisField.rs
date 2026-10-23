@@ -237,8 +237,7 @@ impl GaloisField {
 #[cfg(test)]
 mod tests {
     use super::GaloisField;
-    use crate::testSupport::digest;
-    use OQSNativeAlgorithmTests::FuzzRandom;
+    use OQSNativeAlgorithmTests::{FuzzRandom, OutputDigest};
 
     const field12: GaloisField = GaloisField::new(12);
     const field13: GaloisField = GaloisField::new(13);
@@ -316,7 +315,7 @@ mod tests {
 
     #[test]
     fn fieldFunctionsGiveTheKnownAnswersOfTheCFunctions() {
-        // The SHA3-256 of the outputs of `gf_mul`, `gf_inv` and `gf_frac` of
+        // The `OutputDigest` of the outputs of `gf_mul`, `gf_inv` and `gf_frac` of
         // `pqclean_mceliece348864_clean` and `pqclean_mceliece460896_clean` in liboqs 0.16.0, as
         // little-endian 16-bit values. `gf_inv` takes every 16-bit value, and `gf_mul` and
         // `gf_frac` take 20000 pairs of 16-bit values from SplitMix64 of the seed 1, the low
@@ -324,15 +323,15 @@ mod tests {
         let expected = [
             (
                 field12,
-                "ff41362a9a55f6b6e26e078abc80b617697dff02bf6a2ef3027f7883a4e29935",
-                "5cfd50462a0b31b30fba587bb6b32b62dbe7882c5253b2e89dea6f855044c2b8",
-                "e6a1bebddfa86240056901b42ccccac1aa919e1dd0b2efda18cbe2660e15156c",
+                "6422c2ab1997bb7595a45d1933669737fe34ae474f91a80e2d030da9b6223c13",
+                "65df19450b414c56a7ffc9fce5f04e2915f646497b12466ad5d4748079b37417",
+                "d256d280081f2ad282f695fd2c2c07139d34b3eaf302fd3f6df94154a94b843b",
             ),
             (
                 field13,
-                "3be8195f2d07bcd898c1e9868fc9af91a5698612ea53be4f578dd3348c240758",
-                "15a5cb36e87b400fb45b61769d5f8f1b94ab7ed80cd3f126c8262e315ca589d7",
-                "55f83dc0787ce95336232126679c184da606cc81b443d9096e822a6d29d6f838",
+                "9a09a728c8c017700f69260293ddf0744c0533c1a444c755d44dd280ea4d7cef",
+                "5079603cc6ce1f43ab0a3812eb436cc9ebab9e0e4b6902f4fb411a876a4f83e1",
+                "7f14570e02973281347ac8ef14ec72c52127fd3aa55cbf8141cc42f1fba4fe7a",
             ),
         ];
         for (field, productDigest, inverseDigest, quotientDigest) in expected {
@@ -348,9 +347,24 @@ mod tests {
             let inverses: Vec<u8> = (0..=u16::MAX)
                 .flat_map(|value| field.inverse(value).to_le_bytes())
                 .collect();
-            assert_eq!(digest(&products), productDigest, "{} bits", field.bits);
-            assert_eq!(digest(&inverses), inverseDigest, "{} bits", field.bits);
-            assert_eq!(digest(&quotients), quotientDigest, "{} bits", field.bits);
+            assert_eq!(
+                OutputDigest::of(&products),
+                productDigest,
+                "{} bits",
+                field.bits
+            );
+            assert_eq!(
+                OutputDigest::of(&inverses),
+                inverseDigest,
+                "{} bits",
+                field.bits
+            );
+            assert_eq!(
+                OutputDigest::of(&quotients),
+                quotientDigest,
+                "{} bits",
+                field.bits
+            );
         }
     }
 

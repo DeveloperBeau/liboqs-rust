@@ -173,8 +173,7 @@ impl ControlBits {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::ControlBits;
-    use crate::testSupport::digest;
-    use OQSNativeAlgorithmTests::FuzzRandom;
+    use OQSNativeAlgorithmTests::{FuzzRandom, OutputDigest};
 
     /// The permutation of `2^w` elements of a seed, by the method of Fisher and Yates.
     pub(crate) fn seededPermutation(seed: u64, logarithm: u32) -> Vec<i16> {
@@ -240,12 +239,12 @@ pub(crate) mod tests {
 
     #[test]
     fn theBitsAreTheKnownAnswersOfTheCFunction() {
-        // The SHA3-256 of the control bits of `controlbitsfrompermutation` of
+        // The `OutputDigest` of the control bits of `controlbitsfrompermutation` of
         // `pqclean_mceliece348864_clean` in liboqs 0.16.0 for the permutations of the seeds 0
         // and 1, for each w from 4 to 13, in that order. The check of the C function moves by
         // `n >> 4` bytes for each layer, which is zero below 16 elements, so the C function
         // runs only from w = 4.
-        let expected = "f49fd35f6d2c1609c7d050e0d556d481990b179ae7d4c720960974b12abe6771";
+        let expected = "13d5f94ac58e4c13ddefa47e6b5eb5b1edeb21adaa74db0368302e7cd75c4787";
         let mut output = Vec::new();
         for logarithm in 4..=13 {
             for seed in 0..2 {
@@ -255,6 +254,6 @@ pub(crate) mod tests {
                 ));
             }
         }
-        assert_eq!(digest(&output), expected);
+        assert_eq!(OutputDigest::of(&output), expected);
     }
 }
