@@ -593,28 +593,25 @@ mod tests {
     use crate::nibblePacking::NibblePacking;
     use crate::parameters::{everySet, snova24x5x4};
     use crate::verifier::Verifier;
-    use OQSNativeSHA3::SHA3256;
+    use OQSNativeAlgorithmTests::OutputDigest;
 
-    fn lowerHex(bytes: &[u8]) -> String {
-        bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-    }
-
-    /// The SHA3-256 of the signature of the digest 100 to 163 with the salt 200 to 215, under
-    /// the key of the seed 0 to 47, for each set in the order of `everySet`, from
-    /// `sign_digest_ssk` or `sign_digest_esk` of the oracle build of liboqs.
+    /// The digest of `OutputDigest` of the signature of the digest 100 to 163 with the salt
+    /// 200 to 215, under the key of the seed 0 to 47, for each set in the order of
+    /// `everySet`, from `sign_digest_ssk` or `sign_digest_esk` of the oracle build of
+    /// liboqs.
     const knownAnswers: [&str; 12] = [
-        "5ca2c52735bf333200222dcd6365810062296263ca4d6cd61549a273266d90a9",
-        "a759a107975e17cf25c22a8d7a4b31cb245cbc3db472bcd05c303ffd9dc2b4d3",
-        "5ca2c52735bf333200222dcd6365810062296263ca4d6cd61549a273266d90a9",
-        "a759a107975e17cf25c22a8d7a4b31cb245cbc3db472bcd05c303ffd9dc2b4d3",
-        "497cc1203a5be32c94f7f64ffca379c897b2699b1f25c5ef93fbc4c0dbe18fc1",
-        "0203ef581020d6f5d97892dd0e9767ebca9ce033e51749b5c66679c9f5cfecad",
-        "17358dfa7b25cfa830425ad788b7df52c496689719804352c9db757fe062f4d3",
-        "3ea7312c5e13603e6ef84b922d1a5cda9f4e5daa07ffb51f2656db63b8d8d6f4",
-        "9d2d01cdb9ff1681a3bf393aae4280f55d08b8fd088af1023ea65c6a77fd8d65",
-        "60a709bba65a26f8bfaa4f26e28ba3338c31f2e73fb99c7b2585dead305de742",
-        "482aa0a679f314ed45a4cc6d78bd89e8d4e1cdac5bfcc0100a239044f9e7419f",
-        "799298f5d64a422b205ce4a755d1a4e1efb9322ad2e495c30159447d8688bb63",
+        "00664b19b8feae38496626ba7c0cd6758b5e2af1965c976e917529f0b323685e",
+        "9b4c8f5d480850c49b4426220febf9b68cad53669d437d7e59decb3640193d49",
+        "00664b19b8feae38496626ba7c0cd6758b5e2af1965c976e917529f0b323685e",
+        "9b4c8f5d480850c49b4426220febf9b68cad53669d437d7e59decb3640193d49",
+        "d549b2fe6aa6c6ed7e291e54e14f192928520dd04c0272e256e7538658baa07b",
+        "5e66bf429268c030b5a7b13763727acbd17bc8cf33b2e064b7792c5ffa870e68",
+        "c8a2f7af22a773a8a729f76d2dc5c249b976e2d6cf9510ffa93709af4b2f979d",
+        "3b0d2cdf71e993560c311c3be2a4e7155a5675433da02b969a6c0f71c3b7b803",
+        "d06d55f093b52ea099999ad482493ecf8b2173bd14d13e8cfda6f849fca1c212",
+        "6f180f0a528ebbce9b4bc014d7747b36e1d0c95943d700df86407999bb99d541",
+        "b65354342be29f33edd23a42725354d141bc96f480352c2839c0b76f4fd38c66",
+        "b05f9f6a8e588f61dbab7de4de839741de036ca65f79176cc1c98f4ae008b1b5",
     ];
 
     #[test]
@@ -631,7 +628,7 @@ mod tests {
                 .signature(&key, &digest, &salt)
                 .expect("a signature");
             assert_eq!(signature.len(), parameters.description.signatureLength);
-            assert_eq!(lowerHex(&SHA3256::hash(&signature)), expected, "{name}");
+            assert_eq!(OutputDigest::of(&signature), expected, "{name}");
             assert_eq!(signature[signature.len() - 16..], salt, "{name}");
             // `verify_signture` of the C code accepts it.
             let verifier = Verifier::new(parameters);
