@@ -169,41 +169,42 @@ impl<'scheme> SignatureParity<'scheme> {
             return Err(mismatch("signature", detail));
         }
 
-        let cVerifies = |signature: &[u8], message: &[u8], context: &[u8]| {
+        // A context of `None` verifies in the plain form, and a context of `Some` in the
+        // context form.
+        let cVerifies = |signature: &[u8], message: &[u8], context: Option<&[u8]>| {
             let mut oracle = COracle::new(OracleRandomness::nist([0; 48]));
-            if usesContextForm {
-                oracle.isValidSignatureWithContext(
+            match context {
+                Some(context) => oracle.isValidSignatureWithContext(
                     name,
                     signature,
                     message,
                     context,
                     &cKeys.publicKey,
-                )
-            } else {
-                oracle.isValidSignature(name, signature, message, &cKeys.publicKey)
+                ),
+                None => oracle.isValidSignature(name, signature, message, &cKeys.publicKey),
             }
         };
-        let rustVerifies = |signature: &[u8], message: &[u8], context: &[u8]| {
-            if usesContextForm {
-                self.scheme.isValidSignatureWithContext(
-                    signature,
-                    message,
-                    context,
-                    &cKeys.publicKey,
-                )
-            } else {
-                self.scheme
-                    .isValidSignature(signature, message, &cKeys.publicKey)
-            }
+        let rustVerifies = |signature: &[u8], message: &[u8], context: Option<&[u8]>| match context
+        {
+            Some(context) => self.scheme.isValidSignatureWithContext(
+                signature,
+                message,
+                context,
+                &cKeys.publicKey,
+            ),
+            None => self
+                .scheme
+                .isValidSignature(signature, message, &cKeys.publicKey),
         };
+        let signedContext = usesContextForm.then_some(context.as_slice());
         // Each side verifies the signature of the other side.
-        if !cVerifies(&rustSignature, &message, &context) {
+        if !cVerifies(&rustSignature, &message, signedContext) {
             return Err(mismatch(
                 "C verification of the Rust signature",
                 "C rejects it".to_string(),
             ));
         }
-        if !rustVerifies(&cSignature, &message, &context) {
+        if !rustVerifies(&cSignature, &message, signedContext) {
             return Err(mismatch(
                 "Rust verification of the C signature",
                 "Rust rejects it".to_string(),
@@ -211,54 +212,142 @@ impl<'scheme> SignatureParity<'scheme> {
         }
 
         // Changed inputs: both sides give the same verdict.
-        let changedSignature = generator.withChangedBit(&cSignature);
-        let changedMessage = if message.is_empty() {
-            vec![0]
-        } else {
-            generator.withChangedBit(&message)
-        };
-        let mut longerContext = context.clone();
-        longerContext.push(generator.below(256) as u8);
-        let changes: [ChangedInput<'_>; 4] = [
-            (
-                "verification of a changed signature",
-                &changedSignature,
-                &message,
-                &context,
-            ),
-            (
-                "verification of a changed message",
-                &cSignature,
-                &changedMessage,
-                &context,
-            ),
-            (
-                "verification under a longer context",
-                &cSignature,
-                &message,
-                &longerContext,
-            ),
-            (
-                "verification of a short signature",
-                &cSignature[..cSignature.len() - 1],
-                &message,
-                &context,
-            ),
-        ];
-        for (step, signature, message, context) in changes {
-            let cVerdict = cVerifies(signature, message, context);
-            let rustVerdict = rustVerifies(signature, message, context);
+        for change in Self::changedInputs(&mut generator, &cSignature, &message, signedContext) {
+            let cVerdict = cVerifies(
+                &change.signature,
+                &change.message,
+                change.context.as_deref(),
+            );
+            let rustVerdict = rustVerifies(
+                &change.signature,
+                &change.message,
+                change.context.as_deref(),
+            );
             if cVerdict != rustVerdict {
                 return Err(mismatch(
-                    step,
+                    change.step,
                     format!("C says {cVerdict} and Rust says {rustVerdict}"),
                 ));
             }
         }
         Ok(())
     }
+
+    /// The changed inputs of the verification of a signature: a changed signature, a changed
+    /// message, a context one byte longer and a signature one byte short.
+    ///
+    /// Each input keeps the form of the signature, except the longer context, which always
+    /// takes the context form. A plain signature then also meets a context that it was not
+    /// made under.
+    fn changedInputs(
+        generator: &mut VariationGenerator,
+        signature: &[u8],
+        message: &[u8],
+        signedContext: Option<&[u8]>,
+    ) -> [ChangedInput; 4] {
+        let changedSignature = generator.withChangedBit(signature);
+        let changedMessage = if message.is_empty() {
+            vec![0]
+        } else {
+            generator.withChangedBit(message)
+        };
+        let mut longerContext = signedContext.unwrap_or_default().to_vec();
+        longerContext.push(generator.below(256) as u8);
+        let change =
+            |step, signature: &[u8], message: &[u8], context: Option<&[u8]>| ChangedInput {
+                step,
+                signature: signature.to_vec(),
+                message: message.to_vec(),
+                context: context.map(<[u8]>::to_vec),
+            };
+        [
+            change(
+                "verification of a changed signature",
+                &changedSignature,
+                message,
+                signedContext,
+            ),
+            change(
+                "verification of a changed message",
+                signature,
+                &changedMessage,
+                signedContext,
+            ),
+            change(
+                "verification under a longer context",
+                signature,
+                message,
+                Some(&longerContext),
+            ),
+            change(
+                "verification of a short signature",
+                &signature[..signature.len() - 1],
+                message,
+                signedContext,
+            ),
+        ]
+    }
 }
 
-/// A changed input of a verification: the step name, the signature, the message and the
-/// context.
-type ChangedInput<'input> = (&'static str, &'input [u8], &'input [u8], &'input [u8]);
+/// A changed input of a verification, which both sides must judge alike.
+struct ChangedInput {
+    /// The name of the step in a mismatch.
+    step: &'static str,
+    signature: Vec<u8>,
+    message: Vec<u8>,
+    /// The context of the context form, or `None` for the plain form.
+    context: Option<Vec<u8>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SignatureParity;
+    use crate::VariationGenerator;
+
+    #[test]
+    fn theLongerContextIsAlwaysVerifiedInTheContextForm() {
+        let mut generator = VariationGenerator::new(7);
+        let plain = SignatureParity::changedInputs(&mut generator, &[1, 2, 3], b"message", None);
+        let longer = &plain[2];
+        assert_eq!(longer.step, "verification under a longer context");
+        assert_eq!(longer.context.as_ref().map(Vec::len), Some(1));
+        assert!(
+            [&plain[0], &plain[1], &plain[3]]
+                .iter()
+                .all(|change| change.context.is_none())
+        );
+
+        let signedContext: &[u8] = b"context";
+        let withContext = SignatureParity::changedInputs(
+            &mut generator,
+            &[1, 2, 3],
+            b"message",
+            Some(signedContext),
+        );
+        let longer = withContext[2].context.as_deref().expect("the context form");
+        assert_eq!(longer.len(), signedContext.len() + 1);
+        assert_eq!(&longer[..signedContext.len()], signedContext);
+        assert!(
+            [&withContext[0], &withContext[1], &withContext[3]]
+                .iter()
+                .all(|change| change.context.as_deref() == Some(signedContext))
+        );
+    }
+
+    #[test]
+    fn eachOtherChangeChangesOnlyItsOwnInput() {
+        let mut generator = VariationGenerator::new(11);
+        let signature = [0x5A; 40];
+        let changes = SignatureParity::changedInputs(&mut generator, &signature, b"message", None);
+        assert_ne!(changes[0].signature, signature);
+        assert_eq!(changes[0].message, b"message");
+        assert_eq!(changes[1].signature, signature);
+        assert_ne!(changes[1].message, b"message");
+        assert_eq!(changes[2].signature, signature);
+        assert_eq!(changes[2].message, b"message");
+        assert_eq!(changes[3].signature, signature[..39]);
+        assert_eq!(changes[3].message, b"message");
+        let emptyMessage = SignatureParity::changedInputs(&mut generator, &signature, b"", None);
+        assert_eq!(emptyMessage[1].message, [0]);
+    }
+}

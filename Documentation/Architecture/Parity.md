@@ -44,7 +44,7 @@ For a signature scheme, a variation draws a message of 0 to 9280 bytes and, for 
 1. The key pair.
 2. The signature, with the plain form or the context form.
 3. The verification of the Rust signature by C, and of the C signature by Rust.
-4. The verdicts of both sides on a changed signature, a changed message, a longer context and a short signature.
+4. The verdicts of both sides on a changed signature, a changed message, a longer context and a short signature. Each change keeps the form of the signature, except the longer context, which is always verified in the context form, so a plain signature also meets a context that it was not made under.
 
 The first difference stops the check with a `ParityMismatch`, which names the algorithm, the case, the seed and the step.
 
