@@ -25,6 +25,7 @@ The port is in progress. The repository holds the workspace, the standards, the 
 | MAYO | `MAYO-1`, `MAYO-2`, `MAYO-3`, `MAYO-5` | Ported, identical to the C library |
 | SLH-DSA | The 12 pure schemes `SLH_DSA_PURE_<set>` and the 144 pre-hash schemes `SLH_DSA_<function>_PREHASH_<set>` | Ported, identical to the C library |
 | CROSS | `cross-rsdp-128-balanced`, `cross-rsdp-128-fast`, `cross-rsdp-128-small`, `cross-rsdp-192-balanced`, `cross-rsdp-192-fast`, `cross-rsdp-192-small`, `cross-rsdp-256-balanced`, `cross-rsdp-256-fast`, `cross-rsdp-256-small`, `cross-rsdpg-128-balanced`, `cross-rsdpg-128-fast`, `cross-rsdpg-128-small`, `cross-rsdpg-192-balanced`, `cross-rsdpg-192-fast`, `cross-rsdpg-192-small`, `cross-rsdpg-256-balanced`, `cross-rsdpg-256-fast`, `cross-rsdpg-256-small` | Ported, identical to the C library |
+| UOV | `OV-Is`, `OV-Ip`, `OV-III`, `OV-V`, `OV-Is-pkc`, `OV-Ip-pkc`, `OV-III-pkc`, `OV-V-pkc`, `OV-Is-pkc-skc`, `OV-Ip-pkc-skc`, `OV-III-pkc-skc`, `OV-V-pkc-skc` | Ported, identical to the C library |
 
 `Tools/Parity/NotYetPorted.txt` lists each algorithm of liboqs that the port does not have yet.
 
