@@ -125,3 +125,15 @@
 - Trap: a port of the pre-hash vector tests cannot hash the message of every vector with the hash API of liboqs.
 - Finding: `calc_hash` of `tests/test_acvp_vectors.py` hashes the message of a pre-hash vector with Python `hashlib`, with twelve hash functions. The hash API of liboqs has eight of them. SHA-224, SHA-512/224, SHA-512/256 and SHA3-224 are missing, and the C code of SLH-DSA has its own copies.
 - Rule: a test that needs a hash function that the hash API of liboqs lacks takes it from the shared crate of its hash family, written from the standard, with known answers from the standard and from `hashlib`. The pre-hash parameter sets of SLH-DSA name the same four functions.
+
+## A bound of the signing loop that no input reaches
+
+- Trap: the number of attempts of the rejection loop of an ML-DSA signature can change, and every test passes.
+- Finding: the first mutation run replaced `-` with `+` or `/`, and `/` with `*`, in `(2^16 - 1 - l) / l`, and no test failed. A signature needs a few attempts, and no input makes thousands of attempts fail. With `/` the loop of ML-DSA-44 stopped after 4095 attempts in place of 16382.
+- Rule: a bound of a loop that the tests cannot reach is a constant of `Parameters`, with a test against the value of the C code. `eachConstantIsTheConstantOfFIPS204AndOfTheHeaderOfMLDSANative` is the template.
+
+## A seed search finds the bound of a rejection sampler
+
+- Trap: the uniform sampler of ML-DSA keeps a candidate equal to q when `<` becomes `<=`, and every test passes.
+- Finding: a 23-bit candidate is q once in 2^23 candidates, and no stream of the tests held one. A C program searched the seeds of `LinearCongruentialSequence` and found 13544 and 37803 in about a second. Their streams hold q as the 199th and as the 16th candidate. `uniformSamplingSkipsACandidateOfQAndGivesThePolynomialOfTheCFunction` compares the polynomials of the two seeds with `poly_uniform` of mldsa-native.
+- Rule: when the value at the bound of a rejection sampler comes once in a few million candidates, search for seeds whose stream holds it, and assert in the test that the stream holds it. For a rarer value, the loop takes its candidates from a function, as the rule of the HQC rejection loop says.

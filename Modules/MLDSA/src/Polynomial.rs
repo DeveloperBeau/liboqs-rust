@@ -547,9 +547,10 @@ impl Polynomial {
 #[cfg(test)]
 mod tests {
     use super::{
-        Polynomial, absolute, coefficientCount, decomposed, hintedHigh, inverseTransformScale,
-        isHint, modulus, montgomeryReduced, nonNegative, reduced, zetas,
+        Polynomial, SHAKE128, absolute, coefficientCount, decomposed, hintedHigh,
+        inverseTransformScale, isHint, modulus, montgomeryReduced, nonNegative, reduced, zetas,
     };
+    use OQSNativeAlgorithmTests::{LinearCongruentialSequence, OutputDigest};
 
     const q: i64 = modulus as i64;
 
@@ -1069,6 +1070,56 @@ mod tests {
             );
             assert_ne!(mask, Polynomial::sampledMask(gamma1Bits, &wideSeed, 301));
         }
+    }
+
+    #[test]
+    fn uniformSamplingSkipsACandidateOfQAndGivesThePolynomialOfTheCFunction() {
+        // The digest of `PQCP_MLDSA_NATIVE_MLDSA44_C_poly_uniform` of liboqs 0.16.0 for the
+        // seeds 13544 and 37803 of the sequence. Bits 16 to 23 of the next 34 states of a seed
+        // give rho, the column byte and the row byte. A candidate is q once in 2^23 candidates,
+        // and a C program searched for these two seeds, whose streams hold one.
+        let mut coefficients = Vec::new();
+        for seed in [13_544, 37_803] {
+            let mut sequence = LinearCongruentialSequence::new(seed);
+            let bytes: Vec<u8> = (0..34)
+                .map(|_| (sequence.nextState() >> 16) as u8)
+                .collect();
+            // The sampler reads the candidate of q before it has 256 coefficients.
+            let mut sponge = SHAKE128::new();
+            sponge.absorb(&bytes);
+            let mut stream = [0u8; 5 * SHAKE128::rate];
+            sponge.finalize().squeeze(&mut stream);
+            let candidates: Vec<u32> = stream
+                .chunks_exact(3)
+                .map(|triple| u32::from_le_bytes([triple[0], triple[1], triple[2], 0]) & 0x7F_FFFF)
+                .collect();
+            let place = candidates
+                .iter()
+                .position(|candidate| *candidate == modulus as u32)
+                .unwrap_or_else(|| panic!("the stream of seed {seed} holds a candidate of q"));
+            let acceptedCount = candidates[..place]
+                .iter()
+                .filter(|candidate| **candidate < modulus as u32)
+                .count();
+            assert!(acceptedCount < coefficientCount, "seed {seed}");
+            let seedBytes: [u8; 32] = bytes[..32].try_into().expect("32 bytes");
+            let polynomial = Polynomial::sampledUniform(&seedBytes, bytes[32], bytes[33]);
+            // RejNTTPoly of FIPS 204 gives coefficients from 0 to q - 1.
+            assert!(
+                polynomial
+                    .coefficients
+                    .iter()
+                    .all(|value| (0..modulus).contains(value)),
+                "seed {seed}"
+            );
+            for coefficient in polynomial.coefficients {
+                coefficients.extend_from_slice(&coefficient.to_le_bytes());
+            }
+        }
+        assert_eq!(
+            OutputDigest::of(&coefficients),
+            "4ceb33d0fb84c801e8ec5f2494ae8966346635bc640ee0e9a60258e9f42091ac"
+        );
     }
 
     #[test]

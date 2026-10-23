@@ -73,6 +73,13 @@ impl Parameters {
         32 * self.commitmentBits() as usize
     }
 
+    /// The number of attempts of the rejection loop of a signature, `MLD_NONCE_UB` of
+    /// mldsa-native: `(2^16 - 1 - l) / l`. Attempt n samples its mask with the nonces from
+    /// `l n` to `l n + l - 1`, so the nonces of the last attempt stay below 2^16.
+    pub(crate) const fn signingAttemptCount(&self) -> usize {
+        (u16::MAX as usize - self.columnCount) / self.columnCount
+    }
+
     /// The length of a public key: `32 + 320 k`.
     pub(crate) const fn publicKeyLength(rowCount: usize) -> usize {
         seedLength + packedHighLength * rowCount
@@ -226,6 +233,51 @@ mod tests {
             ),
             (192, 128)
         );
+    }
+
+    #[test]
+    fn eachConstantIsTheConstantOfFIPS204AndOfTheHeaderOfMLDSANative() {
+        // A C program printed the constants of `params.h` of mldsa-native for each set: k, l,
+        // eta, tau, beta, gamma1, gamma2, omega and lambda / 4 of FIPS 204, Table 1, the packed
+        // lengths of z, w1 and s1, and `MLD_NONCE_UB` of `sign.c`, the number of attempts of a
+        // signature.
+        for (parameters, expected) in [
+            (
+                &mldsa44,
+                [
+                    4, 4, 2, 39, 78, 131_072, 95_232, 80, 32, 576, 192, 96, 16_382,
+                ],
+            ),
+            (
+                &mldsa65,
+                [
+                    6, 5, 4, 49, 196, 524_288, 261_888, 55, 48, 640, 128, 128, 13_106,
+                ],
+            ),
+            (
+                &mldsa87,
+                [
+                    8, 7, 2, 60, 120, 524_288, 261_888, 75, 64, 640, 128, 96, 9_361,
+                ],
+            ),
+        ] {
+            let constants = [
+                parameters.rowCount,
+                parameters.columnCount,
+                parameters.eta as usize,
+                parameters.tau,
+                parameters.beta as usize,
+                1 << parameters.gamma1Bits,
+                parameters.gamma2 as usize,
+                parameters.omega,
+                parameters.commitmentHashLength,
+                parameters.packedMaskLength(),
+                parameters.packedCommitmentLength(),
+                parameters.packedShortLength(),
+                parameters.signingAttemptCount(),
+            ];
+            assert_eq!(constants, expected, "{}", parameters.description.name);
+        }
     }
 
     #[test]
