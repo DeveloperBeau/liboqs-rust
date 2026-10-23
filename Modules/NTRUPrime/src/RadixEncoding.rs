@@ -204,6 +204,34 @@ mod tests {
     }
 
     #[test]
+    fn decodingReadsTheBytesOfEncodeAtEachThresholdOfTheRanges() {
+        // Encode of sntrup761.c of liboqs 0.16.0. Decode reads one byte for a pair whose ranges
+        // multiply to 16384 up to 256 * 16383, and two bytes for a larger product, whose
+        // merged range it rounds up twice. The ranges 256 and 16383 give the largest product
+        // of one byte, and the pair after them reads from the next byte. The ranges 257 and
+        // 16321 give 4194497, whose first rounding is 16385, one more than a multiple of 256,
+        // so the merged range is 65, and the largest values give the merged value 64. The
+        // ranges of sntrup761 reach neither threshold.
+        let cases: [(&[u16], &[u16], &[u8]); 3] = [
+            (
+                &[256, 16383, 256, 16383],
+                &[255, 16382, 17, 9000],
+                &[0xFF, 0x11, 0xD6, 0x1C, 0xCA, 0x08],
+            ),
+            (&[257, 16321], &[256, 16320], &[0xC0, 0x00, 0x40]),
+            (
+                &[256, 16383, 257, 16321],
+                &[255, 16382, 256, 16320],
+                &[0xFF, 0xC0, 0x00, 0xBE, 0x3F, 0x10],
+            ),
+        ];
+        for (ranges, values, bytes) in cases {
+            assert_eq!(RadixEncoding::encoded(values, ranges), bytes, "{ranges:?}");
+            assert_eq!(RadixEncoding::decoded(bytes, ranges), values, "{ranges:?}");
+        }
+    }
+
+    #[test]
     fn anyBytesDecodeToValuesBelowTheirRanges() {
         for seed in 0..20 {
             let bytes: Vec<u8> = sequence(1158, seed)
