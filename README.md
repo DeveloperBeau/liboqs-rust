@@ -23,6 +23,7 @@ The port is in progress. The repository holds the workspace, the standards, the 
 | ML-DSA | `ML-DSA-44`, `ML-DSA-65`, `ML-DSA-87` | Ported, identical to the C library |
 | Falcon | `Falcon-512`, `Falcon-1024`, `Falcon-padded-512`, `Falcon-padded-1024` | Ported, identical to the C library |
 | MAYO | `MAYO-1`, `MAYO-2`, `MAYO-3`, `MAYO-5` | Ported, identical to the C library |
+| SLH-DSA | The 12 pure schemes `SLH_DSA_PURE_<set>` and the 144 pre-hash schemes `SLH_DSA_<function>_PREHASH_<set>` | Ported, identical to the C library |
 
 `Tools/Parity/NotYetPorted.txt` lists each algorithm of liboqs that the port does not have yet.
 

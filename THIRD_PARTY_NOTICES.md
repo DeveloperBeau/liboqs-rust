@@ -207,8 +207,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
+## SLH-DSA
+
+- Algorithm: SPHINCS+, by Andreas Hülsing, with Daniel J. Bernstein, Christoph Dobraunig, Maria Eichlseder, Scott Fluhrer, Stefan-Lukas Gazdag, Panos Kampanakis, Stefan Kölbl, Tanja Lange, Martin M. Lauridsen, Florian Mendel, Ruben Niederhagen, Christian Rechberger, Joost Rijneveld, Peter Schwabe, Jean-Philippe Aumasson, Bas Westerbaan and Ward Beullens. SLH-DSA is its standard form, NIST FIPS 205. See https://sphincs.org/ and https://csrc.nist.gov/pubs/fips/205/final.
+- SLH-DSA in liboqs: [slhdsa-c](https://github.com/pq-code-package/slhdsa-c) of the PQ Code Package, commit `a0fc1ff253930060d0246aebca06c2538eb92b88`, with the liboqs patch `internal_api.patch`. Copyright the slhdsa-c project authors, and for `slh_sys.h` also the mlkem-native project authors. License: Apache-2.0 OR ISC OR MIT, as the SPDX header of each file says. The wrappers and templates of each scheme are liboqs code under MIT.
+- Use in this repository: `Modules/SLHDSA` follows FIPS 205 and the structure of slhdsa-c, and gives the bytes of that code. `Modules/SHA2` and `Modules/SHA3` give SHA-224, SHA-512/224, SHA-512/256 and SHA3-224 for its pre-hash forms, written from FIPS 180-4 and FIPS 202. The port is under MIT, which the upstream license allows.
+
 ## Test vectors
 
-- [NIST ACVP-Server](https://github.com/usnistgov/ACVP-Server), tag `v1.1.0.41`: the ML-KEM and ML-DSA vectors. Works of the United States government are not subject to copyright in the United States.
+- [NIST ACVP-Server](https://github.com/usnistgov/ACVP-Server), tag `v1.1.0.41`: the ML-KEM, ML-DSA and SLH-DSA vectors. Works of the United States government are not subject to copyright in the United States.
 - [Wycheproof](https://github.com/C2SP/wycheproof) of C2SP, commit `032b56abd1368843e4def50b4975032ec1ec7ba4`: the ML-KEM and ML-DSA vectors. License: Apache-2.0.
 - The repository holds the addresses and SHA-256 of these files in `Documentation/Registers/TestVectors.md`, and not the files. `cargo xtask fetch-oracle` downloads them for the tests.
