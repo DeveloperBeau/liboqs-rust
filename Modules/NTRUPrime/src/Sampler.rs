@@ -79,7 +79,8 @@ impl<'parameters> Sampler<'parameters> {
 mod tests {
     use super::Sampler;
     use crate::parameters::sntrup761;
-    use crate::testInputs::{cAnswer, digest, sequence, smallBytes, wordSequence};
+    use crate::testInputs::{cAnswer, sequence, smallBytes, wordSequence};
+    use OQSNativeAlgorithmTests::OutputDigest;
 
     fn words(seed: u32) -> Vec<u32> {
         sequence(2 * 761, seed)
@@ -146,8 +147,14 @@ mod tests {
     fn theSamplesOfWordsHaveTheCoefficientsOfTheCFunctions() {
         // Short_fromlist and the formula of Small_random of liboqs 0.16.0 on the same words.
         let short = Sampler::new(&sntrup761).shortFromWords(&wordSequence(2));
-        assert_eq!(digest(&smallBytes(&short)), cAnswer("shortFromWords"));
+        assert_eq!(
+            OutputDigest::of(&smallBytes(&short)),
+            cAnswer("shortFromWords")
+        );
         let small = Sampler::smallFromWords(&wordSequence(13));
-        assert_eq!(digest(&smallBytes(&small)), cAnswer("smallFromWords"));
+        assert_eq!(
+            OutputDigest::of(&smallBytes(&small)),
+            cAnswer("smallFromWords")
+        );
     }
 }

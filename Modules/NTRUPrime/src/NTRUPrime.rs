@@ -114,8 +114,9 @@ impl KeyEncapsulating for NTRUPrime {
 mod tests {
     use super::NTRUPrime;
     use crate::parameters::sntrup761;
-    use crate::testInputs::{SequenceRandom, byteSequence, cAnswer, digest, smallBytes};
+    use crate::testInputs::{SequenceRandom, byteSequence, cAnswer, smallBytes};
     use crate::{PublicKeyEncryption, Sampler};
+    use OQSNativeAlgorithmTests::OutputDigest;
     use OQSNativeDomain::{KeyEncapsulating, RandomGenerating};
 
     #[test]
@@ -126,24 +127,36 @@ mod tests {
         let keyPair = mechanism
             .generateKeyPair(&mut SequenceRandom::new(14))
             .expect("key pair");
-        assert_eq!(digest(&keyPair.publicKey), cAnswer("publicKey"));
-        assert_eq!(digest(keyPair.secretKey.bytes()), cAnswer("secretKey"));
+        assert_eq!(OutputDigest::of(&keyPair.publicKey), cAnswer("publicKey"));
+        assert_eq!(
+            OutputDigest::of(keyPair.secretKey.bytes()),
+            cAnswer("secretKey")
+        );
         let encapsulation = mechanism
             .encapsulate(&keyPair.publicKey, &mut SequenceRandom::new(15))
             .expect("encapsulation");
-        assert_eq!(digest(&encapsulation.ciphertext), cAnswer("ciphertext"));
         assert_eq!(
-            digest(encapsulation.sharedSecret.bytes()),
+            OutputDigest::of(&encapsulation.ciphertext),
+            cAnswer("ciphertext")
+        );
+        assert_eq!(
+            OutputDigest::of(encapsulation.sharedSecret.bytes()),
             cAnswer("sharedSecret")
         );
         let hostile = byteSequence(1039, 16);
         let secret = mechanism
             .decapsulate(&hostile, keyPair.secretKey.bytes())
             .expect("no error");
-        assert_eq!(digest(secret.bytes()), cAnswer("hostileSharedSecret"));
+        assert_eq!(
+            OutputDigest::of(secret.bytes()),
+            cAnswer("hostileSharedSecret")
+        );
         let short = PublicKeyEncryption::new(&sntrup761)
             .decrypt(&hostile[..1007], keyPair.secretKey.bytes());
-        assert_eq!(digest(&smallBytes(&short)), cAnswer("hostileDecryption"));
+        assert_eq!(
+            OutputDigest::of(&smallBytes(&short)),
+            cAnswer("hostileDecryption")
+        );
     }
 
     /// A random source whose first request gives the words 0x20000000, which make the small
@@ -186,7 +199,10 @@ mod tests {
         let keyPair = mechanism.generateKeyPair(&mut random).expect("key pair");
         // One more request of 4 p bytes, and then the key pair of the other source alone.
         assert_eq!(random.requests, vec![3044, 3044, 3044, 191]);
-        assert_eq!(digest(&keyPair.publicKey), cAnswer("publicKey"));
-        assert_eq!(digest(keyPair.secretKey.bytes()), cAnswer("secretKey"));
+        assert_eq!(OutputDigest::of(&keyPair.publicKey), cAnswer("publicKey"));
+        assert_eq!(
+            OutputDigest::of(keyPair.secretKey.bytes()),
+            cAnswer("secretKey")
+        );
     }
 }

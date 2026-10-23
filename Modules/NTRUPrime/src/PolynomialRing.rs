@@ -217,9 +217,9 @@ mod tests {
     use crate::Sampler;
     use crate::parameters::sntrup761;
     use crate::testInputs::{
-        cAnswer, digest, modulusBytes, modulusSequence, sequence, smallBytes, smallSequence,
-        wordSequence,
+        cAnswer, modulusBytes, modulusSequence, sequence, smallBytes, smallSequence, wordSequence,
     };
+    use OQSNativeAlgorithmTests::OutputDigest;
 
     /// The product of two polynomials modulo `x^p - x - 1` with integer coefficients.
     fn product(left: &[i64], right: &[i64]) -> Vec<i64> {
@@ -338,18 +338,27 @@ mod tests {
         // R3_recip, Rq_recip3, Rq_mult_small and R3_mult of liboqs 0.16.0 on the same inputs.
         let ring = PolynomialRing::new(&sntrup761);
         let (inverse, mask) = ring.ternaryReciprocal(&smallSequence(1));
-        assert_eq!(digest(&smallBytes(&inverse)), cAnswer("ternaryReciprocal"));
+        assert_eq!(
+            OutputDigest::of(&smallBytes(&inverse)),
+            cAnswer("ternaryReciprocal")
+        );
         assert_eq!(mask.to_string(), cAnswer("ternaryReciprocalMask"));
         let short = Sampler::new(&sntrup761).shortFromWords(&wordSequence(2));
         let (inverse, mask) = ring.reciprocalOfTriple(&short);
         assert_eq!(
-            digest(&modulusBytes(&inverse)),
+            OutputDigest::of(&modulusBytes(&inverse)),
             cAnswer("reciprocalOfTriple")
         );
         assert_eq!(mask.to_string(), cAnswer("reciprocalOfTripleMask"));
         let product = ring.productWithSmall(&modulusSequence(3), &smallSequence(4));
-        assert_eq!(digest(&modulusBytes(&product)), cAnswer("productWithSmall"));
+        assert_eq!(
+            OutputDigest::of(&modulusBytes(&product)),
+            cAnswer("productWithSmall")
+        );
         let product = ring.ternaryProduct(&smallSequence(5), &smallSequence(6));
-        assert_eq!(digest(&smallBytes(&product)), cAnswer("ternaryProduct"));
+        assert_eq!(
+            OutputDigest::of(&smallBytes(&product)),
+            cAnswer("ternaryProduct")
+        );
     }
 }
