@@ -353,3 +353,15 @@
 - Trap: the tests of Classic McEliece and the parity tests make dozens of key pairs, and each takes seconds at the first optimization level.
 - Finding: one key pair, encapsulation and decapsulation of each of the ten sets took 20 seconds in the dev profile at level 1 and 10.5 seconds at level 3, with the same seeds. A key pair spends its time in the Gaussian elimination over a matrix of up to 1.7 MB and in the sorting networks of the control bits. The decapsulation computed the factors `1 / g(L_i)^2` once for each of its two double syndromes, and computing them once halved its time.
 - Rule: the dev profile builds `oqs-native-classic-mceliece` at the third level, as it builds `oqs-native-sha3`. The override changes only the optimization, so the overflow checks and the debug assertions stay on.
+
+## A check that a later check repeats cannot fail alone
+
+- Trap: the verification of MQOM refuses a nonce whose challenge fails the proof of work. A test that changes the nonce cannot see the loss of that check, because another nonce also gives other hidden leaves, and then the opening of the signature fails its own check.
+- Finding: with the check of the w bits removed, the other tests of the crate passed, the changed nonces of `eachCheckOfTheVerificationRefusesAChangeThatReachesIt` and every test of `TestSig.rs` and `FuzzTestSig.rs` among them. In the same way, with the comparison of com1 always true, every test of `TestSig.rs` passed, because a changed opening gives other evaluations and the comparison of com2 refuses them. A signer that takes the first nonce that fails the proof of work makes a signature whose opening and slopes prove the hidden leaves of that nonce. `aNonceThatFailsTheProofOfWorkIsRefusedAlthoughItsProofIsValid` signs with it, asserts that the later checks accept the proof, and failed without the check.
+- Rule: the test of each check of a verification builds an input that passes every other check, through the steps of the signer where needed, and asserts that the other checks accept it. The decoder of Classic McEliece above follows the same rule with a key whose decoding is known by hand.
+
+## A search from zero needs a case where zero wins
+
+- Trap: `SampleChallenge` tries the nonces from 0 up. A signature that searches from 1 passes every test whose signatures take a nonce above 0.
+- Finding: with the search from 1, the other tests of the fast suite passed, also the `single` digests of `KATSig.rs` and the known answers of `Sign`, because none of their signatures takes the nonce 0. With w = 3, the nonce 0 meets the proof of work for about one challenge in eight. `aSignatureTriesTheNoncesFromZero` signs until a signature takes it, and it failed with the search from 1.
+- Rule: a search of the C code has a test whose answer is the first value of the search, as well as the tests at its limit of the MAYO entry above.
