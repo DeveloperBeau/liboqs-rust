@@ -97,9 +97,9 @@ mod tests {
     use crate::PolynomialRing;
     use crate::parameters::sntrup761;
     use crate::testInputs::{
-        byteSequence, cAnswer, digest, modulusBytes, modulusSequence, sequence, smallBytes,
-        smallSequence,
+        byteSequence, cAnswer, modulusBytes, modulusSequence, sequence, smallBytes, smallSequence,
     };
+    use OQSNativeAlgorithmTests::OutputDigest;
 
     #[test]
     fn smallBytesHoldFourCoefficientsPlusOneFromTheLowBits() {
@@ -155,22 +155,25 @@ mod tests {
         // of liboqs 0.16.0 on the same inputs, the decodings of seeded bytes.
         let encoding = Encoding::new(&sntrup761);
         let bytes = encoding.modulusBytes(&modulusSequence(7));
-        assert_eq!(digest(&bytes), cAnswer("modulusBytes"));
+        assert_eq!(OutputDigest::of(&bytes), cAnswer("modulusBytes"));
         let polynomial = encoding.modulusPolynomial(&byteSequence(1158, 8));
         assert_eq!(
-            digest(&modulusBytes(&polynomial)),
+            OutputDigest::of(&modulusBytes(&polynomial)),
             cAnswer("modulusPolynomial")
         );
         let bytes = encoding.roundedBytes(&PolynomialRing::rounded(&modulusSequence(9)));
-        assert_eq!(digest(&bytes), cAnswer("roundedBytes"));
+        assert_eq!(OutputDigest::of(&bytes), cAnswer("roundedBytes"));
         let polynomial = encoding.roundedPolynomial(&byteSequence(1007, 10));
         assert_eq!(
-            digest(&modulusBytes(&polynomial)),
+            OutputDigest::of(&modulusBytes(&polynomial)),
             cAnswer("roundedPolynomial")
         );
         let bytes = encoding.smallBytes(&smallSequence(11));
-        assert_eq!(digest(&bytes), cAnswer("smallBytes"));
+        assert_eq!(OutputDigest::of(&bytes), cAnswer("smallBytes"));
         let small = encoding.smallPolynomial(&byteSequence(191, 12));
-        assert_eq!(digest(&smallBytes(&small)), cAnswer("smallPolynomial"));
+        assert_eq!(
+            OutputDigest::of(&smallBytes(&small)),
+            cAnswer("smallPolynomial")
+        );
     }
 }
