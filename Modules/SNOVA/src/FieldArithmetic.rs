@@ -115,6 +115,7 @@ impl FieldArithmetic {
 #[cfg(test)]
 mod tests {
     use super::{FieldArithmetic, coefficientBits};
+    use OQSNativeAlgorithmTests::LinearCongruentialSequence;
 
     /// The product of two polynomials over GF(2) of degree below 4, modulo `x^4 + x + 1`, bit by
     /// bit.
@@ -193,7 +194,7 @@ mod tests {
 
     #[test]
     fn reductionFoldsEveryPolynomialUpToDegree10AndIgnoresTheBitsBetween() {
-        let mut noise = 0x1234_5678u32;
+        let mut sequence = LinearCongruentialSequence::new(0x1234_5678);
         for polynomial in 0..1u32 << 11 {
             let expected = spreadByBits(u32::from(polynomialRemainder(polynomial)));
             let spread = spreadByBits(polynomial);
@@ -203,8 +204,7 @@ mod tests {
                 "{polynomial:#b}"
             );
             // Any bits between the coefficients, as the sums of products leave them.
-            noise = noise.wrapping_mul(1_103_515_245).wrapping_add(12_345);
-            let withNoise = spread | (noise & !coefficientBits);
+            let withNoise = spread | (sequence.nextState() & !coefficientBits);
             assert_eq!(
                 FieldArithmetic::reduced(withNoise),
                 expected,
