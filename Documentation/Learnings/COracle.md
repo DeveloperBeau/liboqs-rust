@@ -40,7 +40,7 @@
 
 - Trap: a unit test of an internal function, such as a matrix product of FrodoKEM, needs a known answer that does not come from the Rust code, and the specification gives none for most inputs.
 - Finding: the FrodoKEM code of liboqs exports its internal functions, such as `oqs_kem_frodokem_640_aes_mul_add_as_plus_e`, as global symbols of `liboqs.a`. A small C program linked with the oracle library printed a digest of each function on seeded inputs, and the Rust functions gave each digest.
-- Rule: when liboqs exports an internal function, take the known answers of its unit test from it. The test names the C function, and its inputs come from a sequence that both programs can make. `nm` on `liboqs.a` of the oracle build lists the exported names.
+- Rule: when liboqs exports an internal function, take the known answers of its unit test from it. The test names the C function. `LinearCongruentialSequence` of `Modules/AlgorithmTests` makes its inputs and `OutputDigest` its digest, so the C program and every family share one contract. `nm` on `liboqs.a` of the oracle build lists the exported names.
 
 ## A fetch through a linked oracle folder builds the C library again
 

@@ -34,6 +34,8 @@ The crate is test-only. A family crate may use it in its tests, as the ring regi
 | `FuzzRandom` | The random source of the fuzz cases: all zeros, all ones, or seeded SplitMix64 bytes, and the hostile values and wrong lengths of a case |
 | `TestVectorFiles` | The vector files that `cargo xtask fetch-oracle` downloads, see `Documentation/Registers/TestVectors.md`, and the response files of the stateful schemes in the liboqs source of the oracle |
 | `JSONValue` | A small JSON reader for the vector files |
+| `LinearCongruentialSequence` | The seeded inputs of the C programs that give the known answers of the unit tests of the families |
+| `OutputDigest` | The digest that those C programs print: 32 bytes of SHAKE128, in hexadecimal |
 
 ## Data flow
 

@@ -296,14 +296,14 @@ mod tests {
         Polynomial, coefficientCount, difference, gammas, modulus, product, reduced,
         subtractModulusOnce, sum, twelveBitPair, zetas,
     };
+    use OQSNativeAlgorithmTests::LinearCongruentialSequence;
 
     /// A polynomial from a simple seeded sequence, the same for each test run.
     fn polynomialFrom(seed: u32) -> Polynomial {
-        let mut state = seed;
+        let mut sequence = LinearCongruentialSequence::new(seed);
         let mut polynomial = Polynomial::zero;
         for coefficient in polynomial.coefficients.iter_mut() {
-            state = state.wrapping_mul(1_103_515_245).wrapping_add(12_345);
-            *coefficient = ((state >> 8) % u32::from(modulus)) as u16;
+            *coefficient = ((sequence.nextState() >> 8) % u32::from(modulus)) as u16;
         }
         polynomial
     }

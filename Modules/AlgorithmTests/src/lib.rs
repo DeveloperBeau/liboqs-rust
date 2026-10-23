@@ -34,6 +34,10 @@ mod knownAnswerDigests;
 mod knownAnswerRandom;
 #[path = "KnownAnswerText.rs"]
 mod knownAnswerText;
+#[path = "LinearCongruentialSequence.rs"]
+mod linearCongruentialSequence;
+#[path = "OutputDigest.rs"]
+mod outputDigest;
 #[path = "ResponseFile.rs"]
 mod responseFile;
 #[path = "SignatureCorrectnessTest.rs"]
@@ -65,6 +69,8 @@ pub use kemMemoryTest::KEMMemoryTest;
 pub use knownAnswerDigests::KnownAnswerDigests;
 pub use knownAnswerRandom::KnownAnswerRandom;
 pub use knownAnswerText::KnownAnswerText;
+pub use linearCongruentialSequence::LinearCongruentialSequence;
+pub use outputDigest::OutputDigest;
 pub use responseFile::ResponseFile;
 pub use signatureCorrectnessTest::SignatureCorrectnessTest;
 pub use signatureFuzzTest::SignatureFuzzTest;

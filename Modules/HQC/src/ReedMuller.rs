@@ -108,7 +108,8 @@ impl ReedMuller {
 mod tests {
     use super::ReedMuller;
     use crate::parameters::{hqc1, hqc3, hqc5};
-    use crate::testInputs::{digest, receivedWord};
+    use crate::testInputs::receivedWord;
+    use OQSNativeAlgorithmTests::{LinearCongruentialSequence, OutputDigest};
 
     /// The bit of a codeword at a position, from the four 32-bit words.
     fn bit(codeword: [u32; 4], position: usize) -> u32 {
@@ -162,11 +163,10 @@ mod tests {
         // of the 384 still decode.
         let message = [0x5Cu8, 0xA3];
         let mut words = ReedMuller::encoded(&message, 3);
-        let mut state = 7u32;
+        let mut sequence = LinearCongruentialSequence::new(7);
         let mut flipped = std::collections::BTreeSet::new();
         while flipped.len() < 95 {
-            state = state.wrapping_mul(1_103_515_245).wrapping_add(12_345);
-            flipped.insert((state >> 8) as usize % 384);
+            flipped.insert((sequence.nextState() >> 8) as usize % 384);
         }
         for position in flipped {
             words[position / 64] ^= 1 << (position % 64);
@@ -229,10 +229,10 @@ mod tests {
             ),
         ] {
             let multiplicity = parameters.multiplicity();
-            let mut state = seed;
+            let mut sequence = LinearCongruentialSequence::new(seed);
             let mut decoded = Vec::new();
             for shift in 0..3 {
-                let word = receivedWord(&mut state, parameters, shift);
+                let word = receivedWord(&mut sequence, parameters, shift);
                 decoded.extend(ReedMuller::decoded(
                     &word,
                     parameters.reedSolomonLength,
@@ -251,7 +251,7 @@ mod tests {
                 }
             }
             assert_eq!(
-                digest(&decoded),
+                OutputDigest::of(&decoded),
                 expected,
                 "{}, seed {seed}",
                 parameters.description.name

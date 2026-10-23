@@ -243,17 +243,13 @@ mod tests {
     use super::ReedSolomon;
     use crate::galoisField::GaloisField;
     use crate::parameters::{hqc1, hqc3, hqc5};
-    use crate::testInputs::{digest, wordOfWeight, wordWithLeadingZeroSyndromes};
+    use crate::testInputs::{nextByte, wordOfWeight, wordWithLeadingZeroSyndromes};
+    use OQSNativeAlgorithmTests::{LinearCongruentialSequence, OutputDigest};
 
     /// A seeded message of a length.
     fn messageFrom(seed: u32, length: usize) -> Vec<u8> {
-        let mut state = seed;
-        (0..length)
-            .map(|_| {
-                state = state.wrapping_mul(1_103_515_245).wrapping_add(12_345);
-                (state >> 16) as u8
-            })
-            .collect()
+        let mut sequence = LinearCongruentialSequence::new(seed);
+        (0..length).map(|_| nextByte(&mut sequence)).collect()
     }
 
     /// The value of a word, as a polynomial with the first byte as the constant term, at a point.
@@ -381,15 +377,15 @@ mod tests {
         ] {
             let code = ReedSolomon::new(parameters);
             let length = parameters.reedSolomonLength;
-            let mut state = seed;
+            let mut sequence = LinearCongruentialSequence::new(seed);
             let mut messages = Vec::new();
             for weight in 0..=length {
                 for _ in 0..2 {
-                    messages.extend(code.decoded(&wordOfWeight(&mut state, length, weight)));
+                    messages.extend(code.decoded(&wordOfWeight(&mut sequence, length, weight)));
                 }
             }
             assert_eq!(
-                digest(&messages),
+                OutputDigest::of(&messages),
                 expected,
                 "{}, seed {seed}",
                 parameters.description.name
@@ -423,11 +419,11 @@ mod tests {
         ] {
             let code = ReedSolomon::new(parameters);
             let length = parameters.reedSolomonLength;
-            let mut state = seed;
+            let mut sequence = LinearCongruentialSequence::new(seed);
             let mut messages = Vec::new();
             for zeros in 1..=2 * parameters.correctionCapacity {
                 for _ in 0..2 {
-                    let word = wordWithLeadingZeroSyndromes(&mut state, length, zeros);
+                    let word = wordWithLeadingZeroSyndromes(&mut sequence, length, zeros);
                     for exponent in 1..=zeros {
                         assert_eq!(
                             value(&word, GaloisField::power(exponent)),
@@ -439,7 +435,7 @@ mod tests {
                 }
             }
             assert_eq!(
-                digest(&messages),
+                OutputDigest::of(&messages),
                 expected,
                 "{}, seed {seed}",
                 parameters.description.name

@@ -274,7 +274,8 @@ mod tests {
         subsetSums,
     };
     use crate::galoisField::GaloisField;
-    use crate::testInputs::{digest, nextByte};
+    use crate::testInputs::nextByte;
+    use OQSNativeAlgorithmTests::{LinearCongruentialSequence, OutputDigest};
 
     /// The value of a polynomial at a point by Horner's rule.
     fn value(polynomial: &[u8], point: u8) -> u8 {
@@ -297,15 +298,11 @@ mod tests {
 
     /// A seeded polynomial whose coefficients above `coefficientCount` are zero.
     fn polynomialFrom(seed: u32, coefficientCount: usize, length: usize) -> Vec<u8> {
-        let mut state = seed;
+        let mut sequence = LinearCongruentialSequence::new(seed);
         (0..length)
             .map(|index| {
-                state = state.wrapping_mul(1_103_515_245).wrapping_add(12_345);
-                if index < coefficientCount {
-                    (state >> 16) as u8
-                } else {
-                    0
-                }
+                let value = nextByte(&mut sequence);
+                if index < coefficientCount { value } else { 0 }
             })
             .collect()
     }
@@ -383,15 +380,19 @@ mod tests {
             ),
         ] {
             let slots = 1usize << exponent;
-            let mut state = 100;
+            let mut sequence = LinearCongruentialSequence::new(100);
             let mut values = Vec::new();
             for count in 0..=slots {
                 for _ in 0..2 {
-                    let polynomial: Vec<u8> = (0..slots).map(|_| nextByte(&mut state)).collect();
+                    let polynomial: Vec<u8> = (0..slots).map(|_| nextByte(&mut sequence)).collect();
                     values.extend(AdditiveFFT::evaluations(&polynomial, count, exponent));
                 }
             }
-            assert_eq!(digest(&values), expected, "exponent {exponent}, seed 100");
+            assert_eq!(
+                OutputDigest::of(&values),
+                expected,
+                "exponent {exponent}, seed 100"
+            );
         }
     }
 
@@ -402,17 +403,21 @@ mod tests {
         // the seed 200. Each value is from the sequence, and the next value below 128 sets it to
         // zero, so about half of the values are zero. Entry 0 takes the zero test of the value
         // at 0 and of the value at 1, as in the C code.
-        let mut state = 200;
+        let mut sequence = LinearCongruentialSequence::new(200);
         let mut positions = Vec::new();
         for _ in 0..16 {
             let values: [u8; fieldSize] = core::array::from_fn(|_| {
-                let value = nextByte(&mut state);
-                if nextByte(&mut state) < 128 { 0 } else { value }
+                let value = nextByte(&mut sequence);
+                if nextByte(&mut sequence) < 128 {
+                    0
+                } else {
+                    value
+                }
             });
             positions.extend(AdditiveFFT::errorPositions(&values));
         }
         assert_eq!(
-            digest(&positions),
+            OutputDigest::of(&positions),
             "5f1ec81d25a41738285c1220c960414e4da34df30f345c5b039fcccc0031f4f9",
             "seed 200"
         );

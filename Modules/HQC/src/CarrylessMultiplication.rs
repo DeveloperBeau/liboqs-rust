@@ -154,6 +154,7 @@ impl CarrylessMultiplication {
 #[cfg(test)]
 mod tests {
     use super::CarrylessMultiplication;
+    use OQSNativeAlgorithmTests::FuzzRandom;
 
     /// The carry-less product of two words by the definition, bit by bit.
     fn bitwiseProduct(left: u64, right: u64) -> u128 {
@@ -175,18 +176,10 @@ mod tests {
         result
     }
 
-    /// Seeded SplitMix64 words.
+    /// Seeded words.
     fn words(seed: u64, count: usize) -> Vec<u64> {
-        let mut state = seed;
-        (0..count)
-            .map(|_| {
-                state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
-                let mut word = state;
-                word = (word ^ (word >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-                word = (word ^ (word >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-                word ^ (word >> 31)
-            })
-            .collect()
+        let mut random = FuzzRandom::seeded(seed);
+        (0..count).map(|_| random.nextWord()).collect()
     }
 
     #[test]

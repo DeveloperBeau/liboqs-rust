@@ -26,6 +26,7 @@ dependencies = [
  "oqs-native-entities",
  "oqs-native-kat-random",
  "oqs-native-sha2",
+ "oqs-native-sha3",
 ]
 
 [[package]]

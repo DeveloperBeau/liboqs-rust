@@ -36,7 +36,8 @@ impl<'parameters> ConcatenatedCode<'parameters> {
 mod tests {
     use super::ConcatenatedCode;
     use crate::parameters::{hqc1, hqc3, hqc5};
-    use crate::testInputs::{digest, receivedWord};
+    use crate::testInputs::receivedWord;
+    use OQSNativeAlgorithmTests::{LinearCongruentialSequence, OutputDigest};
 
     #[test]
     fn decodingRecoversTheMessageThroughErrorsOfBothCodes() {
@@ -90,13 +91,13 @@ mod tests {
             ),
         ] {
             let code = ConcatenatedCode::new(parameters);
-            let mut state = seed;
+            let mut sequence = LinearCongruentialSequence::new(seed);
             let mut messages = Vec::new();
             for word in 0..6 {
-                messages.extend(code.decoded(&receivedWord(&mut state, parameters, word % 3)));
+                messages.extend(code.decoded(&receivedWord(&mut sequence, parameters, word % 3)));
             }
             assert_eq!(
-                digest(&messages),
+                OutputDigest::of(&messages),
                 expected,
                 "{}, seed {seed}",
                 parameters.description.name

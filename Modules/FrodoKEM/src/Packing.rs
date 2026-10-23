@@ -71,7 +71,8 @@ impl Packing {
 #[cfg(test)]
 mod tests {
     use super::Packing;
-    use crate::testInputs::{digest, sequence};
+    use crate::testInputs::sequence;
+    use OQSNativeAlgorithmTests::OutputDigest;
 
     #[test]
     fn packingWritesTheHighBitOfEachValueFirst() {
@@ -133,13 +134,13 @@ mod tests {
             let byteCount = bits as usize * dimension;
             let mut packed = vec![0u8; byteCount];
             Packing::pack(&sequence(dimension * 8, 14), bits, &mut packed);
-            assert_eq!(digest(&packed), packDigest, "{dimension}");
+            assert_eq!(OutputDigest::of(&packed), packDigest, "{dimension}");
             let stream: Vec<u8> = (0..byteCount).map(|index| (index * 7 + 3) as u8).collect();
             let values = Packing::unpacked(&stream, bits);
             assert_eq!(values.len(), dimension * 8);
             assert_eq!(&values[..4], &firstValues, "{dimension}");
             assert_eq!(
-                digest(&Packing::littleEndianBytes(&values)),
+                OutputDigest::of(&Packing::littleEndianBytes(&values)),
                 unpackDigest,
                 "{dimension}"
             );
