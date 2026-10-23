@@ -58,7 +58,7 @@ The first difference stops the check with a `ParityMismatch`, which names the al
 
 - `run` checks each registered algorithm, the base case and 1000 variations by default.
 - `snapshot` prints the snapshot of the C library. With `--check` it compares each digest with the frozen file.
-- `known-answers` runs the liboqs known-answer programs on the C algorithms through the Rust harness. See [KnownAnswerPrograms.md](KnownAnswerPrograms.md).
+- `known-answers` runs the liboqs known-answer programs on the C algorithms through the Rust harness, and on the registered Rust algorithm of each name, and compares each digest with the digest of liboqs. A job fails when either side differs. See [KnownAnswerPrograms.md](KnownAnswerPrograms.md).
 
 `--shard I/N` takes the algorithms at positions `I`, `I + N` and so on. `--processes N` splits the run into N processes. One process runs one C operation at a time, because of the lock of the oracle, so more processes use more processors.
 
@@ -74,6 +74,6 @@ The first difference stops the check with a `ParityMismatch`, which names the al
 - `HarnessValidation.rs`: the C algorithms behind the Rust interfaces pass every check, and each kind of defect in a mechanism or a scheme fails at its own step.
 - `AlgorithmCoverage.rs`: the registry and `NotYetPorted.txt` against the C library, and the facts of each registered algorithm against the C facts.
 - `SnapshotParity.rs`: the names of the frozen snapshot, and the snapshot line of each registered algorithm.
-- `RegisteredParity.rs`: every registered algorithm with the cases of `PARITY_CASES`, 10 by default, and the seed of `PARITY_SEED`.
+- `RegisteredParity.rs`: every registered algorithm with the cases of `PARITY_CASES`, 2 by default, and the seed of `PARITY_SEED`. The suite runs in the dev profile, where a variation of a large family takes a large part of a second, so the release runs of `parity run` carry the 1000 variations.
 
 CI runs the test suite on every pull request, then `known-answers --all` and `snapshot --check`, and `run` with 1000 variations in four shards of four processes.

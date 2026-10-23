@@ -1,5 +1,5 @@
 //! Parity of every registered algorithm with the C library: the base case and the variations of
-//! `PARITY_CASES` (10 by default here, and 1000 in the full gate of `parity run`), with the seed
+//! `PARITY_CASES` (2 by default here, and 1000 in the full gate of `parity run`), with the seed
 //! of `PARITY_SEED`.
 
 use OQSNative::Registry;
@@ -7,8 +7,10 @@ use OQSNativeParity::{KEMParity, LargeStack, ParitySettings, SignatureParity};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-/// The variations of each algorithm in the test suite.
-const testCaseCount: u64 = 10;
+/// The variations of each algorithm in the test suite. The suite runs in the dev profile, where
+/// the large families take a large part of a second for each variation, so the release runs of
+/// `parity run` carry the full gate.
+const testCaseCount: u64 = 2;
 
 /// Runs checks on every processor, each on a thread with a large stack, and returns the
 /// failures.
