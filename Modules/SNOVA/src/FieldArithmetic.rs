@@ -21,7 +21,7 @@ const elementBits: u32 = 0x249;
 /// The powers `x^0` to `x^14` of `F_star` in `init_gf16_tables`.
 const powersOfX: [u8; 15] = [1, 2, 4, 8, 3, 6, 12, 11, 5, 10, 7, 14, 15, 13, 9];
 
-/// The product table `mt4b` of `init_gf16_tables`: entry `16 a ^ b` is the product of `a` and
+/// The product table `mt4b` of `init_gf16_tables`: entry `16 a + b` is the product of `a` and
 /// `b`, from the logarithms of the powers of `x`.
 const productTable: [u8; 256] = {
     let mut table = [0u8; 256];
@@ -29,7 +29,9 @@ const productTable: [u8; 256] = {
     while first < 15 {
         let mut second = 0;
         while second < 15 {
-            let index = ((powersOfX[first] as usize) << 4) ^ powersOfX[second] as usize;
+            // Each power is below 16, so the first power four bits up and the second power have
+            // disjoint bits, and `+` joins them.
+            let index = ((powersOfX[first] as usize) << 4) + powersOfX[second] as usize;
             table[index] = powersOfX[(first + second) % 15];
             second += 1;
         }
@@ -41,7 +43,13 @@ const productTable: [u8; 256] = {
 impl FieldArithmetic {
     /// The product of two elements, `gf16_get_mul` with the table `mt4b`.
     pub(crate) fn product(left: u8, right: u8) -> u8 {
-        productTable[(usize::from(left) << 4) ^ usize::from(right)]
+        debug_assert!(
+            left < 16 && right < 16,
+            "{left} or {right} is not an element of GF(16)"
+        );
+        // The elements are below 16, so `left` four bits up and `right` have disjoint bits, and
+        // `+` gives the index `(left << 4) ^ right` of the macro `mt`.
+        productTable[(usize::from(left) << 4) + usize::from(right)]
     }
 
     /// The spread form of an element, `gf16_from_nibble`: coefficient `i` at bit `3 i`.
@@ -72,8 +80,9 @@ impl FieldArithmetic {
     /// The element of a spread polynomial up to degree 10, `gf16_to_nibble`.
     pub(crate) fn element(value: u32) -> u8 {
         let reduced = Self::reduced(value);
-        let folded = reduced | (reduced >> 4);
-        // The two masks keep disjoint bits, so `+` joins them.
+        // `reduced` has only the bits 0, 3, 6 and 9, and its copy four bits down only the bits 2
+        // and 5, so `+` joins them. The two masks keep disjoint bits too.
+        let folded = reduced + (reduced >> 4);
         ((folded & 0x5) + ((folded >> 2) & 0xA)) as u8
     }
 

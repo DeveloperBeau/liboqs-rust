@@ -342,8 +342,9 @@ impl<'parameters> Signer<'parameters> {
             }
 
             // The coefficients of the oil variables from F12: Left F12, reduced, then
-            // times Q2 and masked, then the outer product with B.
-            oilProducts.fill(0);
+            // times Q2 and masked, then the outer product with B. Each entry of `oilProducts`
+            // is one whole dot product, the sum that the C code adds up in a zeroed
+            // `xtemp_int`, so the entry is assigned.
             for oil in 0..oilCount {
                 for column in 0..rank {
                     for variable in 0..vinegarCount {
@@ -358,7 +359,7 @@ impl<'parameters> Signer<'parameters> {
                         }
                     }
                     for termRow in 0..termLength {
-                        oilProducts[termRow * oilLength + oil * rank + column] ^= dotProduct(
+                        oilProducts[termRow * oilLength + oil * rank + column] = dotProduct(
                             &narrowLeft[termRow * vinegarLength..][..vinegarLength],
                             &spreadF,
                         );
@@ -416,8 +417,8 @@ impl<'parameters> Signer<'parameters> {
             }
 
             // The coefficients of the oil variables from F21: F21 Right, reduced, then Q1
-            // times it and masked, then the outer product with A.
-            oilProducts.fill(0);
+            // times it and masked, then the outer product with A. Each entry of `oilProducts`
+            // is again one whole dot product.
             oilTerms.fill(0);
             for oil in 0..oilCount {
                 for row in 0..rank {
@@ -433,7 +434,7 @@ impl<'parameters> Signer<'parameters> {
                         }
                     }
                     for termColumn in 0..termLength {
-                        oilProducts[termColumn * oilLength + oil * rank + row] ^= dotProduct(
+                        oilProducts[termColumn * oilLength + oil * rank + row] = dotProduct(
                             &narrowRight[termColumn * vinegarLength..][..vinegarLength],
                             &spreadF,
                         );

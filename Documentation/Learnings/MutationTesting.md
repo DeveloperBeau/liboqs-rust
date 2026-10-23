@@ -48,6 +48,12 @@
 - **Finding.** The first run of the primitives had 25 such survivors in the bitsliced AES and in the choice and majority functions of SHA-2. One more is inside the S-box circuit, where two signals never share a set bit.
 - **Rule.** Join disjoint fields with `+`, which gives the same value with no carry, and whose mutants change the value. Write choice as `g ^ (e & (f ^ g))` and majority as `(a & b) + (c & (a ^ b))`. Where a circuit from a paper has such a line, keep the line as the paper gives it, prove the equivalence with an exhaustive test, and record the mutant as expected in the register.
 
+## A join of disjoint fields can hide in an index, in a constant or behind a mask
+
+- **Trap.** A port that joins disjoint bit fields with `+` where it sees them can still keep `|` or `^` where the join is less plain: in the index of a table, in the code of a constant, or where only a mask in another function keeps the two operands apart. Each such join gives an equivalent mutant.
+- **Finding.** The SNOVA port joined the fields of `FieldArithmetic::spread`, of the last step of `FieldArithmetic::element` and of the packings with `+`. Its first CI run still missed three mutants of this kind: in the index of the constant `productTable`, in the index `(left << 4) ^ right` of `FieldArithmetic::product`, which copies the macro `mt` of the C code, and in `reduced | (reduced >> 4)` of `element`. The function `reduced` ends with a mask that keeps only the bits 0, 3, 6 and 9.
+- **Rule.** Before the first mutation run of a port, read each `|` and `^` of the crate, also in the code of a constant and in an index. Take the bits that each operand can hold from the code that makes the operand. Where the bits cannot meet, join with `+`, and say in a comment why they cannot meet. When this needs a property of the arguments, a debug assertion states the property, as in `FieldArithmetic::product`.
+
 ## A timeout can be a slow suite and not an endless loop
 
 - **Trap.** On a loaded machine, a mutant that changes nothing can pass the time limit of the suite, and the run counts it as caught.
@@ -65,6 +71,18 @@
 - **Trap.** An exclusive or into a word that is zero gives the same value as an or, and a region that is larger than its content changes nothing. A mutant of such a write survives, and no test can kill it.
 - **Finding.** Ten of the 18 equivalent mutants of `oqs-native-hqc` are of this kind: `^=` into the zeroed positions of `errorPositions` and into the zeroed result of `karatsubaProduct`, the split of the scratch of `karatsubaProduct`, an extra entry of `gammas` and `deltas` that no line reads, and a smaller `savedSigma` whose last entry no line uses.
 - **Rule.** Write a value into a zeroed buffer with an assignment or a copy where the form of the C code allows it. Where the port keeps the form of the C code, the register names the line that zeroed each word or the lines that read the region.
+
+## A sum that the port computes in one step is assigned
+
+- **Trap.** The C code adds products one at a time into a buffer that it first sets to zero. A port that computes the whole sum in one function, but keeps the `^=` of the C code, adds each sum to a zero with an exclusive or. The mutant `|=` then survives.
+- **Finding.** `Signer::attemptedSolution` of SNOVA computes each entry of `oilProducts` with `dotProduct`, the whole sum that `sign_digest_core_opt` adds up in `xtemp_int`. Its vinegar part assigned such sums, but its two oil parts set the buffer to zero and used `^=`. The first CI run missed both mutants `|=`. With an assignment, the two mutants and the two zeroings are gone, and a changed index still fails the known answers of the signature.
+- **Rule.** Where the port computes a sum of the C code in one expression, assign the sum, and remove the zeroing that only the additions of the C code need. The rule of writes into zeroed space then applies only where the port adds as the C code does.
+
+## A back substitution reads an unknown that is still zero
+
+- **Trap.** A back substitution adds the products of the later unknowns into the sum of each row. A mutant that starts the sum at the row itself also adds the product with the unknown of that row. That unknown is still zero, so no input can kill the mutant.
+- **Finding.** In `Signer::solved` of SNOVA, `row + 1` replaced with `row * 1` passed every test of the crate, in CI and by hand. The rows go from the last one to the first, the unknowns start at zero, and each unknown is written after the sum of its own row. `sign_digest_core_opt` has the same loop over `xSolution`, which is zero at its declaration.
+- **Rule.** Keep the loop of the C code, and record the mutant as equivalent. The register names the line that sets the unknowns to zero and the line that writes each unknown after its sum.
 
 ## A special case that equals the general path gives an equivalent mutant
 
