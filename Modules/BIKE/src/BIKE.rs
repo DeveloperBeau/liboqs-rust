@@ -190,15 +190,15 @@ mod tests {
 
     const mechanisms: [&BIKE; 3] = [&BIKE::bikeL1, &BIKE::bikeL3, &BIKE::bikeL5];
 
-    /// A ciphertext whose decoded error differs from the error of its message only in the
-    /// coefficients 0 and 64 of one block, and the shared secrets of its acceptance and of its
-    /// rejection.
+    /// A ciphertext whose decoded error differs from the error of its message only in two
+    /// coefficients of one block, and the shared secrets of its acceptance and of its rejection.
     ///
     /// The change of the block c0 moves the error by the two coefficients, and the change of
     /// the mask keeps the message, so the rebuilt error is the error of the encapsulation.
     fn ciphertextWithTwoChangedCoefficients(
         mechanism: &BIKE,
         block: usize,
+        coefficients: [usize; 2],
     ) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
         let parameters: &Parameters = mechanism.parameters;
         let ring = PolynomialRing::new(parameters);
@@ -207,11 +207,11 @@ mod tests {
         let encapsulation = mechanism.encapsulation(&keyPair.publicKey, &message);
         let error = mechanism.sampler().errorVector(&message);
         let mut changedError = error.clone();
-        changedError[block][0] ^= 1;
-        changedError[block][1] ^= 1;
         let mut change = vec![0u64; parameters.wordCount()];
-        change[0] = 1;
-        change[1] = 1;
+        for coefficient in coefficients {
+            changedError[block][coefficient / 64] ^= 1 << (coefficient % 64);
+            change[coefficient / 64] ^= 1 << (coefficient % 64);
+        }
         if block == 1 {
             change = ring.product(&change, &ring.polynomial(&keyPair.publicKey));
         }
@@ -252,7 +252,27 @@ mod tests {
         for mechanism in mechanisms {
             for block in [0, 1] {
                 let (decapsulated, accepted, rejected) =
-                    ciphertextWithTwoChangedCoefficients(mechanism, block);
+                    ciphertextWithTwoChangedCoefficients(mechanism, block, [0, 64]);
+                assert_ne!(accepted, rejected);
+                assert_eq!(
+                    decapsulated,
+                    rejected,
+                    "{}, block {block}",
+                    mechanism.description().name
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn aDecodedErrorThatDiffersOnlyInTheTopBitOfTwoWordsIsRejected() {
+        // Coefficients 63 and 127 are bit 63 of words 0 and 1, so the gathered difference is
+        // 2^63 alone. Its top bit must still count as a difference, as the bytes 7 and 15 do
+        // in the C comparison.
+        for mechanism in mechanisms {
+            for block in [0, 1] {
+                let (decapsulated, accepted, rejected) =
+                    ciphertextWithTwoChangedCoefficients(mechanism, block, [63, 127]);
                 assert_ne!(accepted, rejected);
                 assert_eq!(
                     decapsulated,
