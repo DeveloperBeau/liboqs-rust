@@ -89,3 +89,15 @@
 - **Trap.** A mutant can make a loop endless while the loop adds to a list in each turn. The list then takes the memory of the machine before the time limit of the test stops the test, and the machine stops in place of the test.
 - **Finding.** The first CI runs of two families each lost a shard to "The runner has received a shutdown signal". In each, a mutant made a loop endless while the loop wrote into a list: the byte loop of a radix encoding, whose changed condition held for every range, and a loop of signing attempts whose count stayed at 0 while its test recorded each attempt. Applied by hand under a cap of 4 GiB on the address space, each test program stopped within 6 seconds with "memory allocation of ... bytes failed".
 - **Rule.** Run the tests of a mutation run under a cap on the address space of each test program, above the largest test program of the workspace. The `Mutants` workflow starts each test program through `prlimit`, so a failed allocation stops the test program, and the mutant counts as caught.
+
+## A coverage test reads the list that the program reads
+
+- **Trap.** A test that looks up each name of the C library with `Registry::signatureScheme` proves that the lookup finds the scheme. The parity program checks the schemes of `Registry::signatureSchemes`, which is another function.
+- **Finding.** With `signatureSchemes` replaced by an empty list, the parity program checked no signature scheme, and every test passed. The facade run of ML-DSA missed the mutant. `cNamesOutsideTheRegistry` of `AlgorithmCoverage.rs` now reads the three lists, so with the empty list the names of ML-DSA are outside the registry and the test fails.
+- **Rule.** A coverage test reads the same list as the program whose coverage it proves.
+
+## A function that only the tests call needs a test that sees it fail
+
+- **Trap.** When the program stops calling a function, the tests that still call it can all expect success. A mutant that returns success then survives.
+- **Finding.** Since the parity jobs check blocks with `checkCase`, only the harness tests call `SignatureParity::checkEveryCase`, and for a signature scheme each of them expected `Ok(())`. The mutant that returns `Ok(())` survived the ML-DSA run of `SignatureParity.rs`. `aSignatureDefectInTheBaseCaseNamesTheSnapshotField` now runs it on a broken scheme, as `aKEMDefectInTheBaseCaseNamesTheSnapshotField` does for a mechanism.
+- **Rule.** When a change moves the program off a function, check that a test still sees the function fail, or remove the function.

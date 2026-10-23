@@ -300,6 +300,20 @@ fn aKEMDefectInTheBaseCaseNamesTheSnapshotField() {
     });
 }
 
+#[test]
+fn aSignatureDefectInTheBaseCaseNamesTheSnapshotField() {
+    LargeStack::run(|| {
+        let broken = BrokenScheme {
+            inner: scheme("ML-DSA-44"),
+            defect: SignatureDefect::signatureByte,
+        };
+        let mismatch = SignatureParity::new(&broken, ParitySettings::defaultSeed)
+            .checkEveryCase(caseCount)
+            .expect_err("a broken scheme fails");
+        assert_eq!((mismatch.case, mismatch.step), (None, "sig"));
+    });
+}
+
 /// The defects that a broken scheme can have.
 #[derive(Clone, Copy, PartialEq)]
 enum SignatureDefect {
