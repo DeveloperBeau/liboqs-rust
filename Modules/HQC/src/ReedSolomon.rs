@@ -243,6 +243,7 @@ mod tests {
     use super::ReedSolomon;
     use crate::galoisField::GaloisField;
     use crate::parameters::{hqc1, hqc3, hqc5};
+    use crate::testInputs::{digest, wordOfWeight, wordWithLeadingZeroSyndromes};
 
     /// A seeded message of a length.
     fn messageFrom(seed: u32, length: usize) -> Vec<u8> {
@@ -352,5 +353,97 @@ mod tests {
         assert_eq!(degree, 0);
         assert_eq!(locator[0], 1);
         assert!(locator[1..].iter().all(|coefficient| *coefficient == 0));
+    }
+
+    #[test]
+    fn decodingOfEveryWeightGivesTheMessageOfTheCFunction() {
+        // The digests of `reed_solomon_decode` of liboqs 0.16.0 for two words of each weight
+        // from 0 to `n1`, with the seeds 300, 301 and 302. Every word is a codeword, the word of
+        // zeros, plus errors, so each weight above `delta` has more errors than the code
+        // corrects. The decoder must give the bytes of the C code for those words too, because
+        // the decapsulation of an honest ciphertext with a decryption failure reads them.
+        for (seed, parameters, expected) in [
+            (
+                300,
+                &hqc1,
+                "b291600e2adc055f5c6b210afda1058c4d84b022e775b51bfd9ddd0793587f01",
+            ),
+            (
+                301,
+                &hqc3,
+                "22dc0de09cfb50f39ac71634691fd8a6d97aeac832b9c3a0722783d85684194a",
+            ),
+            (
+                302,
+                &hqc5,
+                "5875e7f20d2a157bd5ee55c9d13f49466192679c163cae0f3379412ae3e4bd6c",
+            ),
+        ] {
+            let code = ReedSolomon::new(parameters);
+            let length = parameters.reedSolomonLength;
+            let mut state = seed;
+            let mut messages = Vec::new();
+            for weight in 0..=length {
+                for _ in 0..2 {
+                    messages.extend(code.decoded(&wordOfWeight(&mut state, length, weight)));
+                }
+            }
+            assert_eq!(
+                digest(&messages),
+                expected,
+                "{}, seed {seed}",
+                parameters.description.name
+            );
+        }
+    }
+
+    #[test]
+    fn decodingOfWordsWhoseFirstSyndromesAreZeroGivesTheMessageOfTheCFunction() {
+        // The digests of `reed_solomon_decode` of liboqs 0.16.0 for two words `q(x) g(x)` for
+        // each `m` from 1 to `2 delta`, where `g` has the roots `alpha` to `alpha^m`, with the
+        // seeds 600, 601 and 602. The discrepancies of the Berlekamp algorithm before step `m`
+        // are then zero. A word of random bytes has a first syndrome of zero only once in 256
+        // words.
+        for (seed, parameters, expected) in [
+            (
+                600,
+                &hqc1,
+                "3543b7a006818c8b5c60ad849a91d9ca5c0479ec6338d7a0834ee24f4c6897d2",
+            ),
+            (
+                601,
+                &hqc3,
+                "4f031ea1d116199985321049980fb134c04b01b44b3131c14c2d409f50a392ec",
+            ),
+            (
+                602,
+                &hqc5,
+                "21c868858c7285c536eeb1b79a35d5237e3137eb8c78214c58bdf78d2d2250a8",
+            ),
+        ] {
+            let code = ReedSolomon::new(parameters);
+            let length = parameters.reedSolomonLength;
+            let mut state = seed;
+            let mut messages = Vec::new();
+            for zeros in 1..=2 * parameters.correctionCapacity {
+                for _ in 0..2 {
+                    let word = wordWithLeadingZeroSyndromes(&mut state, length, zeros);
+                    for exponent in 1..=zeros {
+                        assert_eq!(
+                            value(&word, GaloisField::power(exponent)),
+                            0,
+                            "syndrome {exponent} of a word with {zeros} zero syndromes"
+                        );
+                    }
+                    messages.extend(code.decoded(&word));
+                }
+            }
+            assert_eq!(
+                digest(&messages),
+                expected,
+                "{}, seed {seed}",
+                parameters.description.name
+            );
+        }
     }
 }

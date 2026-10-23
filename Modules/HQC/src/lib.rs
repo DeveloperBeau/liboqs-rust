@@ -34,3 +34,7 @@ mod reedSolomon;
 
 pub use hqc::HQC;
 use parameters::Parameters;
+
+#[cfg(test)]
+#[path = "TestInputs.rs"]
+mod testInputs;

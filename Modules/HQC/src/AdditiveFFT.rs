@@ -269,8 +269,12 @@ fn recursiveEvaluations(
 
 #[cfg(test)]
 mod tests {
-    use super::{AdditiveFFT, fieldSize, firstBasis, halfFieldSize, subsetSums};
+    use super::{
+        AdditiveFFT, fieldSize, firstBasis, halfFieldSize, radix, radixOfManyCoefficients,
+        subsetSums,
+    };
     use crate::galoisField::GaloisField;
+    use crate::testInputs::{digest, nextByte};
 
     /// The value of a polynomial at a point by Horner's rule.
     fn value(polynomial: &[u8], point: u8) -> u8 {
@@ -356,6 +360,105 @@ mod tests {
         constant[0] = 7;
         let none = AdditiveFFT::errorPositions(&AdditiveFFT::evaluations(&constant, 1, 5));
         assert!(none.iter().all(|position| *position == 0));
+    }
+
+    #[test]
+    fn evaluationsGiveTheValuesOfTheCFunctionForEveryCount() {
+        // The digests of `fft` of liboqs 0.16.0, of `PQCHQC_HQC1_C_fft` for the exponent 4 and
+        // of `PQCHQC_HQC3_C_fft` for the exponent 5, with the seed 100. `PQCHQC_HQC5_C_fft`
+        // gives the digest of HQC-3. For each count from 0
+        // to `2^exponent` there are two polynomials, with every coefficient from the sequence.
+        // Below the full count, the coefficients at and above the count come from the sequence
+        // too. The values then differ from the values of the polynomial wherever the C code
+        // takes the high half of a count of at most 3 as a constant, and the port gives the
+        // values of the C code.
+        for (exponent, expected) in [
+            (
+                4u32,
+                "e88334032b84c4b1a7f15ea20fb6742f7a544e61f672329b2ed7b03533f6d4cc",
+            ),
+            (
+                5,
+                "76cd0f2517d0962549e0d960584d0c966e6d37281a98d919d13f68f8eea9f220",
+            ),
+        ] {
+            let slots = 1usize << exponent;
+            let mut state = 100;
+            let mut values = Vec::new();
+            for count in 0..=slots {
+                for _ in 0..2 {
+                    let polynomial: Vec<u8> = (0..slots).map(|_| nextByte(&mut state)).collect();
+                    values.extend(AdditiveFFT::evaluations(&polynomial, count, exponent));
+                }
+            }
+            assert_eq!(digest(&values), expected, "exponent {exponent}, seed 100");
+        }
+    }
+
+    #[test]
+    fn errorPositionsGiveThePositionsOfTheCFunctionForAnyValues() {
+        // The digest of `fft_retrieve_error_poly` of liboqs 0.16.0, the same for the prefixes
+        // `PQCHQC_HQC1_C_`, `PQCHQC_HQC3_C_` and `PQCHQC_HQC5_C_`, for 16 arrays of values with
+        // the seed 200. Each value is from the sequence, and the next value below 128 sets it to
+        // zero, so about half of the values are zero. Entry 0 takes the zero test of the value
+        // at 0 and of the value at 1, as in the C code.
+        let mut state = 200;
+        let mut positions = Vec::new();
+        for _ in 0..16 {
+            let values: [u8; fieldSize] = core::array::from_fn(|_| {
+                let value = nextByte(&mut state);
+                if nextByte(&mut state) < 128 { 0 } else { value }
+            });
+            positions.extend(AdditiveFFT::errorPositions(&values));
+        }
+        assert_eq!(
+            digest(&positions),
+            "5f1ec81d25a41738285c1220c960414e4da34df30f345c5b039fcccc0031f4f9",
+            "seed 200"
+        );
+    }
+
+    #[test]
+    fn radixConversionIsTheSplitOfItsDefinitionAtEverySize() {
+        // `f(x) = f0(x^2 + x) + x f1(x^2 + x)` has one solution with `f0` and `f1` of half the
+        // size of `f`. The conversion only adds coefficients, so the polynomials with a single
+        // coefficient 1 prove it for every polynomial. Two polynomials of fewer than 256
+        // coefficients that agree at every field element are equal. The general conversion of
+        // `radix_big` gives the same split at every size from 4 coefficients, so each explicit
+        // case of `radix` is the general conversion.
+        for exponent in 1..=5u32 {
+            let size = 1usize << exponent;
+            for index in 0..size {
+                let mut polynomial = vec![0u8; size];
+                polynomial[index] = 1;
+                let mut low = vec![0u8; size / 2];
+                let mut high = vec![0u8; size / 2];
+                radix(&mut low, &mut high, &polynomial, exponent);
+                for point in 0..=255u8 {
+                    let image = GaloisField::square(point) ^ point;
+                    assert_eq!(
+                        value(&low, image) ^ GaloisField::product(point, value(&high, image)),
+                        value(&polynomial, point),
+                        "coefficient {index} of {size}, point {point}"
+                    );
+                }
+                if exponent > 1 {
+                    let mut generalLow = vec![0u8; size / 2];
+                    let mut generalHigh = vec![0u8; size / 2];
+                    radixOfManyCoefficients(
+                        &mut generalLow,
+                        &mut generalHigh,
+                        &polynomial,
+                        exponent,
+                    );
+                    assert_eq!(
+                        (generalLow, generalHigh),
+                        (low, high),
+                        "coefficient {index} of {size}"
+                    );
+                }
+            }
+        }
     }
 
     #[test]

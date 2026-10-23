@@ -36,6 +36,7 @@ impl<'parameters> ConcatenatedCode<'parameters> {
 mod tests {
     use super::ConcatenatedCode;
     use crate::parameters::{hqc1, hqc3, hqc5};
+    use crate::testInputs::{digest, receivedWord};
 
     #[test]
     fn decodingRecoversTheMessageThroughErrorsOfBothCodes() {
@@ -61,6 +62,43 @@ mod tests {
                 code.decoded(&word),
                 message,
                 "{}",
+                parameters.description.name
+            );
+        }
+    }
+
+    #[test]
+    fn decodingOfAnyWordGivesTheMessageOfTheCFunction() {
+        // The digests of `code_decode` of liboqs 0.16.0 for six received words of each set, with
+        // the seeds 500, 501 and 502. The thresholds of the shifts 2, 1 and 0 leave no wrong
+        // byte, fewer than `delta` and more than `delta` wrong bytes for the Reed-Solomon code.
+        for (seed, parameters, expected) in [
+            (
+                500,
+                &hqc1,
+                "c24bfc02dce51237feec0ab3e0d63ade7db9dd2b8bb5490009c6054cbc2e7ac9",
+            ),
+            (
+                501,
+                &hqc3,
+                "9571e28ea6b96899377545adae997da5cbd6d906da10766d569e7660ebe3b029",
+            ),
+            (
+                502,
+                &hqc5,
+                "f7efd03a1f0afb5bdd9a3c7f154cf97b9c9652a2b0e1caf97964651fba5fc849",
+            ),
+        ] {
+            let code = ConcatenatedCode::new(parameters);
+            let mut state = seed;
+            let mut messages = Vec::new();
+            for word in 0..6 {
+                messages.extend(code.decoded(&receivedWord(&mut state, parameters, word % 3)));
+            }
+            assert_eq!(
+                digest(&messages),
+                expected,
+                "{}, seed {seed}",
                 parameters.description.name
             );
         }

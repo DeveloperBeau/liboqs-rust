@@ -107,6 +107,8 @@ impl ReedMuller {
 #[cfg(test)]
 mod tests {
     use super::ReedMuller;
+    use crate::parameters::{hqc1, hqc3, hqc5};
+    use crate::testInputs::{digest, receivedWord};
 
     /// The bit of a codeword at a position, from the four 32-bit words.
     fn bit(codeword: [u32; 4], position: usize) -> u32 {
@@ -183,6 +185,80 @@ mod tests {
         assert_eq!(ReedMuller::peakPosition(&transform), 128 + 3);
         transform[127] = -8;
         assert_eq!(ReedMuller::peakPosition(&transform), 127);
+    }
+
+    #[test]
+    fn peakFollowsEachLargerAbsoluteValueInTurn() {
+        // The absolute values 1, 2 and 3 in turn: each one is larger than the peak before it, so
+        // the peak is the last one. The values -1, 3 and -3: the second 3 is not larger, so the
+        // peak is the first 3, which is positive.
+        let mut rising = [0i16; 128];
+        rising[10] = 1;
+        rising[20] = -2;
+        rising[30] = 3;
+        assert_eq!(ReedMuller::peakPosition(&rising), 128 + 30);
+        let mut repeated = [0i16; 128];
+        repeated[10] = -1;
+        repeated[20] = 3;
+        repeated[30] = -3;
+        assert_eq!(ReedMuller::peakPosition(&repeated), 128 + 20);
+    }
+
+    #[test]
+    fn decodingOfManyErrorsAndTiesGivesTheBytesOfTheCFunction() {
+        // The digests of `reed_muller_decode` of liboqs 0.16.0 for three received words of each
+        // set, with the seeds 400, 401 and 402. A block flips each bit of a codeword with a
+        // probability from 0 to almost 1, so the words hold clean blocks, blocks with more flips
+        // than the code corrects, and ties of the largest absolute value.
+        let mut tieCount = 0;
+        for (seed, parameters, expected) in [
+            (
+                400,
+                &hqc1,
+                "eb8f92a7a326b3e107f91dbba78cc1e77f8be832b9a4db9b3adfe83c050c8270",
+            ),
+            (
+                401,
+                &hqc3,
+                "da51333fde077b6b4cb7d5216df7bb306acc36065b5c8d885dc49d4c5b9500a5",
+            ),
+            (
+                402,
+                &hqc5,
+                "4aab8ca4de4b5242c5e82d3bc562eb18590d899d03b1a5cf7a646ffa28ca2c88",
+            ),
+        ] {
+            let multiplicity = parameters.multiplicity();
+            let mut state = seed;
+            let mut decoded = Vec::new();
+            for shift in 0..3 {
+                let word = receivedWord(&mut state, parameters, shift);
+                decoded.extend(ReedMuller::decoded(
+                    &word,
+                    parameters.reedSolomonLength,
+                    multiplicity,
+                ));
+                for copies in word.chunks_exact(2 * multiplicity) {
+                    let mut transform =
+                        ReedMuller::hadamardTransform(ReedMuller::bitCounts(copies));
+                    transform[0] -= 64 * multiplicity as i16;
+                    let largest = transform.iter().map(|value| value.unsigned_abs()).max();
+                    let peakCount = transform
+                        .iter()
+                        .filter(|value| Some(value.unsigned_abs()) == largest)
+                        .count();
+                    tieCount += usize::from(peakCount > 1);
+                }
+            }
+            assert_eq!(
+                digest(&decoded),
+                expected,
+                "{}, seed {seed}",
+                parameters.description.name
+            );
+        }
+        // The seeds reach ties of the largest absolute value.
+        assert!(tieCount > 0);
     }
 
     #[test]
