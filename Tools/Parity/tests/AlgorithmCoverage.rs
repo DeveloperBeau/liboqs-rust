@@ -13,22 +13,35 @@ fn notYetPorted() -> Vec<&'static str> {
         .collect()
 }
 
-/// The names of the C library that the registry does not hold, in liboqs order.
+/// The names of the C library that the lists of the registry do not hold, in liboqs order.
+/// The parity program checks the algorithms of the lists, not the algorithms of the lookups.
 fn cNamesOutsideTheRegistry() -> Vec<&'static str> {
     let oracle = COracle::new(OracleRandomness::nist([0; 48]));
+    let mechanisms: Vec<&str> = Registry::mechanisms()
+        .iter()
+        .map(|mechanism| mechanism.description().name)
+        .collect();
+    let schemes: Vec<&str> = Registry::signatureSchemes()
+        .iter()
+        .map(|scheme| scheme.description().name)
+        .collect();
+    let statefulSchemes: Vec<&str> = Registry::statefulSignatureSchemes()
+        .iter()
+        .map(|scheme| scheme.description().name)
+        .collect();
     let kems = oracle
         .kemNames()
         .into_iter()
-        .filter(|name| Registry::mechanism(name).is_none());
-    let schemes = oracle
+        .filter(|name| !mechanisms.contains(name));
+    let signatures = oracle
         .signatureNames()
         .into_iter()
-        .filter(|name| Registry::signatureScheme(name).is_none());
-    let statefulSchemes = oracle
+        .filter(|name| !schemes.contains(name));
+    let statefulSignatures = oracle
         .statefulSignatureNames()
         .into_iter()
-        .filter(|name| Registry::statefulSignatureScheme(name).is_none());
-    kems.chain(schemes).chain(statefulSchemes).collect()
+        .filter(|name| !statefulSchemes.contains(name));
+    kems.chain(signatures).chain(statefulSignatures).collect()
 }
 
 #[test]
