@@ -47,3 +47,9 @@
 - Trap: `cargo xtask fetch-oracle` in a worktree whose `target/oracle` links to the oracle folder of another clone builds the whole C library again, although no source changed.
 - Finding: a fetch took 2 minutes 35 seconds on 4 processors. The tool gave CMake the relative folders `target/oracle/<version>/source` and `target/oracle/<version>/build`, so the CMake cache recorded the path through the link of the worktree that ran the last fetch. A fetch from another worktree changed that path, and CMake configured and compiled every file again. The new build also rewrote the `liboqs.a` that the tests of the other worktrees link.
 - Rule: a tool that gives a path to a program that records it gives the path with every link resolved. `OracleBuild` takes the folders from `FileReading::resolvedPath`.
+
+## An empty Rust slice is not a null pointer
+
+- Trap: an oracle that passes `as_ptr()` of an empty context gives the C library a pointer that is not null, and liboqs reads the pointer as well as the length.
+- Finding: the parity check of `Falcon-512` failed with "Rust succeeds and C fails" for the empty context. The liboqs wrapper of a scheme without context support signs only when `ctx_str == NULL && ctx_str_len == 0`, and the pointer of an empty Rust slice is a dangling address that is not null. `anEmptyContextIsTheNullContextOfTheCLibrary` failed before the fix.
+- Rule: the oracle passes the null pointer for an empty context, as `tests/test_sig.c` does. An empty input reaches the C library as the null pointer wherever the C code compares a pointer with `NULL`.
