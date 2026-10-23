@@ -1,0 +1,33 @@
+[package]
+name = "oqs-native-falcon"
+description = "Falcon, the lattice signature scheme, a native port of the Falcon algorithms of liboqs."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[package.metadata]
+ring = "features"
+
+[lib]
+name = "OQSNativeFalcon"
+path = "src/lib.rs"
+
+[dependencies]
+oqs-native-domain = { path = "../Domain", default-features = false }
+oqs-native-entities = { path = "../Entities", default-features = false }
+oqs-native-sha3 = { path = "../SHA3", default-features = false }
+
+[dev-dependencies]
+oqs-native-algorithm-tests = { path = "../AlgorithmTests" }
+oqs-native-kat-random = { path = "../KATRandom" }
+
+[features]
+default = ["std"]
+# Without `std` the crate builds with `core` and `alloc` only.
+std = ["oqs-native-domain/std", "oqs-native-entities/std", "oqs-native-sha3/std"]
+
+[lints]
+workspace = true

@@ -1,5 +1,6 @@
 use OQSNativeBIKE::BIKE;
 use OQSNativeDomain::{KeyEncapsulating, Signing, StatefulSigning};
+use OQSNativeFalcon::Falcon;
 use OQSNativeFrodoKEM::FrodoKEM;
 use OQSNativeHQC::HQC;
 use OQSNativeMLDSA::MLDSA;
@@ -40,7 +41,15 @@ const mechanisms: &[&dyn KeyEncapsulating] = &[
 ];
 
 /// The signature schemes.
-const signatureSchemes: &[&dyn Signing] = &[&MLDSA::mldsa44, &MLDSA::mldsa65, &MLDSA::mldsa87];
+const signatureSchemes: &[&dyn Signing] = &[
+    &MLDSA::mldsa44,
+    &MLDSA::mldsa65,
+    &MLDSA::mldsa87,
+    &Falcon::falcon512,
+    &Falcon::falcon1024,
+    &Falcon::falconPadded512,
+    &Falcon::falconPadded1024,
+];
 
 /// The stateful signature schemes.
 const statefulSignatureSchemes: &[&dyn StatefulSigning] = &[];

@@ -23,10 +23,12 @@ A name writes each acronym in this table as one unit: all upper case (`MLKEM768`
 | `FIPS` | Federal Information Processing Standard |
 | `HQC` | Hamming Quasi-Cyclic |
 | `ID` | Identifier |
+| `IEEE` | Institute of Electrical and Electronics Engineers |
 | `IND` | Indistinguishability |
 | `JSON` | JavaScript Object Notation |
 | `KAT` | Known-answer test |
 | `KEM` | Key encapsulation mechanism |
+| `LDL` | The LDL decomposition: a lower triangular matrix, a diagonal matrix and the adjoint of the lower one |
 | `LMS` | Leighton-Micali Signature |
 | `MAYO` | The MAYO signature scheme |
 | `ML` | Module lattice |
@@ -35,6 +37,7 @@ A name writes each acronym in this table as one unit: all upper case (`MLKEM768`
 | `NTRU` | The NTRU lattice scheme |
 | `OQS` | Open Quantum Safe |
 | `OS` | Operating system |
+| `RFC` | Request for Comments |
 | `RNG` | Random number generator |
 | `SHA` | Secure Hash Algorithm |
 | `SHAKE` | Secure Hash Algorithm Keccak, the extendable-output functions |
