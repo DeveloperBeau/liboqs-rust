@@ -114,6 +114,20 @@ You are solely responsible for determining the appropriateness of using and dist
 - Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. License: Apache-2.0, in the `LICENSE` file of that folder and in the `SPDX-License-Identifier` line of each file. The liboqs wrapper `src/kem/bike/kem_bike.c` is MIT.
 - Use in this repository: `Modules/BIKE` translates the portable files of that folder into Rust. The port is a modified work: it takes its random bytes as an argument, and it computes the carry-less products by another method that gives the same bytes. The crate is under MIT AND Apache-2.0.
 
+## NTRU
+
+- Algorithm: NTRU, by John M. Schanck, with Cong Chen, Oussama Danba, Jeffrey Hoffstein, Andreas Hülsing, Joost Rijneveld, Tsunekazu Saito, Peter Schwabe, William Whyte, Keita Xagawa, Takashi Yamakawa and Zhenfei Zhang. See https://ntru.org/.
+- NTRU in liboqs: the clean code of [PQClean](https://github.com/PQClean/PQClean), commit `4c9e5a3aa715cc8d1d0e377e4e6e682ebd7602d6`, in `src/kem/ntru/pqclean_ntru*_clean`. PQClean took it from the reference code of the NTRU team, [jschanck/ntru](https://github.com/jschanck/ntru), commit `a43a4457`. The version text of liboqs names commit `6d96ed37` of the same repository.
+- License: public domain, as the `LICENSE` file of each PQClean folder states. liboqs gives `spdx-license-identifier: CC0-1.0` in `docs/algorithms/kem/ntru.yml`. Some files name their SUPERCOP origin: `crypto_sort_int32.c` is based on `crypto_sort/int32/x86` of supercop-20190110, and `poly_r2_inv.c` and `poly_s3_inv.c` on `crypto_core/invhrss701` of supercop-20200702. The liboqs wrappers `src/kem/ntru/kem_ntru.h` and `kem_ntru_hps2048509.c` to `kem_ntru_hrss1373.c` are MIT, as liboqs is.
+- Use in this repository: `Modules/NTRU` translates the clean code and gives its bytes. The port is under MIT, which a public domain upstream allows, so the crate keeps the license of the workspace.
+
+## NTRU Prime
+
+- Algorithm: NTRU Prime, by Daniel J. Bernstein, Billy Bob Brumley, Ming-Shing Chen, Chitchanok Chuengsatiansup, Tanja Lange, Adrian Marotzke, Bo-Yuan Peng, Nicola Tuveri, Christine van Vredendaal and Bo-Yin Yang. sntrup761 is its Streamlined form. See https://ntruprime.cr.yp.to.
+- sntrup761 in liboqs: `sntrup761.c` of [OpenSSH](https://github.com/openssh/openssh-portable), revision 1.9 of 2026-01-20, commit `1cc936b2fabffeac7fff14ca1070d7d7a317ab7b`, in `src/kem/ntruprime/sntrup761_openssh`. The file takes its code from SUPERCOP 20240808, and names Daniel J. Bernstein, Chitchanok Chuengsatiansup, Tanja Lange and Christine van Vredendaal as its authors.
+- License: public domain, as the header of `sntrup761.c` and the `LICENSE` file of the folder state. liboqs gives `spdx-license-identifier: Public domain` in `docs/algorithms/kem/ntruprime.yml`. The liboqs wrappers `src/kem/ntruprime/kem_ntruprime.h` and `kem_ntruprime_sntrup761.c` are MIT, as liboqs is.
+- Use in this repository: `Modules/NTRUPrime` translates `sntrup761.c` and gives its bytes. The port is under MIT, which a public domain upstream allows, so the crate keeps the license of the workspace.
+
 ## ML-DSA
 
 - Algorithm: CRYSTALS-Dilithium, by Vadim Lyubashevsky, with Shi Bai, Léo Ducas, Eike Kiltz, Tancrède Lepoint, Peter Schwabe, Gregor Seiler and Damien Stehlé. ML-DSA is its standard form, NIST FIPS 204. See https://pq-crystals.org/dilithium/ and https://csrc.nist.gov/pubs/fips/204/final.

@@ -6,6 +6,8 @@ use OQSNativeHQC::HQC;
 use OQSNativeMAYO::MAYO;
 use OQSNativeMLDSA::MLDSA;
 use OQSNativeMLKEM::{Kyber, MLKEM};
+use OQSNativeNTRU::NTRU;
+use OQSNativeNTRUPrime::NTRUPrime;
 
 /// Every algorithm of the port, by its liboqs name.
 ///
@@ -27,6 +29,13 @@ const mechanisms: &[&dyn KeyEncapsulating] = &[
     &MLKEM::mlkem512,
     &MLKEM::mlkem768,
     &MLKEM::mlkem1024,
+    &NTRU::ntruHPS2048509,
+    &NTRU::ntruHPS2048677,
+    &NTRU::ntruHPS4096821,
+    &NTRU::ntruHPS40961229,
+    &NTRU::ntruHRSS701,
+    &NTRU::ntruHRSS1373,
+    &NTRUPrime::sntrup761,
     &FrodoKEM::frodoKEM640AES,
     &FrodoKEM::frodoKEM640SHAKE,
     &FrodoKEM::frodoKEM976AES,
