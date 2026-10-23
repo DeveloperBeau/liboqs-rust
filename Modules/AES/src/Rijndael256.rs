@@ -145,7 +145,7 @@ mod tests {
     }
 
     /// Seeded bytes: the high bytes of a 64-bit linear congruential sequence.
-    fn seededBytes<const LENGTH: usize>(state: &mut u64) -> [u8; LENGTH] {
+    fn seededBytes<const Length: usize>(state: &mut u64) -> [u8; Length] {
         core::array::from_fn(|_| {
             *state = state
                 .wrapping_mul(6_364_136_223_846_793_005)
