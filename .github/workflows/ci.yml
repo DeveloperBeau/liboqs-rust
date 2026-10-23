@@ -1,8 +1,8 @@
 name: CI
 
 on:
+  # Every pull request, so a pull request stacked on another one also runs the checks.
   pull_request:
-    branches: [release, develop]
   push:
     branches: [release, develop]
 
