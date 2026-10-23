@@ -35,6 +35,7 @@ The crate is test-only. A family crate may use it in its tests, as the ring regi
 | `StatefulSignatureFuzzTest` | The programs `fuzz_test_sig_stfl_xmss` and `fuzz_test_sig_stfl_lms`, with seeded cases on the values of the response file, and hostile signatures, public keys and secret keys |
 | `FuzzRandom` | The random source of the fuzz cases: all zeros, all ones, or seeded SplitMix64 bytes, and the hostile values and wrong lengths of a case |
 | `SuiteSample` | The algorithms that the default test suite runs through the programs and the parity checks |
+| `StatefulTreeHeight` | The height of the largest tree of a stateful set, read from its liboqs name |
 | `TestVectorFiles` | The vector files that `cargo xtask fetch-oracle` downloads, see `Documentation/Registers/TestVectors.md`, and the response files of the stateful schemes in the liboqs source of the oracle |
 | `JSONValue` | A small JSON reader for the vector files |
 | `LinearCongruentialSequence` | The seeded inputs of the C programs that give the known answers of the unit tests of the families |
@@ -98,7 +99,7 @@ Some liboqs tests read vector files that they download, the ACVP files of NIST a
 
 - `kat_kem` fails when decapsulation does not recover the shared secret, and `kat_sig` fails when the signature does not verify.
 - `kat_sig` has a signed-message layout for 65 schemes only. A scheme without one, such as SLH-DSA, has no known-answer run, and the run is an error. `tests/test_kat.py` skips SLH-DSA, and its ACVP vectors test it instead.
-- `SuiteSample` holds every algorithm except most SLH-DSA schemes. The small sets of SLH-DSA sign in one to two seconds each, and the 144 pre-hash forms differ from the pure forms only in the message that they sign. So the sample holds the six pure fast sets and each pre-hash function with `SHA2_128F`. The tests of every scheme are behind `#[ignore]`, and `parity run` checks every scheme in release builds.
+- `SuiteSample` holds every algorithm except most SLH-DSA schemes. The small sets of SLH-DSA sign in one to two seconds each, and the 144 pre-hash forms differ from the pure forms only in the message that they sign. So the sample holds the six pure fast sets and each pre-hash function with `SHA2_128F`. A stateful set is in the sample when its largest tree has a height of 10 or less, because the C library generates a key of height 16 in two minutes, and the Rust side generates the same key. The tests of every scheme are behind `#[ignore]`, and `parity run` checks every scheme in release builds.
 - The Falcon layout moves the 40-byte salt before the message and puts a header byte after it.
 - An empty value prints as `00`, as `OQS_fprintBstr` does.
 
