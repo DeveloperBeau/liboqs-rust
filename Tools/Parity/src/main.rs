@@ -21,11 +21,14 @@ commands:
 options:
   --cases N      the variations of each algorithm (run, default 1000)
   --seed S       the seed of the variations (run)
-  --shard I/N    check only the algorithms at positions I, I + N, I + 2N and so on
+  --shard I/N    check only the jobs at positions I, I + N, I + 2N and so on. A job is an
+                 algorithm, or a block of its variations with --block-size
+  --block-size N split the variations of each algorithm into blocks of N, which the shards
+                 and the processes split (run). The first block also checks the base case
   --only NAME    check only the named algorithm (repeatable)
   --all          also compare the digests of every count (known-answers)
   --check        compare each digest with the frozen snapshot and print no snapshot (snapshot)
-  --processes N  run the command in N processes, which split the algorithms of the shard, and
+  --processes N  run the command in N processes, which split the jobs of the shard, and
                  fail when one fails. The C library has one global random source, so one
                  process runs one C operation at a time, and more processes use more
                  processors.";
@@ -44,11 +47,18 @@ fn run(options: &ParityOptions) -> usize {
         Registry::signatureSchemes(),
         options,
     );
+    let algorithmCount = jobs
+        .iter()
+        .map(|job| job.name)
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
+    let blocks = match options.settings.blockSize {
+        Some(size) => format!(" in blocks of {size}"),
+        None => String::new(),
+    };
     println!(
-        "parity of {} algorithms, {} variations each, seed {:#x}",
-        jobs.len(),
-        options.settings.caseCount,
-        options.settings.seed
+        "parity of {algorithmCount} algorithms, {} variations each{blocks}, seed {:#x}",
+        options.settings.caseCount, options.settings.seed
     );
     ParityJob::runAll(jobs, &printLine)
 }

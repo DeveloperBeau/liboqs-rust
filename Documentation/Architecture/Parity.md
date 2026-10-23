@@ -14,7 +14,7 @@ Each Rust algorithm must give the same bytes as the C algorithm of the same name
 |---|---|
 | `KEMParity` | The checks of one KEM |
 | `SignatureParity` | The checks of one signature scheme |
-| `ParitySettings` | The case count, the seed and the shard of a run |
+| `ParitySettings` | The case count, the seed, the block size and the shard of a run |
 | `VariationGenerator` | SplitMix64, the generator of the variation inputs |
 | `ParityMismatch` | The first difference: algorithm, case, seed, step and bytes |
 | `Snapshot` | The snapshot format of the Swift and Zig ports |
@@ -60,7 +60,9 @@ The first difference stops the check with a `ParityMismatch`, which names the al
 - `snapshot` prints the snapshot of the C library. With `--check` it compares each digest with the frozen file.
 - `known-answers` runs the liboqs known-answer programs on the C algorithms through the Rust harness, and on the registered Rust algorithm of each name, and compares each digest with the digest of liboqs. A job fails when either side differs. See [KnownAnswerPrograms.md](KnownAnswerPrograms.md).
 
-`--shard I/N` takes the algorithms at positions `I`, `I + N` and so on. `--processes N` splits the run into N processes. One process runs one C operation at a time, because of the lock of the oracle, so more processes use more processors.
+`--block-size N` splits the variations of each algorithm into blocks of N cases, and each block is a job of its own. The first block also checks the base case. Without the option, each algorithm is one job.
+
+`--shard I/N` takes the jobs at positions `I`, `I + N` and so on. The positions count the blocks, so the blocks of a slow algorithm go to different shards. `--processes N` splits the run into N processes. One process runs one C operation at a time, because of the lock of the oracle, so more processes use more processors.
 
 ## Edge cases
 
@@ -76,4 +78,4 @@ The first difference stops the check with a `ParityMismatch`, which names the al
 - `SnapshotParity.rs`: the names of the frozen snapshot, and the snapshot line of each registered algorithm.
 - `RegisteredParity.rs`: every registered algorithm with the cases of `PARITY_CASES`, 2 by default, and the seed of `PARITY_SEED`. The suite runs in the dev profile, where a variation of a large family takes a large part of a second, so the release runs of `parity run` carry the 1000 variations.
 
-CI runs the test suite on every pull request, then `known-answers --all` and `snapshot --check`, and `run` with 1000 variations in four shards of four processes.
+CI runs the test suite on every pull request, then `known-answers --all` and `snapshot --check`, and `run` with 1000 variations in blocks of 50, in four shards of four processes.

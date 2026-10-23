@@ -1,4 +1,4 @@
-use crate::{KEMParity, LargeStack, ParityOptions, SignatureParity, Snapshot};
+use crate::{KEMParity, LargeStack, ParityMismatch, ParityOptions, SignatureParity, Snapshot};
 use OQSNativeAlgorithmTests::{
     KEMKnownAnswerTest, KnownAnswerDigests, SignatureKnownAnswerTest, StatefulKnownAnswerDigests,
     StatefulKnownAnswerTest, TestVectorFiles,
@@ -7,6 +7,7 @@ use OQSNativeCOracle::{
     COracle, OracleMechanism, OracleRandomness, OracleSignatureScheme, OracleStatefulScheme,
 };
 use OQSNativeDomain::{KeyEncapsulating, Signing, StatefulSigning};
+use std::ops::Range;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
@@ -22,31 +23,57 @@ pub struct ParityJob<'check> {
 
 impl<'check> ParityJob<'check> {
     /// The jobs of the parity gate for the selected mechanisms and schemes, mechanisms first.
-    /// The positions of the shard count over both lists.
+    ///
+    /// Each algorithm has one job for each block of its variations, and the first block also
+    /// checks the base case. The positions of the shard count over the blocks of both lists,
+    /// so the blocks of one algorithm go to different shards.
     pub fn parityJobs(
         mechanisms: &'check [&'check dyn KeyEncapsulating],
         schemes: &'check [&'check dyn Signing],
         options: &ParityOptions,
     ) -> Vec<ParityJob<'check>> {
         let settings = options.settings;
-        let summary = move || format!("base case and {} variations identical", settings.caseCount);
-        let mechanismJobs = mechanisms.iter().map(move |mechanism| ParityJob {
-            name: mechanism.description().name,
-            check: Box::new(move || {
-                KEMParity::new(*mechanism, settings.seed)
-                    .checkEveryCase(settings.caseCount)
-                    .map(|()| summary())
-                    .map_err(|mismatch| mismatch.to_string())
-            }),
+        let blocks = settings.caseBlocks();
+        let summary = move |cases: &Range<u64>| match (cases.start, cases.end) {
+            (0, end) if end == settings.caseCount => {
+                format!("base case and {end} variations identical")
+            }
+            (0, end) => format!("base case and variations 0 to {} identical", end - 1),
+            (start, end) => format!("variations {start} to {} identical", end - 1),
+        };
+        let mechanismJobs = mechanisms.iter().flat_map(|mechanism| {
+            blocks.iter().map(move |cases| {
+                let cases = cases.clone();
+                ParityJob {
+                    name: mechanism.description().name,
+                    check: Box::new(move || {
+                        let parity = KEMParity::new(*mechanism, settings.seed);
+                        Self::checkBlock(
+                            &cases,
+                            || parity.checkBaseCase(),
+                            |case| parity.checkCase(case),
+                        )
+                        .map(|()| summary(&cases))
+                    }),
+                }
+            })
         });
-        let schemeJobs = schemes.iter().map(move |scheme| ParityJob {
-            name: scheme.description().name,
-            check: Box::new(move || {
-                SignatureParity::new(*scheme, settings.seed)
-                    .checkEveryCase(settings.caseCount)
-                    .map(|()| summary())
-                    .map_err(|mismatch| mismatch.to_string())
-            }),
+        let schemeJobs = schemes.iter().flat_map(|scheme| {
+            blocks.iter().map(move |cases| {
+                let cases = cases.clone();
+                ParityJob {
+                    name: scheme.description().name,
+                    check: Box::new(move || {
+                        let parity = SignatureParity::new(*scheme, settings.seed);
+                        Self::checkBlock(
+                            &cases,
+                            || parity.checkBaseCase(),
+                            |case| parity.checkCase(case),
+                        )
+                        .map(|()| summary(&cases))
+                    }),
+                }
+            })
         });
         mechanismJobs
             .chain(schemeJobs)
@@ -54,6 +81,22 @@ impl<'check> ParityJob<'check> {
             .filter(|(position, job)| options.isSelected(*position, job.name))
             .map(|(_, job)| job)
             .collect()
+    }
+
+    /// Checks the base case when a block starts at the first case, then each case of the block
+    /// in order, and stops at the first mismatch.
+    fn checkBlock(
+        cases: &Range<u64>,
+        baseCase: impl Fn() -> Result<(), ParityMismatch>,
+        case: impl Fn(u64) -> Result<(), ParityMismatch>,
+    ) -> Result<(), String> {
+        if cases.start == 0 {
+            baseCase().map_err(|mismatch| mismatch.to_string())?;
+        }
+        cases
+            .clone()
+            .try_for_each(case)
+            .map_err(|mismatch| mismatch.to_string())
     }
 
     /// The jobs of the known-answer run: each algorithm of the digest files, KEMs first, then

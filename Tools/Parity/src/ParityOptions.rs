@@ -50,6 +50,17 @@ impl ParityOptions {
                     let shard = value()?;
                     options.settings = options.settings.withShard(&shard)?;
                 }
+                "--block-size" => {
+                    let size = value()?;
+                    options.settings.blockSize = Some(
+                        size.parse::<u64>()
+                            .ok()
+                            .filter(|size| *size > 0)
+                            .ok_or_else(|| {
+                                format!("--block-size `{size}` is not a count above zero")
+                            })?,
+                    );
+                }
                 "--only" => options.names.push(value()?),
                 "--all" => options.isAll = true,
                 "--check" => options.isCheck = true,
@@ -71,7 +82,8 @@ impl ParityOptions {
         Ok(options)
     }
 
-    /// True when the run checks the algorithm at a position of its list.
+    /// True when the run checks the job at a position of its list, which is an algorithm or
+    /// a block of the variations of an algorithm.
     pub fn isSelected(&self, position: usize, name: &str) -> bool {
         self.settings.includes(position)
             && (self.names.is_empty() || self.names.iter().any(|selected| selected == name))
@@ -131,11 +143,12 @@ mod tests {
     #[test]
     fn eachOptionSetsItsValue() {
         let options = ParityOptions::parse(&words(
-            "--cases 7 --seed 0x10 --shard 1/3 --only A --only B --all --check --processes 2",
+            "--cases 7 --seed 0x10 --shard 1/3 --block-size 3 --only A --only B --all --check --processes 2",
         ))
         .expect("valid");
         assert_eq!(options.settings.caseCount, 7);
         assert_eq!(options.settings.seed, 16);
+        assert_eq!(options.settings.blockSize, Some(3));
         assert_eq!(
             (options.settings.shardIndex, options.settings.shardCount),
             (1, 3)
@@ -153,6 +166,14 @@ mod tests {
             ("--seed y", "--seed `y` is not a number"),
             ("--processes 0", "--processes `0` is not a count above zero"),
             ("--processes z", "--processes `z` is not a count above zero"),
+            (
+                "--block-size 0",
+                "--block-size `0` is not a count above zero",
+            ),
+            (
+                "--block-size w",
+                "--block-size `w` is not a count above zero",
+            ),
             ("--fast", "unknown option `--fast`"),
         ] {
             assert_eq!(
@@ -174,15 +195,15 @@ mod tests {
 
     #[test]
     fn processesSplitTheShardSoThatTogetherTheyTakeEachPositionOnce() {
-        let arguments = words("--cases 5 --shard 1/2 --processes 3");
+        let arguments = words("--cases 5 --shard 1/2 --processes 3 --block-size 2");
         let options = ParityOptions::parse(&arguments).expect("valid");
         let children = ParityOptions::processArguments(&arguments, &options);
         assert_eq!(
             children,
             vec![
-                words("--cases 5 --shard 1/6"),
-                words("--cases 5 --shard 3/6"),
-                words("--cases 5 --shard 5/6"),
+                words("--cases 5 --block-size 2 --shard 1/6"),
+                words("--cases 5 --block-size 2 --shard 3/6"),
+                words("--cases 5 --block-size 2 --shard 5/6"),
             ]
         );
         let childOptions: Vec<ParityOptions> = children

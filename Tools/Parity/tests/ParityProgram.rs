@@ -118,6 +118,39 @@ fn snapshotPrintsTheFrozenLineAndTheCheckConfirmsIt() {
 }
 
 #[test]
+fn runInBlocksReportsEachBlockOfAnAlgorithm() {
+    let output = runProgram(&[
+        "run",
+        "--cases",
+        "3",
+        "--block-size",
+        "2",
+        "--seed",
+        "5",
+        "--only",
+        "ML-KEM-512",
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    let text = standardOutput(&output);
+    let lines: Vec<&str> = text.lines().collect();
+    assert_eq!(
+        lines[0],
+        "parity of 1 algorithms, 3 variations each in blocks of 2, seed 0x5"
+    );
+    let mut blocks: Vec<&str> = lines[1..].to_vec();
+    blocks.sort();
+    assert_eq!(blocks.len(), 2, "{text}");
+    assert!(
+        blocks[0].starts_with("ok    ML-KEM-512 (base case and variations 0 to 1 identical, "),
+        "{text}"
+    );
+    assert!(
+        blocks[1].starts_with("ok    ML-KEM-512 (variations 2 to 2 identical, "),
+        "{text}"
+    );
+}
+
+#[test]
 fn runOverTheRegistryReportsItsSize() {
     let output = runProgram(&["run", "--cases", "2", "--seed", "5"]);
     assert_eq!(output.status.code(), Some(0));
