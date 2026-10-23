@@ -1,0 +1,29 @@
+[package]
+name = "oqs-native-kat-random"
+description = "The deterministic random generators of the liboqs known-answer tests: the NIST AES-256 CTR DRBG and the HQC SHAKE256 generator."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[package.metadata]
+ring = "infrastructure"
+
+[lib]
+name = "OQSNativeKATRandom"
+path = "src/lib.rs"
+
+[dependencies]
+oqs-native-aes = { path = "../AES", default-features = false }
+oqs-native-domain = { path = "../Domain", default-features = false }
+oqs-native-sha3 = { path = "../SHA3", default-features = false }
+
+[features]
+default = ["std"]
+# Without `std` the crate builds with `core` and `alloc` only.
+std = ["oqs-native-aes/std", "oqs-native-domain/std", "oqs-native-sha3/std"]
+
+[lints]
+workspace = true

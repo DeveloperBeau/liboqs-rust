@@ -1,0 +1,22 @@
+[package]
+name = "oqs-native-system-random"
+description = "Random bytes from the operating system for the native liboqs port."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[package.metadata]
+ring = "infrastructure"
+
+[lib]
+name = "OQSNativeSystemRandom"
+path = "src/lib.rs"
+
+[dependencies]
+oqs-native-domain = { path = "../Domain" }
+
+[lints]
+workspace = true
