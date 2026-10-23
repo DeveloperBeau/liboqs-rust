@@ -3,11 +3,12 @@
 //! mldsa-native decodes the vectors s1, s2 and t0 of a secret key with no range check, so it
 //! signs with any bytes of the right length. Every byte string of the right length is a UOV
 //! key, and a classic secret key whose block S is zero makes every attempt of a signature
-//! fail. The parity variations sign only with generated keys, so this test signs malformed
-//! keys on both sides and compares the signatures, the failures and the verdicts on them. It
-//! also gives both sides UOV public keys made by hand, which accept one signature.
+//! fail. The SNOVA code unpacks an expanded secret key with no check either. The parity
+//! variations sign only with generated keys, so these tests sign malformed keys on both sides
+//! and compare the signatures, the failures and the verdicts on them. They also give both
+//! sides UOV public keys made by hand, which accept one signature.
 
-use OQSNative::{MLDSA, OQSError, Signing, UOV};
+use OQSNative::{MLDSA, OQSError, SNOVA, Signing, UOV};
 use OQSNativeCOracle::{COracle, OracleRandomness};
 use OQSNativeKATRandom::NISTKATRandom;
 use OQSNativeParity::{LargeStack, ParityMismatch, VariationGenerator};
@@ -224,6 +225,84 @@ fn uovVerifiesPublicKeysMadeByHandLikeTheCLibrary() {
                 let rustVerdict = scheme.isValidSignature(&signature, &message, key);
                 assert_eq!((cVerdict, rustVerdict), (expected, expected), "{name}");
             }
+        }
+    });
+}
+
+/// The seed of the malformed expanded keys of SNOVA. A failure message names it.
+const expandedKeySeed: u64 = 0x534E_4F56_414B_4559;
+
+#[test]
+fn snovaSignsMalformedExpandedSecretKeysLikeTheCLibrary() {
+    LargeStack::run(|| {
+        for scheme in [
+            &SNOVA::snova24x5x4WithExpandedSecretKey,
+            &SNOVA::snova24x5x4SHAKEWithExpandedSecretKey,
+        ] {
+            let name = scheme.description().name;
+            let mut failureCount = 0;
+            for case in 0..6u64 {
+                let label = format!("{name}, case {case} of seed {expandedKeySeed:#x}");
+                let mut generator = VariationGenerator::forCase(expandedKeySeed, name, case);
+                let keyPair = scheme
+                    .generateKeyPair(&mut NISTKATRandom::new(&generator.entropy(), None))
+                    .expect("a key pair");
+                let mut secretKey = keyPair.secretKey.bytes().to_vec();
+                // The packed matrices come before the 48 bytes of the seeds.
+                let matricesEnd = secretKey.len() - 48;
+                match case % 3 {
+                    // Every byte random, the seeds too.
+                    0 => {
+                        let replacement = generator.bytes(secretKey.len());
+                        secretKey.copy_from_slice(&replacement);
+                    }
+                    // Random matrices with the seeds of the key.
+                    1 => {
+                        let replacement = generator.bytes(matricesEnd);
+                        secretKey[..matricesEnd].copy_from_slice(&replacement);
+                    }
+                    // Zero matrices, whose systems are all zero, so every attempt fails.
+                    _ => secretKey[..matricesEnd].fill(0),
+                }
+                let messageLength = generator.messageLength();
+                let message = generator.bytes(messageLength);
+                let signingEntropy = generator.entropy();
+                let cSignature = COracle::new(OracleRandomness::nist(signingEntropy))
+                    .sign(name, &message, &secretKey);
+                let rustSignature = scheme.sign(
+                    &message,
+                    &secretKey,
+                    &mut NISTKATRandom::new(&signingEntropy, None),
+                );
+                let signature = match (cSignature, rustSignature) {
+                    (Ok(signature), Ok(rustSignature)) => {
+                        if let Some(detail) = ParityMismatch::difference(&signature, &rustSignature)
+                        {
+                            panic!("{label}: {detail}");
+                        }
+                        signature
+                    }
+                    (Err(_), Err(_)) => {
+                        failureCount += 1;
+                        continue;
+                    }
+                    (cResult, rustResult) => panic!(
+                        "{label}: C gives {:?} and Rust gives {:?}",
+                        cResult.map(|_| ()),
+                        rustResult.map(|_| ())
+                    ),
+                };
+                let cVerdict = COracle::new(OracleRandomness::nist([0; 48])).isValidSignature(
+                    name,
+                    &signature,
+                    &message,
+                    &keyPair.publicKey,
+                );
+                let rustVerdict = scheme.isValidSignature(&signature, &message, &keyPair.publicKey);
+                assert_eq!(rustVerdict, cVerdict, "{label}");
+            }
+            // The zero matrices fail on both sides.
+            assert_eq!(failureCount, 2, "{name}");
         }
     });
 }

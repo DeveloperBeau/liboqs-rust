@@ -28,6 +28,7 @@ pub use OQSNativeMLKEM::{Kyber, MLKEM};
 pub use OQSNativeNTRU::NTRU;
 pub use OQSNativeNTRUPrime::NTRUPrime;
 pub use OQSNativeSLHDSA::{PreHash, SLHDSA};
+pub use OQSNativeSNOVA::SNOVA;
 #[cfg(feature = "std")]
 pub use OQSNativeSystemRandom::SystemRandom;
 pub use OQSNativeUOV::UOV;
