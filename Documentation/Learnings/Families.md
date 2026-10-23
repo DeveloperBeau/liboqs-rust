@@ -101,3 +101,27 @@
 - Trap: the comparison of decapsulation of BIKE gathers the differences of two error vectors in one 64-bit word and tests the word with `(x | -x) >> 63`. The mutant `(x ^ -x) >> 63` gives the same answer for every value but `2^63`, so every test passed with it.
 - Finding: a ciphertext whose decoded error differs from the rebuilt error only in the coefficients 63 and 127 gathers the difference `2^63` alone. The C code compares bytes and rejects it, and the mutant accepted it.
 - Rule: a rejection test of a comparison that gathers into a word also puts the whole difference in the top bit of the word. `aDecodedErrorThatDiffersOnlyInTheTopBitOfTwoWordsIsRejected` is the template.
+
+## The tests of a signature family spend their time in SHAKE
+
+- Trap: the correctness test of a lattice signature takes minutes in the `dev` profile, although the code of the family is fast.
+- Finding: `SignatureCorrectnessTest` took 93 seconds on one thread for the three ML-DSA sets at the optimization level 1. A probe found the time in SHA-3: the SHAKE128 sampling of one matrix polynomial took 27 microseconds, and one NTT 2 microseconds. At the level 3, SHAKE was seven to nine times faster, and the NTT changed little.
+- Rule: the `dev` profile builds `oqs-native-sha3` with `opt-level = 3` and every other crate with level 1. The override changes only the optimization, so the overflow checks and the debug assertions stay on. The same test now takes 18.5 seconds on one thread.
+
+## A refused case that breaks two rules cannot see the loss of one
+
+- Trap: a decoder test whose malformed inputs each break two rules still passes when the check of one rule is gone.
+- Finding: the hint decoding of ML-DSA refuses a count above omega, a count that falls, places of a row that do not rise and a byte after the last place that is not zero. Two deliberate defects passed the first test: a bound of omega + 1 and no check of a falling count. Each refused case of those rules also had places that did not rise, so the other check refused it.
+- Rule: each refused case of a decoder breaks one rule only, and an accepted case sits at the edge of each rule. `hintUnpackingRefusesEachMalformedEncodingOfMLDSANative` is the template.
+
+## An invalid sign vector of Wycheproof has no signature
+
+- Trap: a test that compares the optional signature of the port with the optional signature of a vector counts a refusal as a match.
+- Finding: the first `WycheproofVectors.rs` of ML-DSA compared `signature.ok()` with the signature of the vector. For tcId 5 of `mldsa_44_sign_noseed_test.json`, the port refused a context of 256 bytes, the invalid vector has an empty signature, and `None == None` counted as accepted.
+- Rule: a vector test accepts only a success whose output equals the output of the vector, as `is_ok_and` does in the Wycheproof tests of ML-KEM. A refusal never matches.
+
+## The vector tests of liboqs use hash functions that the hash API of liboqs does not have
+
+- Trap: a port of the pre-hash vector tests cannot hash the message of every vector with the hash API of liboqs.
+- Finding: `calc_hash` of `tests/test_acvp_vectors.py` hashes the message of a pre-hash vector with Python `hashlib`, with twelve hash functions. The hash API of liboqs has eight of them. SHA-224, SHA-512/224, SHA-512/256 and SHA3-224 are missing, and the C code of SLH-DSA has its own copies.
+- Rule: a test that needs a hash function that the hash API of liboqs lacks takes it from the shared crate of its hash family, written from the standard, with known answers from the standard and from `hashlib`. The pre-hash parameter sets of SLH-DSA name the same four functions.

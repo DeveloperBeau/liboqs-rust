@@ -26,3 +26,9 @@ upper_case_acronyms = "allow"
 # them fast and keeps the overflow checks and the debug assertions of a test build.
 [profile.dev]
 opt-level = 1
+
+# Keccak dominates the signature tests, and SHAKE is seven to nine times faster at the third
+# level. The override changes only the optimization, so the overflow checks and the debug
+# assertions stay on. See Documentation/Learnings/Families.md.
+[profile.dev.package.oqs-native-sha3]
+opt-level = 3
