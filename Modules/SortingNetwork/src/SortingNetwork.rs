@@ -1,10 +1,12 @@
-/// The constant-time sort of 32-bit values of liboqs: `crypto_sort_int32` of the NTRU-HPS code
-/// of PQClean, from `crypto_sort/int32/x86` of SUPERCOP, and `crypto_sort_int32` and
-/// `crypto_sort_uint32` of `sntrup761.c`, from `crypto_sort/int32/portable4` of SUPERCOP.
+/// The constant-time sort of djbsort in liboqs: `crypto_sort_int32` of the NTRU-HPS code of
+/// PQClean, from `crypto_sort/int32/x86` of SUPERCOP, `crypto_sort_int32` and
+/// `crypto_sort_uint32` of `sntrup761.c`, from `crypto_sort/int32/portable4` of SUPERCOP, and
+/// `int32_sort` and `uint64_sort` of the Classic McEliece code of PQClean.
 ///
 /// The network of comparisons depends only on the number of values, and each comparison
 /// exchanges the two values with a mask, so the time does not depend on the values. The
-/// result is the values in ascending order.
+/// result is the values in ascending order, except for the words of `sortWords` that differ
+/// by `2^63` or more.
 pub struct SortingNetwork;
 
 /// The bit that `crypto_sort_uint32` flips, so that the signed order of the flipped values is
@@ -21,6 +23,16 @@ impl SortingNetwork {
     /// values with the top bit flipped.
     pub fn sortUnsigned(values: &mut [u32]) {
         Self::sortWith(values, Self::orderedUnsigned);
+    }
+
+    /// Sorts 64-bit words, `uint64_sort` of the Classic McEliece code.
+    ///
+    /// The exchange `uint64_MINMAX` swaps two words when the top bit of their difference is
+    /// set. Two words that differ by less than `2^63` come out in ascending order. Two words
+    /// that differ by `2^63` or more follow the same rule, so the larger word can come first,
+    /// as in the C code. The key generation of Classic McEliece sorts only words below `2^63`.
+    pub fn sortWords(values: &mut [u64]) {
+        Self::sortWith(values, Self::orderedWords);
     }
 
     /// The smaller and the larger of two signed values with no branch, `int32_MINMAX` of
@@ -41,6 +53,13 @@ impl SortingNetwork {
     fn orderedUnsigned(first: u32, second: u32) -> (u32, u32) {
         let (low, high) = Self::ordered((first ^ topBit) as i32, (second ^ topBit) as i32);
         ((low as u32) ^ topBit, (high as u32) ^ topBit)
+    }
+
+    /// Two words in the order of `uint64_MINMAX`, with no branch: swapped when the top bit of
+    /// `second - first` modulo `2^64` is set.
+    fn orderedWords(first: u64, second: u64) -> (u64, u64) {
+        let swapMask = (second.wrapping_sub(first) >> 63).wrapping_neg() & (first ^ second);
+        (first ^ swapMask, second ^ swapMask)
     }
 
     /// Orders the values at two places of a list.
@@ -153,9 +172,24 @@ mod tests {
             .collect()
     }
 
-    /// The lengths of the tests: every short length, and the lengths of NTRU and sntrup761.
+    /// Words of a length below `2^63` that spread over that range: a source times the 64-bit
+    /// golden ratio `0x9E3779B97F4A7C15` modulo `2^64`, with the length mixed into the source,
+    /// and the top bit cleared. Each third word repeats an earlier one.
+    fn spreadWords(length: usize) -> Vec<u64> {
+        (0..length)
+            .map(|index| {
+                let source = if index % 3 == 2 { index / 3 } else { index };
+                (source as u64 ^ length as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 1
+            })
+            .collect()
+    }
+
+    /// The lengths of the tests: every short length, the lengths of NTRU and sntrup761, and the
+    /// lengths `2^w` of Classic McEliece up to the 8192 elements of GF(2^13).
     fn testLengths() -> impl Iterator<Item = usize> {
-        (0..70).chain([286, 508, 676, 760, 761, 820, 1228])
+        (0..70)
+            .chain([286, 508, 676, 760, 761, 820, 1228])
+            .chain([128, 256, 512, 1024, 2048, 4096, 8192])
     }
 
     /// The input of the C program of the known answers.
@@ -220,6 +254,30 @@ mod tests {
     }
 
     #[test]
+    fn orderedWordsSwapsTwoWordsWhenTheTopBitOfTheirDifferenceIsSet() {
+        // `uint64_MINMAX` of the Classic McEliece code of liboqs 0.16.0 on each pair. Below a
+        // distance of 2^63 the order is ascending. From 2^63 up, the larger word can stay
+        // first or move first.
+        for (pair, expected) in [
+            ((5, 3), (3, 5)),
+            ((3, 5), (3, 5)),
+            ((7, 7), (7, 7)),
+            ((1 << 63, 1), (1, 1 << 63)),
+            ((0, 1 << 63), (1 << 63, 0)),
+            ((1 << 63, 0), (0, 1 << 63)),
+            ((1, (1 << 63) + 1), ((1 << 63) + 1, 1)),
+            ((0, u64::MAX), (u64::MAX, 0)),
+            ((u64::MAX, 0), (u64::MAX, 0)),
+        ] {
+            assert_eq!(
+                SortingNetwork::orderedWords(pair.0, pair.1),
+                expected,
+                "{pair:x?}"
+            );
+        }
+    }
+
+    #[test]
     fn sortGivesTheSignedValuesInAscendingOrderForEveryLength() {
         for length in testLengths() {
             let mut values: Vec<i32> = spreadValues(length)
@@ -245,6 +303,17 @@ mod tests {
     }
 
     #[test]
+    fn sortWordsGivesTheWordsBelowTwoToThe63InAscendingOrderForEveryLength() {
+        for length in testLengths() {
+            let mut values = spreadWords(length);
+            let mut expected = values.clone();
+            expected.sort_unstable();
+            SortingNetwork::sortWords(&mut values);
+            assert_eq!(values, expected, "{length} words");
+        }
+    }
+
+    #[test]
     fn eachSortKeepsRepeatedValuesAndTheExtremes() {
         let mut values = vec![3, i32::MIN, 3, -3, i32::MAX, 0, i32::MIN, 3];
         SortingNetwork::sort(&mut values);
@@ -255,13 +324,20 @@ mod tests {
             values,
             vec![0, 1, 0x7FFF_FFFF, 0x8000_0000, u32::MAX, u32::MAX]
         );
+        let mut words = vec![u64::MAX >> 1, 0, 5, 1 << 62, 5, 0, u64::MAX >> 1];
+        SortingNetwork::sortWords(&mut words);
+        assert_eq!(
+            words,
+            vec![0, 0, 5, 5, 1 << 62, u64::MAX >> 1, u64::MAX >> 1]
+        );
     }
 
     #[test]
     fn eachSortGivesTheOrderOfItsCFunctions() {
-        // crypto_sort_int32 of the NTRU-HPS-2048-509 and NTRU-HPS-4096-1229 code, and
-        // crypto_sort_int32 and crypto_sort_uint32 of sntrup761.c, of liboqs 0.16.0 on the same
-        // 24 values. The three signed sorts gave the same order.
+        // crypto_sort_int32 of the NTRU-HPS-2048-509 and NTRU-HPS-4096-1229 code,
+        // crypto_sort_int32 and crypto_sort_uint32 of sntrup761.c, and int32_sort of the Classic
+        // McEliece code, of liboqs 0.16.0 on the same 24 values. The four signed sorts gave the
+        // same order.
         let mut signed = cInput;
         SortingNetwork::sort(&mut signed);
         assert_eq!(
@@ -322,6 +398,69 @@ mod tests {
                 4_294_967_254,
                 4_294_967_293,
                 u32::MAX,
+            ]
+        );
+    }
+
+    #[test]
+    fn sortWordsGivesTheOrderOfUint64SortOfTheCCode() {
+        // uint64_sort of the Classic McEliece code of liboqs 0.16.0, the same in its ten
+        // folders, on 24 words below and from 2^63, with pairs that differ by 2^63. The words
+        // from 2^63 up break the ascending order, as `uint64_MINMAX` does.
+        let mut words: [u64; 24] = [
+            5,
+            0x8000_0000_0000_0000,
+            1,
+            0,
+            u64::MAX,
+            0x7FFF_FFFF_FFFF_FFFF,
+            0x8000_0000_0000_0001,
+            3,
+            0x0123_4567_89AB_CDEF,
+            0x8123_4567_89AB_CDEF,
+            7,
+            7,
+            0xFFFF_FFFF_0000_0000,
+            0x0000_0000_FFFF_FFFF,
+            0x4000_0000_0000_0000,
+            0xC000_0000_0000_0000,
+            2,
+            0x8000_0000_0000_0000,
+            0x0FED_CBA9_8765_4321,
+            0x8FED_CBA9_8765_4321,
+            9,
+            0x7FFF_FFFF_FFFF_FFFE,
+            0xFFFF_FFFF_FFFF_FFFE,
+            4,
+        ];
+        SortingNetwork::sortWords(&mut words);
+        assert_eq!(
+            words,
+            [
+                0x8FED_CBA9_8765_4321,
+                0xFFFF_FFFF_0000_0000,
+                0xFFFF_FFFF_FFFF_FFFE,
+                0x8123_4567_89AB_CDEF,
+                1,
+                0,
+                2,
+                u64::MAX,
+                7,
+                3,
+                4,
+                5,
+                0x7FFF_FFFF_FFFF_FFFE,
+                9,
+                0x0000_0000_FFFF_FFFF,
+                7,
+                0x0123_4567_89AB_CDEF,
+                0x4000_0000_0000_0000,
+                0x8000_0000_0000_0000,
+                0x7FFF_FFFF_FFFF_FFFF,
+                0x8000_0000_0000_0001,
+                0x8000_0000_0000_0000,
+                0xC000_0000_0000_0000,
+                0x0FED_CBA9_8765_4321,
             ]
         );
     }
