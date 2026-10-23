@@ -6,7 +6,7 @@ use OQSNativeAlgorithmTests::{
 use OQSNativeCOracle::{
     COracle, OracleMechanism, OracleRandomness, OracleSignatureScheme, OracleStatefulScheme,
 };
-use OQSNativeDomain::{KeyEncapsulating, Signing};
+use OQSNativeDomain::{KeyEncapsulating, Signing, StatefulSigning};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
@@ -56,9 +56,18 @@ impl<'check> ParityJob<'check> {
             .collect()
     }
 
-    /// The jobs of the known-answer run: each C algorithm of the digest files, KEMs first, then
-    /// the signature schemes and the stateful schemes, through the Rust harness.
-    pub fn knownAnswerJobs(options: &ParityOptions) -> Vec<ParityJob<'static>> {
+    /// The jobs of the known-answer run: each algorithm of the digest files, KEMs first, then
+    /// the signature schemes and the stateful schemes.
+    ///
+    /// Each job runs the program on the C algorithm through the Rust harness, which proves the
+    /// harness, and then on the Rust algorithm of the same name when the lists hold one, which
+    /// proves the port. Each digest must equal the digest of liboqs.
+    pub fn knownAnswerJobs(
+        mechanisms: &'check [&'check dyn KeyEncapsulating],
+        schemes: &'check [&'check dyn Signing],
+        statefulSchemes: &'check [&'check dyn StatefulSigning],
+        options: &ParityOptions,
+    ) -> Vec<ParityJob<'check>> {
         let isAll = options.isAll;
         let mechanismJobs = KnownAnswerDigests::kem()
             .names()
@@ -66,16 +75,28 @@ impl<'check> ParityJob<'check> {
             .map(move |name| ParityJob {
                 name,
                 check: Box::new(move || {
-                    let mechanism =
-                        OracleMechanism::named(name).ok_or("the C library has no such KEM")?;
                     let digests = KnownAnswerDigests::kem();
-                    let single = KEMKnownAnswerTest::digest(&mechanism, false)?;
-                    Self::compareDigest(&single, digests.singleDigest(name), "single")?;
-                    if isAll {
-                        let all = KEMKnownAnswerTest::digest(&mechanism, true)?;
-                        Self::compareDigest(&all, digests.allDigest(name), "all")?;
+                    let check = |mechanism: &dyn KeyEncapsulating, side: &str| {
+                        let single = KEMKnownAnswerTest::digest(mechanism, false)?;
+                        let run = format!("{side} single");
+                        Self::compareDigest(&single, digests.singleDigest(name), &run)?;
+                        if isAll {
+                            let all = KEMKnownAnswerTest::digest(mechanism, true)?;
+                            let run = format!("{side} all");
+                            Self::compareDigest(&all, digests.allDigest(name), &run)?;
+                        }
+                        Ok::<(), String>(())
+                    };
+                    let cMechanism =
+                        OracleMechanism::named(name).ok_or("the C library has no such KEM")?;
+                    check(&cMechanism, "C")?;
+                    let rustMechanism = mechanisms
+                        .iter()
+                        .find(|mechanism| mechanism.description().name == name);
+                    if let Some(rustMechanism) = rustMechanism {
+                        check(*rustMechanism, "Rust")?;
                     }
-                    Ok(Self::knownAnswerSummary(isAll))
+                    Ok(Self::knownAnswerSummary(isAll, rustMechanism.is_some()))
                 }),
             });
         let schemeJobs = KnownAnswerDigests::signature()
@@ -84,16 +105,28 @@ impl<'check> ParityJob<'check> {
             .map(move |name| ParityJob {
                 name,
                 check: Box::new(move || {
-                    let scheme = OracleSignatureScheme::named(name)
-                        .ok_or("the C library has no such scheme")?;
                     let digests = KnownAnswerDigests::signature();
-                    let single = SignatureKnownAnswerTest::digest(&scheme, false)?;
-                    Self::compareDigest(&single, digests.singleDigest(name), "single")?;
-                    if isAll {
-                        let all = SignatureKnownAnswerTest::digest(&scheme, true)?;
-                        Self::compareDigest(&all, digests.allDigest(name), "all")?;
+                    let check = |scheme: &dyn Signing, side: &str| {
+                        let single = SignatureKnownAnswerTest::digest(scheme, false)?;
+                        let run = format!("{side} single");
+                        Self::compareDigest(&single, digests.singleDigest(name), &run)?;
+                        if isAll {
+                            let all = SignatureKnownAnswerTest::digest(scheme, true)?;
+                            let run = format!("{side} all");
+                            Self::compareDigest(&all, digests.allDigest(name), &run)?;
+                        }
+                        Ok::<(), String>(())
+                    };
+                    let cScheme = OracleSignatureScheme::named(name)
+                        .ok_or("the C library has no such scheme")?;
+                    check(&cScheme, "C")?;
+                    let rustScheme = schemes
+                        .iter()
+                        .find(|scheme| scheme.description().name == name);
+                    if let Some(rustScheme) = rustScheme {
+                        check(*rustScheme, "Rust")?;
                     }
-                    Ok(Self::knownAnswerSummary(isAll))
+                    Ok(Self::knownAnswerSummary(isAll, rustScheme.is_some()))
                 }),
             });
         // The stateful program has one run for each response file, so the digest file holds
@@ -103,16 +136,27 @@ impl<'check> ParityJob<'check> {
             .map(move |name| ParityJob {
                 name,
                 check: Box::new(move || {
-                    let scheme = OracleStatefulScheme::named(name)
-                        .ok_or("the C library has no such stateful scheme")?;
                     let responseFile = TestVectorFiles::responseFile(name)?;
-                    let digest = StatefulKnownAnswerTest::digest(&scheme, &responseFile)?;
-                    Self::compareDigest(
-                        &digest,
-                        StatefulKnownAnswerDigests::digest(name),
-                        "response file",
-                    )?;
-                    Ok("response file digest identical".to_string())
+                    let check = |scheme: &dyn StatefulSigning, side: &str| {
+                        let digest = StatefulKnownAnswerTest::digest(scheme, &responseFile)?;
+                        let run = format!("{side} response file");
+                        Self::compareDigest(&digest, StatefulKnownAnswerDigests::digest(name), &run)
+                    };
+                    let cScheme = OracleStatefulScheme::named(name)
+                        .ok_or("the C library has no such stateful scheme")?;
+                    check(&cScheme, "C")?;
+                    let rustScheme = statefulSchemes
+                        .iter()
+                        .find(|scheme| scheme.description().name == name);
+                    if let Some(rustScheme) = rustScheme {
+                        check(*rustScheme, "Rust")?;
+                    }
+                    let sides = if rustScheme.is_some() {
+                        "C and Rust"
+                    } else {
+                        "C"
+                    };
+                    Ok(format!("response file, {sides}"))
                 }),
             });
         mechanismJobs
@@ -213,8 +257,11 @@ impl<'check> ParityJob<'check> {
         failures.into_inner()
     }
 
-    fn knownAnswerSummary(isAll: bool) -> String {
-        if isAll { "single and all" } else { "single" }.to_string()
+    /// The summary of a passed known-answer job: the runs and the sides that it checked.
+    fn knownAnswerSummary(isAll: bool, hasRustAlgorithm: bool) -> String {
+        let runs = if isAll { "single and all" } else { "single" };
+        let sides = if hasRustAlgorithm { "C and Rust" } else { "C" };
+        format!("{runs}, {sides}")
     }
 
     /// Compares a digest with the digest of liboqs for a run.
@@ -233,7 +280,233 @@ impl<'check> ParityJob<'check> {
 mod tests {
     use super::ParityJob;
     use crate::{ParityOptions, Snapshot};
+    use OQSNativeCOracle::{OracleMechanism, OracleSignatureScheme, OracleStatefulScheme};
+    use OQSNativeDomain::{
+        KeyEncapsulating, KeyStatePersisting, RandomGenerating, Signing, StatefulSigning,
+    };
+    use OQSNativeEntities::{
+        Encapsulation, KEMDescription, KeyPair, OQSError, SecretBytes, SignatureDescription,
+        StatefulSignatureDescription,
+    };
     use std::sync::Mutex;
+
+    /// A C mechanism whose shared secrets have their first bit changed, as a port with a
+    /// defect in its last step gives them.
+    struct ChangedSecretMechanism(OracleMechanism);
+
+    fn changed(secret: SecretBytes) -> SecretBytes {
+        let mut bytes = secret.bytes().to_vec();
+        bytes[0] ^= 1;
+        SecretBytes::new(bytes)
+    }
+
+    impl KeyEncapsulating for ChangedSecretMechanism {
+        fn description(&self) -> &'static KEMDescription {
+            self.0.description()
+        }
+
+        fn generateKeyPair(&self, random: &mut dyn RandomGenerating) -> Result<KeyPair, OQSError> {
+            self.0.generateKeyPair(random)
+        }
+
+        fn generateKeyPairFromSeed(&self, seed: &[u8]) -> Result<KeyPair, OQSError> {
+            self.0.generateKeyPairFromSeed(seed)
+        }
+
+        fn encapsulate(
+            &self,
+            publicKey: &[u8],
+            random: &mut dyn RandomGenerating,
+        ) -> Result<Encapsulation, OQSError> {
+            let encapsulation = self.0.encapsulate(publicKey, random)?;
+            Ok(Encapsulation {
+                ciphertext: encapsulation.ciphertext,
+                sharedSecret: changed(encapsulation.sharedSecret),
+            })
+        }
+
+        fn encapsulateWithSeed(
+            &self,
+            publicKey: &[u8],
+            seed: &[u8],
+        ) -> Result<Encapsulation, OQSError> {
+            self.0.encapsulateWithSeed(publicKey, seed)
+        }
+
+        fn decapsulate(
+            &self,
+            ciphertext: &[u8],
+            secretKey: &[u8],
+        ) -> Result<SecretBytes, OQSError> {
+            self.0.decapsulate(ciphertext, secretKey).map(changed)
+        }
+    }
+
+    /// A C scheme whose signatures have their last bit changed, and whose verification takes
+    /// the change back, so the program runs to its end with other bytes.
+    struct ChangedSignatureScheme(OracleSignatureScheme);
+
+    fn flipped(signature: &[u8]) -> Vec<u8> {
+        let mut signature = signature.to_vec();
+        if let Some(last) = signature.last_mut() {
+            *last ^= 1;
+        }
+        signature
+    }
+
+    impl Signing for ChangedSignatureScheme {
+        fn description(&self) -> &'static SignatureDescription {
+            self.0.description()
+        }
+
+        fn generateKeyPair(&self, random: &mut dyn RandomGenerating) -> Result<KeyPair, OQSError> {
+            self.0.generateKeyPair(random)
+        }
+
+        fn sign(
+            &self,
+            message: &[u8],
+            secretKey: &[u8],
+            random: &mut dyn RandomGenerating,
+        ) -> Result<Vec<u8>, OQSError> {
+            self.0
+                .sign(message, secretKey, random)
+                .map(|signature| flipped(&signature))
+        }
+
+        fn isValidSignature(&self, signature: &[u8], message: &[u8], publicKey: &[u8]) -> bool {
+            self.0
+                .isValidSignature(&flipped(signature), message, publicKey)
+        }
+    }
+
+    /// A C stateful scheme whose signatures have their last bit changed.
+    struct ChangedStatefulScheme(OracleStatefulScheme);
+
+    impl StatefulSigning for ChangedStatefulScheme {
+        fn description(&self) -> &'static StatefulSignatureDescription {
+            self.0.description()
+        }
+
+        fn generateKeyPair(&self, random: &mut dyn RandomGenerating) -> Result<KeyPair, OQSError> {
+            self.0.generateKeyPair(random)
+        }
+
+        fn sign(
+            &self,
+            message: &[u8],
+            secretKey: &mut SecretBytes,
+            persisting: &mut dyn KeyStatePersisting,
+        ) -> Result<Vec<u8>, OQSError> {
+            self.0
+                .sign(message, secretKey, persisting)
+                .map(|signature| flipped(&signature))
+        }
+
+        fn isValidSignature(&self, signature: &[u8], message: &[u8], publicKey: &[u8]) -> bool {
+            self.0
+                .isValidSignature(&flipped(signature), message, publicKey)
+        }
+
+        fn remainingSignatureCount(&self, secretKey: &[u8]) -> Result<u64, OQSError> {
+            self.0.remainingSignatureCount(secretKey)
+        }
+
+        fn totalSignatureCount(&self, secretKey: &[u8]) -> Result<u64, OQSError> {
+            self.0.totalSignatureCount(secretKey)
+        }
+    }
+
+    fn selection(names: &[&str]) -> ParityOptions {
+        let arguments: Vec<String> = names
+            .iter()
+            .flat_map(|name| ["--only".to_string(), name.to_string()])
+            .collect();
+        ParityOptions::parse(&arguments).expect("valid")
+    }
+
+    fn results(jobs: Vec<ParityJob<'_>>) -> Vec<(String, Result<String, String>)> {
+        jobs.iter()
+            .map(|job| (job.name.to_string(), (job.check)()))
+            .collect()
+    }
+
+    #[test]
+    fn knownAnswerJobsCheckTheRegisteredRustMechanismOfAName() {
+        let options = selection(&["ML-KEM-512", "ML-KEM-768"]);
+        let correct = OracleMechanism::named("ML-KEM-512").expect("the C mechanism");
+        let mechanisms: [&dyn KeyEncapsulating; 1] = [&correct];
+        assert_eq!(
+            results(ParityJob::knownAnswerJobs(&mechanisms, &[], &[], &options)),
+            vec![
+                (
+                    "ML-KEM-512".to_string(),
+                    Ok("single, C and Rust".to_string())
+                ),
+                ("ML-KEM-768".to_string(), Ok("single, C".to_string())),
+            ]
+        );
+        let broken =
+            ChangedSecretMechanism(OracleMechanism::named("ML-KEM-512").expect("the C mechanism"));
+        let mechanisms: [&dyn KeyEncapsulating; 1] = [&broken];
+        let failures = results(ParityJob::knownAnswerJobs(&mechanisms, &[], &[], &options));
+        let message = failures[0].1.clone().expect_err("the Rust digest differs");
+        assert!(
+            message.starts_with("the Rust single digest is "),
+            "{message}"
+        );
+        assert_eq!(failures[1].1, Ok("single, C".to_string()));
+    }
+
+    #[test]
+    fn knownAnswerJobsCheckTheRegisteredRustSchemeOfAName() {
+        let options = selection(&["ML-DSA-44"]);
+        let correct = OracleSignatureScheme::named("ML-DSA-44").expect("the C scheme");
+        let schemes: [&dyn Signing; 1] = [&correct];
+        assert_eq!(
+            results(ParityJob::knownAnswerJobs(&[], &schemes, &[], &options)),
+            vec![(
+                "ML-DSA-44".to_string(),
+                Ok("single, C and Rust".to_string())
+            )]
+        );
+        let broken = ChangedSignatureScheme(
+            OracleSignatureScheme::named("ML-DSA-44").expect("the C scheme"),
+        );
+        let schemes: [&dyn Signing; 1] = [&broken];
+        let failures = results(ParityJob::knownAnswerJobs(&[], &schemes, &[], &options));
+        let message = failures[0].1.clone().expect_err("the Rust digest differs");
+        assert!(
+            message.starts_with("the Rust single digest is "),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn knownAnswerJobsCheckTheRegisteredRustStatefulSchemeOfAName() {
+        let options = selection(&["XMSS-SHA2_10_256"]);
+        let correct = OracleStatefulScheme::named("XMSS-SHA2_10_256").expect("the C scheme");
+        let schemes: [&dyn StatefulSigning; 1] = [&correct];
+        assert_eq!(
+            results(ParityJob::knownAnswerJobs(&[], &[], &schemes, &options)),
+            vec![(
+                "XMSS-SHA2_10_256".to_string(),
+                Ok("response file, C and Rust".to_string())
+            )]
+        );
+        let broken = ChangedStatefulScheme(
+            OracleStatefulScheme::named("XMSS-SHA2_10_256").expect("the C scheme"),
+        );
+        let schemes: [&dyn StatefulSigning; 1] = [&broken];
+        let failures = results(ParityJob::knownAnswerJobs(&[], &[], &schemes, &options));
+        assert_eq!(
+            failures[0].1,
+            Err(
+                "XMSS-SHA2_10_256: the signature differs from the signature of the file"
+                    .to_string()
+            )
+        );
+    }
 
     fn job(name: &'static str, isPassing: bool) -> ParityJob<'static> {
         ParityJob {
@@ -314,13 +587,17 @@ mod tests {
 
     #[test]
     fn knownAnswerJobsFollowTheDigestFilesAndTheSelection() {
-        let every = ParityJob::knownAnswerJobs(&ParityOptions::parse(&[]).expect("valid"));
+        let every =
+            ParityJob::knownAnswerJobs(&[], &[], &[], &ParityOptions::parse(&[]).expect("valid"));
         assert_eq!(every.len(), 41 + 65 + 55);
         assert_eq!(every[0].name, "BIKE-L1");
         assert_eq!(every[41].name, "Falcon-1024");
         assert_eq!(every[106].name, "XMSS-SHA2_10_256");
         assert_eq!(every[160].name, "LMS_SHA256_H10_W4_H5_W8");
         let shard = ParityJob::knownAnswerJobs(
+            &[],
+            &[],
+            &[],
             &ParityOptions::parse(&["--shard".to_string(), "1/2".to_string()]).expect("valid"),
         );
         assert_eq!(shard.len(), 80);

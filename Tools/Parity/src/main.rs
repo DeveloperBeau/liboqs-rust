@@ -15,7 +15,8 @@ commands:
                  variations
   snapshot       print the snapshot of the C library, in the format of the Swift and Zig ports
   known-answers  run the liboqs known-answer programs on the C algorithms through the Rust
-                 harness, and compare each digest with the digest of liboqs
+                 harness and on the registered Rust algorithms, and compare each digest with
+                 the digest of liboqs
 
 options:
   --cases N      the variations of each algorithm (run, default 1000)
@@ -53,9 +54,14 @@ fn run(options: &ParityOptions) -> usize {
 }
 
 fn knownAnswers(options: &ParityOptions) -> usize {
-    let jobs = ParityJob::knownAnswerJobs(options);
+    let jobs = ParityJob::knownAnswerJobs(
+        Registry::mechanisms(),
+        Registry::signatureSchemes(),
+        Registry::statefulSignatureSchemes(),
+        options,
+    );
     println!(
-        "known answers of {} C algorithms through the Rust harness",
+        "known answers of {} C algorithms and their registered Rust algorithms",
         jobs.len()
     );
     ParityJob::runAll(jobs, &printLine)
