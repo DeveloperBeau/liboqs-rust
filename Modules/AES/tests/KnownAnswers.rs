@@ -11,7 +11,7 @@ fn bytes(hex: &str) -> Vec<u8> {
         .collect()
 }
 
-fn key<const LENGTH: usize>(hex: &str) -> [u8; LENGTH] {
+fn key<const Length: usize>(hex: &str) -> [u8; Length] {
     bytes(hex).try_into().expect("key length")
 }
 
