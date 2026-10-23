@@ -30,23 +30,22 @@ impl<'text> ResponseFile<'text> {
             return Some((Vec::new(), from));
         }
         let mut position = self.positionAfter(marker, from)?;
-        let mut value = vec![0u8; length];
-        let mut hasStarted = false;
+        let mut digits = Vec::new();
         while let Some(&character) = self.text.get(position) {
             position += 1;
             match (character as char).to_digit(16) {
-                Some(digit) => {
-                    hasStarted = true;
-                    // Each shift clears the low 4 bits, and the added value is below 16, so
-                    // the sum is the join of the two fields with no carry.
-                    for index in 0..length - 1 {
-                        value[index] = (value[index] << 4) + (value[index + 1] >> 4);
-                    }
-                    value[length - 1] = (value[length - 1] << 4) + digit as u8;
-                }
-                None if hasStarted || character == b'\n' => break,
+                Some(digit) => digits.push(digit as u8),
+                None if !digits.is_empty() || character == b'\n' => break,
                 None => {}
             }
+        }
+        // `ReadHex` shifts each digit through the whole value, so the value holds the last
+        // 2 length digits, aligned to its end. Placing them directly gives the same bytes in one
+        // pass, where the shifts take a time that grows with the square of the length.
+        let mut value = vec![0u8; length];
+        for (nibble, digit) in digits.iter().rev().take(2 * length).enumerate() {
+            // The two halves of a byte never overlap, so `+` joins them.
+            value[length - 1 - nibble / 2] += digit << (4 * (nibble % 2));
         }
         Some((value, position))
     }
@@ -91,7 +90,9 @@ impl<'text> ResponseFile<'text> {
 #[cfg(test)]
 mod tests {
     use super::ResponseFile;
+    use alloc::string::String;
     use alloc::vec;
+    use alloc::vec::Vec;
 
     #[test]
     fn valuesFollowTheirMarkersInFileOrder() {
@@ -147,6 +148,72 @@ mod tests {
             Some((vec![], 5)),
             "a length of zero reads nothing"
         );
+        // An odd number of digits fills the low half of the first byte of the digits.
+        let file = ResponseFile::new("c = 12345\n");
+        assert_eq!(
+            file.value("c = ", 0, 3).map(|(value, _)| value),
+            Some(vec![0x01, 0x23, 0x45])
+        );
+        assert_eq!(
+            file.value("c = ", 0, 2).map(|(value, _)| value),
+            Some(vec![0x23, 0x45])
+        );
+    }
+
+    /// The value of a line of digits as `ReadHex` computes it: each digit shifts the whole
+    /// value up by 4 bits and enters at the low end.
+    fn shiftedValue(digits: &[u8], length: usize) -> Vec<u8> {
+        let mut value = vec![0u8; length];
+        for digit in digits {
+            for index in 0..length - 1 {
+                value[index] = (value[index] << 4) | (value[index + 1] >> 4);
+            }
+            value[length - 1] = (value[length - 1] << 4) | digit;
+        }
+        value
+    }
+
+    #[test]
+    fn eachValueIsTheValueThatTheShiftsOfTheCReaderGive() {
+        for digitCount in [1, 2, 7, 8, 9, 63, 64, 65, 200] {
+            let digits: Vec<u8> = (0..digitCount)
+                .map(|index| ((index * 7 + 3) % 16) as u8)
+                .collect();
+            let text: String = digits
+                .iter()
+                .map(|digit| char::from_digit(u32::from(*digit), 16).expect("a digit"))
+                .collect();
+            let line = alloc::format!("v = {text}\n");
+            let file = ResponseFile::new(&line);
+            for length in [1, 3, 4, 32, 33, 100] {
+                assert_eq!(
+                    file.value("v = ", 0, length).map(|(value, _)| value),
+                    Some(shiftedValue(&digits, length)),
+                    "{digitCount} digits, {length} bytes"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn aLongValueKeepsEachDigitInItsPlace() {
+        // The secret key of the largest XMSS^MT set has 38099 bytes. One digit fewer than the
+        // value holds leaves the high half of byte 0 empty, so byte i holds the digits 2 i - 1
+        // and 2 i.
+        let length = 38_099;
+        let text: String = (0..2 * length - 1)
+            .map(|index| char::from_digit(index as u32 % 16, 16).expect("a digit"))
+            .collect();
+        let line = alloc::format!("sk = {text}\n");
+        let file = ResponseFile::new(&line);
+        let (value, position) = file.value("sk = ", 0, length).expect("sk");
+        assert_eq!(position, 5 + text.len() + 1);
+        assert_eq!(value[0], 0x00);
+        for (index, byte) in value.iter().enumerate().skip(1) {
+            let high = (2 * index - 1) % 16;
+            let low = (2 * index) % 16;
+            assert_eq!(usize::from(*byte), 16 * high + low, "byte {index}");
+        }
     }
 
     #[test]
