@@ -12,6 +12,8 @@
 mod keccakF1600;
 #[path = "KeccakSponge.rs"]
 mod keccakSponge;
+#[path = "SHA3224.rs"]
+mod sha3224;
 #[path = "SHA3256.rs"]
 mod sha3256;
 #[path = "SHA3384.rs"]
@@ -27,6 +29,7 @@ mod shakeReader;
 
 pub use keccakF1600::KeccakF1600;
 use keccakSponge::KeccakSponge;
+pub use sha3224::SHA3224;
 pub use sha3256::SHA3256;
 pub use sha3384::SHA3384;
 pub use sha3512::SHA3512;
