@@ -425,3 +425,21 @@
 - Trap: the default suite of a stateful family that runs `StatefulSignatureCorrectnessTest` on each set of the suite sample takes minutes, and the run of the parity program over the sample passes its bound.
 - Finding: the program makes three key pairs of each set, and an XMSS^MT set of 60/6 builds six trees of height 10 for each of them. On every XMSS set the test took 233 seconds of processor time, and seven minutes on a loaded machine. With the 19 XMSS sets of the sample registered, `runOverTheSuiteSampleOfTheRegistryReportsItsSizeAndEachAlgorithm` took six minutes against a bound of 120 seconds.
 - Rule: the default suite runs the correctness program on the sets whose key pairs build no tree above height 5, the sets that read their key pairs from the response file among them, and an ignored test runs it on every set. A test that runs the whole sample through the parity program has a bound that fits the key pairs of the sample.
+
+## hash-sigs reads the parameter set from the key
+
+- Trap: a port that signs and verifies with the parameter set of the scheme differs from the C library for a key or a public key of another set.
+- Finding: the C library signed a fresh key of `LMS_SHA256_H5_W8` under the names `LMS_SHA256_H5_W1` and `LMS_SHA256_H5_W8_H5_W8` with the same signature of 1296 bytes as under its own name. Its verification under `LMS_SHA256_H5_W1` accepted a signature of `LMS_SHA256_H5_W8_H5_W8`.
+- Rule: the port reads the levels of a key from its private key, and the levels of a verification from the public key and the signature. The name of the scheme decides only the key pair, the description and the largest signature that fits the C buffer.
+
+## A guard against a value that fails anyway needs the value that breaks the arithmetic
+
+- Trap: the check of the leaf index of an LMS signature against `2^h` had no test that failed without it.
+- Finding: a wrong index gives a wrong root, so the verdict is false with or without the check. With the check removed, every test passed until a test gave the index `2^32 - 1`, whose node number overflows `u32`, so the test build panicked.
+- Rule: the test of a guard that only protects the arithmetic takes the extreme values, so that the overflow checks of the test build see a missing guard.
+
+## A hash that copies each byte on its own is slower than the C code
+
+- Trap: LMS hashes millions of inputs of 55 bytes for one tree, so the port of a key pair was slower than the C code with the shared SHA-256.
+- Finding: 10 million hashes of 55 bytes took 5.3 to 5.8 s with the byte loop of `SHA256::absorb`, 4.0 to 4.2 s with copies of whole pieces, and 4.0 to 5.2 s in the C code, on the same busy machine.
+- Rule: a shared hash function copies whole pieces of its input. A family that hashes short inputs measures the shared function on its own input size against the C code.

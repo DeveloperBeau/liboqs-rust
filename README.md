@@ -31,8 +31,9 @@ The port is in progress. The repository holds the workspace, the standards, the 
 | MQOM | `mqom2_cat1_gf16_fast_r3`, `mqom2_cat1_gf16_fast_r5`, `mqom2_cat1_gf16_short_r3`, `mqom2_cat1_gf16_short_r5`, `mqom2_cat3_gf16_fast_r3`, `mqom2_cat3_gf16_fast_r5`, `mqom2_cat3_gf16_short_r3`, `mqom2_cat3_gf16_short_r5`, `mqom2_cat5_gf16_fast_r3`, `mqom2_cat5_gf16_fast_r5`, `mqom2_cat5_gf16_short_r3`, `mqom2_cat5_gf16_short_r5` | Ported, identical to the C library |
 | XMSS | `XMSS-SHA2_10_256`, `XMSS-SHA2_16_256`, `XMSS-SHA2_20_256`, `XMSS-SHAKE_10_256`, `XMSS-SHAKE_16_256`, `XMSS-SHAKE_20_256`, `XMSS-SHA2_10_512`, `XMSS-SHA2_16_512`, `XMSS-SHA2_20_512`, `XMSS-SHAKE_10_512`, `XMSS-SHAKE_16_512`, `XMSS-SHAKE_20_512`, `XMSS-SHA2_10_192`, `XMSS-SHA2_16_192`, `XMSS-SHA2_20_192`, `XMSS-SHAKE256_10_192`, `XMSS-SHAKE256_16_192`, `XMSS-SHAKE256_20_192`, `XMSS-SHAKE256_10_256`, `XMSS-SHAKE256_16_256`, `XMSS-SHAKE256_20_256` | Ported, identical to the C library |
 | XMSS^MT | `XMSSMT-SHA2_20/2_256`, `XMSSMT-SHA2_20/4_256`, `XMSSMT-SHA2_40/2_256`, `XMSSMT-SHA2_40/4_256`, `XMSSMT-SHA2_40/8_256`, `XMSSMT-SHA2_60/3_256`, `XMSSMT-SHA2_60/6_256`, `XMSSMT-SHA2_60/12_256`, `XMSSMT-SHAKE_20/2_256`, `XMSSMT-SHAKE_20/4_256`, `XMSSMT-SHAKE_40/2_256`, `XMSSMT-SHAKE_40/4_256`, `XMSSMT-SHAKE_40/8_256`, `XMSSMT-SHAKE_60/3_256`, `XMSSMT-SHAKE_60/6_256`, `XMSSMT-SHAKE_60/12_256` | Ported, identical to the C library |
+| LMS | The 33 sets from `LMS_SHA256_H5_W1` to `LMS_SHA256_H20_W8_H20_W8`: one tree of height 5 to 25, or two levels | Ported, identical to the C library |
 
-`Tools/Parity/NotYetPorted.txt` lists each algorithm of liboqs that the port does not have yet.
+`Tools/Parity/NotYetPorted.txt` lists each algorithm of liboqs that the port does not have yet. With LMS it is empty: the registry holds every algorithm of liboqs 0.16.0.
 
 ## Versions
 

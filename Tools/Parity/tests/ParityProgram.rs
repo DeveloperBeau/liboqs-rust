@@ -82,7 +82,7 @@ fn knownAnswersOfStatefulSchemesReadTheirResponseFiles() {
         "{text}"
     );
     assert!(
-        text.contains("ok    LMS_SHA256_H5_W1 (response file, C, "),
+        text.contains("ok    LMS_SHA256_H5_W1 (response file, C and Rust, "),
         "{text}"
     );
 }
