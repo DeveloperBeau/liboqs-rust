@@ -42,7 +42,7 @@ impl FieldArithmetic for GF256 {
 mod tests {
     use super::GF256;
     use crate::FieldArithmetic;
-    use crate::testInputs::digest;
+    use OQSNativeAlgorithmTests::OutputDigest;
 
     /// The product of two elements by the definition: the carry-less product of the
     /// polynomials, reduced by x^8 + x^4 + x^3 + x + 1.
@@ -76,7 +76,7 @@ mod tests {
         assert_eq!(GF256::product(0x57, 0x13), 0xFE);
         // The digest of every `gf256_mul(a, b)` at `a * 256 + b`, from liboqs 0.16.0.
         assert_eq!(
-            digest(&table),
+            OutputDigest::of(&table),
             "b7098b38497099f3514450b1a7eac473c469f515446646821a83608681f4365c"
         );
     }
@@ -92,7 +92,7 @@ mod tests {
         assert_eq!(inverses[0x53], 0xCA);
         // The digest of `gf256_inv` of 0 to 255, from liboqs 0.16.0.
         assert_eq!(
-            digest(&inverses),
+            OutputDigest::of(&inverses),
             "5638a6211c9ba3869b1868d44faad13c71b583995624cbfba07b8c2d97fbfdfa"
         );
     }
