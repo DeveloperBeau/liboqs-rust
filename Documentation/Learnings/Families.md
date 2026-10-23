@@ -185,3 +185,27 @@
 - Trap: `sample_solution` of MAYO copies the k o unknowns of the randomizer into the solution, and the randomizer has one more element, which the signature sets to zero. The port copied the whole randomizer. Every test passed, because every randomizer of the tests ended with a zero.
 - Finding: the mutation run missed a mutant that clears the last column of the matrix only in the first row before the product `A r`. Its change reaches the product only through the last element of the randomizer. A known-answer case of `sample_solution` with the element 9 kills the mutant. The same case also failed on the copy of the whole randomizer, before the port copied only the unknowns.
 - Rule: copy the same range as the C code. Give the known-answer test of an internal function a value that is not zero in each element that the function reads, also in an element that its caller keeps at zero. `randomizerTail` in `EchelonForm.rs` is the template. See also "An input that the caller never gives hides a mutant" in `MutationTesting.md`.
+
+## A Toom-Cook product is exact only in its low bits
+
+- Trap: a unit test that compares the NTRU product with the exact cyclic product fails for five of the six sets, and a port that computes the exact product gives other 16-bit coefficients than the C code.
+- Finding: `poly_Rq_mul` of the sets up to `q = 8192` is Toom-Cook in four parts, whose interpolation divides by 2, 4 and 8. The product of `x^(n - 1)` and `x` gave 32769 at the coefficient 0 in the C code and in the port, which is 1 only modulo `2^13`. `NTRU-HRSS-1373` uses four layers of Karatsuba, whose product is exact modulo `2^16`.
+- Rule: the port keeps every step of the product of the C code, so each 16-bit coefficient equals the C coefficient. A test of the arithmetic compares the exact product only in the bits that the method keeps, and the known answers of the C function in all 16 bits.
+
+## The constant bytes of a fuzz case can give a key that the C code cannot use
+
+- Trap: the fuzz cases 0 and 1 of `KEMFuzzTest` fail for NTRU-HPS, because the shared secrets differ.
+- Finding: the bytes 0x00 and 0xFF are both 0 modulo 3, so the key pair samples `f = 0`, which has no inverse. The C code checks no key and gives the same keys, which do not decapsulate. sntrup761 makes a usable key of the same bytes.
+- Rule: a mechanism whose C code cannot use the key of the constant bytes runs the seeded cases with `KEMFuzzTest::runCases` from 2 up, and a separate test states what the constant bytes give, as `constantRandomBytesGiveTheKeyFZeroAsInTheCCode` does.
+
+## Each test of an or-fold needs its own pair of equal failures
+
+- Trap: `owcpa_check_r` gathers two tests of each coefficient of `r` with an or: the bits from 2 up of `r + 1`, and the bit 2 of `r + 2`. A rejection test with two coefficients 3 cannot see an exclusive or in the first test, because 3 also fails the second.
+- Finding: with `^=` in place of `|=` in the first test, every test of the crate passed, the pair of coefficients 3 among them. The value -2 fails only the first test, and a pair of coefficients -2 then failed the unit test of the check and `aBlindingPolynomialOutsideTheTernaryValuesIsRejected`.
+- Rule: when a fold gathers several tests of each unit, the rejection tests change two units with a value that fails only one test, for each test. The value 2 fails only the second test of NTRU, and -2 only the first.
+
+## A sum-zero ciphertext keeps the balance of the message
+
+- Trap: the balance test of `owcpa_check_m` of NTRU-HPS, as many coefficients 1 as -1, cannot fail alone in a rejection test that changes the message of a ciphertext.
+- Finding: the packing holds only the first `n - 1` coefficients of `c`, and the last is minus their sum, so `c + x^j - x^k` keeps the balance and `c + x^j` changes `r` too. With the balance test removed, or with the two tests of the check joined with an exclusive or, every rejection test passed. For a key with `f(1) = 0`, `c + d + k Phi_n` with `k n + d(1) = 0` modulo `q` decrypts to `m + d` and the same `r`, because `f Phi_n = f(1) Phi_n`. `anUnbalancedMessageIsRejectedByNTRUHPS` searches such a key, and both defects then failed it.
+- Rule: a test of a check that a random key cannot fail alone searches the key that can, says why in the test, and a run against the deliberately wrong check proves that the input takes the path.
