@@ -4,7 +4,8 @@ description = "ML-DSA of FIPS 204, a native port of the ML-DSA algorithms of lib
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license.workspace = true
+# The port is under MIT, and mldsa-native is under Apache-2.0 OR ISC OR MIT.
+license = "MIT AND (Apache-2.0 OR ISC OR MIT)"
 authors.workspace = true
 repository.workspace = true
 
