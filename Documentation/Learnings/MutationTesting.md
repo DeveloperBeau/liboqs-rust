@@ -191,3 +191,15 @@
 - **Trap.** A mutant whose loop fills a list reaches the memory cap of the `Mutants` workflow, and the run reports a timeout in place of a failed test. A reading of the log that looks only for a failed test or a panic puts the mutant among the timeouts with no failure.
 - **Finding.** The four mutants of the byte loop of `RadixEncoding::encode` of NTRU Prime printed "memory allocation of 2147483648 bytes failed" in CI, and their test programs had not ended at the limit of 10 seconds. Applied by hand under the same cap, each test program stopped with SIGABRT.
 - **Rule.** Read the log of each timeout for "memory allocation of". The cap stopped such a mutant. Count it with the timeouts, as the run reports it, and say in the register that the cap stopped it.
+
+## A stack for the whole tree hides a mutant when the program builds only subtrees
+
+- **Trap.** The stack of a tree hash without recursion needs one place more than the height of the tree. When the program asks only for subtrees below the full height, the mutant that removes that place survives every test through the program.
+- **Finding.** `FORS::sign` of SLH-DSA asks for the FORS nodes of the heights from 0 to a - 1, which need at most 14 places. With 14 places in place of 15, every test of the crate passed, because only a whole tree of height 14 needs the 15th place. `fors_node` of the C code takes every height up to a. `nodesOfEveryHeightUpToAWholeTreeAreTheNodesOfTheCFunction` builds a whole tree of height 14 and kills the mutant. The stack of `Hypertree::xmssNode` needs no such test, because a key pair builds the whole top tree.
+- **Rule.** The known-answer test of a tree hash builds every height that its definition accepts, up to a whole tree of the largest height, with the answer of the C function. This is the rule of "An input that the caller never gives hides a mutant" for the size of a buffer.
+
+## A remainder that is its own negative hides a changed sign
+
+- **Trap.** A formula over the constants of the parameter sets, such as `(8 - (x & 7)) & 7`, gives the same value with `+` in place of `-` when `x & 7` is 0 or 4. These two values are their own negatives modulo 8, so the mutant survives every test.
+- **Finding.** The WOTS+ checksum of SLH-DSA is shifted by `(8 - ((len_2 lg_w) & 7)) & 7`, the formula of FIPS 205 and of `wots_csum` of the C code. `len_2 lg_w` is 12 in every set, so the shift is 4 with either operator, and the mutant of `Hypertree::chainDigits` survived the CI run.
+- **Rule.** Compute the value of each mutant of a formula over the constants of the sets, for every set, before you write a test. When a mutant keeps the value, record it as equivalent with the values on both sides, as for a small change of the dividend of an integer division.
