@@ -4,6 +4,8 @@ description = "HQC, the Hamming Quasi-Cyclic key encapsulation mechanism, a nati
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+# The upstream code of the HQC team is in the public domain, so the crate keeps the license of
+# the workspace.
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
