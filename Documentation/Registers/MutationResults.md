@@ -319,6 +319,34 @@ The decoder tests of the first run decoded words with at most `delta` errors. Th
 | The error positions take the zero tests of the C code for any values | `AdditiveFFT::errorPositions`, line 68: `^=` replaced with `&=`, line 69: `^=` replaced with `\|=` | `errorPositionsGiveThePositionsOfTheCFunctionForAnyValues` |
 | The radix conversion of two coefficients is the split of its definition | `radix`, line 136: match arm 1 deleted | `radixConversionIsTheSplitOfItsDefinitionAtEverySize` |
 
+## Latest result for BIKE
+
+The runs of 2026-10-23 on the branch `family/bike`, with `OQS_ORACLE_DIR` set to the oracle folder. A restart of the machine stopped the run of the crate after 238 mutants, and the run went on with `--iterate`, which skips the mutants that the first part caught or found unviable. The facade ran with the tests of `oqs-native-parity` as well.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-bike` | 539 | 475 | 0 | 59 | 5, then 4 |
+| `oqs-native`, with the tests of `oqs-native-parity` | 21 | 6 | 0 | 7 | 8 |
+| `oqs-native-bike`, `BIKE::decapsulation` after the new test | 16 | 15 | 0 | 1 | 0 |
+
+The missed mutant of the comparison of decapsulation is a test gap, and `aDecodedErrorThatDiffersOnlyInTheTopBitOfTwoWordsIsRejected` now kills it. The other four are equivalent.
+
+### Equivalent mutants
+
+- `oqs-native-bike`, `Sampler::positions`, line 38: `+` replaced with `*` in `positions[index + 1..]`. The slice then starts at `index`, whose entry is still 0 when the candidate is compared. A candidate is at least `index`, so it equals 0 only when `index` is 0, and then the candidate and the index are both 0, so the result is the same.
+- `oqs-native-bike`, `Sampler::positions`, line 40: `|` replaced with `^` in the fold that finds a repeated value. The later positions are different from each other, so a candidate equals at most one of them, and the or and the exclusive or of the matches agree.
+- `oqs-native-bike`, `Decoder::thresholdOfWeight`, line 169: `*` replaced with `+` or with `/` in `high * factorLow`. A syndrome weight is at most r, so `high` is at most 4 in the three sets, and the mutant changes the high word of the product by at most 5 before the shift by 26. `theHighWordOfTheCCodeGivesTheThresholdOfTheExactHighWordForEveryWeight` checks every weight from 0 to r of each set, and both mutants give the threshold of the C code for each of them.
+- `oqs-native`, `Registry.rs`: the 8 missed mutants replace the signature list or the stateful list with an empty list, a lookup in those lists with `None`, or the name of a scheme of those lists with another text. Both lists stay empty until the first signature family, as in the FrodoKEM run.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The comparison of decapsulation counts a difference in the top bit of a word | `BIKE::decapsulation`, line 144: `\|` replaced with `^` | `aDecodedErrorThatDiffersOnlyInTheTopBitOfTwoWordsIsRejected` |
+| The comparison of decapsulation gathers every difference | `BIKE::decapsulation`, line 141: `\|` replaced with `^` | `aDecodedErrorThatDiffersInTheSameBitOfTwoWordsIsRejected` |
+| The Karatsuba product is the product of the definition for every split | `karatsubaProduct`: each operator replaced | `karatsubaProductEqualsTheSchoolbookProductForEverySplit` |
+| The power of a polynomial is the power of the C code | `PolynomialRing::power`: `<=` replaced with `>` | `permutedPowerGivesThePowerOfTheCCodeAndOfRepeatedSquaring` |
+| The weight of a syndrome counts only the coefficients below r | `Syndrome::weight`: each operator replaced | `weightCountsTheCoefficientsBelowR` |
+| The sampler gives the positions of the C sampler | `Sampler::positions`: the scaling and the repeat rule replaced | `decoderGivesTheErrorOfTheCDecoderForACiphertextBeyondItsReach`, `decoderGivesTheErrorsOfTheCDecoderForHostileInputs` |
+
 ## History
 
 | Run | Code | Mutants | Caught | Timeout | Unviable | Missed |
