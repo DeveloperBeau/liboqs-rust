@@ -265,18 +265,14 @@ impl MatrixRing {
 mod tests {
     use super::MatrixRing;
     use crate::fieldArithmetic::FieldArithmetic;
+    use OQSNativeAlgorithmTests::FuzzRandom;
+    use OQSNativeDomain::RandomGenerating;
 
-    /// The elements of a simple seeded sequence, the same for each test run.
+    /// Elements of the seeded bytes of `FuzzRandom`, the same for each test run.
     fn seededElements(seed: u64, count: usize) -> Vec<u8> {
-        let mut state = seed;
-        (0..count)
-            .map(|_| {
-                state = state
-                    .wrapping_mul(6_364_136_223_846_793_005)
-                    .wrapping_add(1_442_695_040_888_963_407);
-                ((state >> 37) & 0x0F) as u8
-            })
-            .collect()
+        let mut bytes = vec![0u8; count];
+        FuzzRandom::seeded(seed).fillRandomBytes(&mut bytes);
+        bytes.iter().map(|byte| byte & 0x0F).collect()
     }
 
     /// The product of two matrices by the schoolbook method.
