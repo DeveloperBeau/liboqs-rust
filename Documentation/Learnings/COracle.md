@@ -35,3 +35,9 @@
 - Trap: a harness that checks the length of a public key rejects the public key of an LMS response file, which the C program accepts.
 - Finding: the response files of `LMS_SHA256_H5_W1` and `LMS_SHA256_H10_W1` hold a raw LMS public key of 56 bytes and a raw LMS signature, not the HSS form of 60 bytes with the level count. `kat_sig_stfl` reads the key into a buffer of 60 bytes, and the patched hash-sigs code tells the two forms apart by their first words. The signature reads with four zeros in front, the level count of one.
 - Rule: the oracle gives a shorter stateful public key to the C code with zeros after it, and the LMS port reads both forms as the C code does.
+
+## The internal C functions give known answers for the arithmetic
+
+- Trap: a unit test of an internal function, such as a matrix product of FrodoKEM, needs a known answer that does not come from the Rust code, and the specification gives none for most inputs.
+- Finding: the FrodoKEM code of liboqs exports its internal functions, such as `oqs_kem_frodokem_640_aes_mul_add_as_plus_e`, as global symbols of `liboqs.a`. A small C program linked with the oracle library printed a digest of each function on seeded inputs, and the Rust functions gave each digest.
+- Rule: when liboqs exports an internal function, take the known answers of its unit test from it. The test names the C function, and its inputs come from a sequence that both programs can make. `nm` on `liboqs.a` of the oracle build lists the exported names.

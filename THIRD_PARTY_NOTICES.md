@@ -93,6 +93,12 @@ You are solely responsible for determining the appropriateness of using and dist
 - Kyber in liboqs: the reference code of the Kyber team, [pq-crystals/kyber](https://github.com/pq-crystals/kyber), commit `441c0519a07e8b86c8d079954a6b10bd31d29efc` with the liboqs patches. License: CC0-1.0 OR Apache-2.0.
 - Use in this repository: `Modules/MLKEM` follows FIPS 203 and the Kyber submission of round 3, and gives the bytes of these two implementations. The port is under MIT, which both upstream licenses allow.
 
+## FrodoKEM
+
+- Algorithm: FrodoKEM, by Michael Naehrig, Erdem Alkim, Joppe Bos, Léo Ducas, Karen Easterbrook, Brian LaMacchia, Patrick Longa, Ilya Mironov, Valeria Nikolaenko, Christopher Peikert, Ananth Raghunathan and Douglas Stebila. eFrodoKEM is its ephemeral form. See https://frodokem.org/.
+- FrodoKEM in liboqs: the reference code of the FrodoKEM team, [PQCrypto-LWEKE](https://github.com/microsoft/PQCrypto-LWEKE) of Microsoft, commit `a2f9dec8917ccc3464b3378d46b140fa7353320d`, in `src/kem/frodokem`. License: MIT, the SPDX identifier that liboqs gives the upstream code in `docs/algorithms/kem/frodokem.yml` and in the headers of its FrodoKEM files.
+- Use in this repository: `Modules/FrodoKEM` translates the portable C code of FrodoKEM and eFrodoKEM, and gives its bytes. The port is under MIT, the license of the upstream code.
+
 ## Test vectors
 
 - [NIST ACVP-Server](https://github.com/usnistgov/ACVP-Server), tag `v1.1.0.41`: the ML-KEM vectors. Works of the United States government are not subject to copyright in the United States.

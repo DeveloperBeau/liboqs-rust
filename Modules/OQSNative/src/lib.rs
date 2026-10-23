@@ -17,6 +17,7 @@ pub use OQSNativeEntities::{
     Encapsulation, KEMDescription, KeyPair, OQSError, SecretBytes, SignatureDescription,
     StatefulSignatureDescription,
 };
+pub use OQSNativeFrodoKEM::FrodoKEM;
 pub use OQSNativeMLKEM::{Kyber, MLKEM};
 #[cfg(feature = "std")]
 pub use OQSNativeSystemRandom::SystemRandom;
