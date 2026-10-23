@@ -227,6 +227,24 @@ limitations under the License.
 - License: the folders have no license file, and their files have no copyright line. Each file has the line `SPDX-License-Identifier: CC0 OR Apache-2.0`, and liboqs states the same in `docs/algorithms/sig/uov.yml`. CC0 has one version, CC0 1.0 Universal, so the SPDX expression is `CC0-1.0 OR Apache-2.0`. The liboqs wrappers `src/sig/uov/sig_uov.h` and `sig_uov_ov_<set>.c` and the build file `src/sig/uov/CMakeLists.txt` are MIT, as liboqs is.
 - Use in this repository: `Modules/UOV` translates the reference code and gives its bytes. The port is a modified work: it takes its random bytes as an argument, it shares one code for the twelve sets, and it computes the products of the matrices in another order that gives the same bytes. The port is under MIT, and the `license` field of the crate states the combined expression `MIT AND (CC0-1.0 OR Apache-2.0)`.
 
+## SNOVA
+
+- Algorithm: SNOVA, by Lih-Chung Wang, Chun-Yen Chou, Jintai Ding, Yen-Liang Kuan, Jan Adriaan Leegwater, Ming-Siou Li, Bo-Shu Tseng, Po-En Tseng and Chia-Chun Wang. See https://snova.pqclab.org/.
+- SNOVA in liboqs: the optimized code of the SNOVA team, [vacuas/SNOVA](https://github.com/vacuas/SNOVA), commit `1c3ca6f4f7286c0bde98d7d6f222cf63b9d52bff` with the patches of liboqs, in the folders `src/sig/snova/snova_SNOVA_<set>_opt`. License: MIT, in the `LICENSE` file of each folder and in `docs/algorithms/sig/snova.yml` of liboqs. The liboqs wrappers `src/sig/snova/sig_snova_<set>.c` are MIT, as liboqs is.
+- Use in this repository: `Modules/SNOVA` translates the portable code of those folders and gives its bytes. The port is under MIT, the license of the upstream code, so the crate keeps the license of the workspace.
+
+```text
+MIT License
+
+Copyright (c) 2024 SNOVA TEAM
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
 ## Test vectors
 
 - [NIST ACVP-Server](https://github.com/usnistgov/ACVP-Server), tag `v1.1.0.41`: the ML-KEM, ML-DSA and SLH-DSA vectors. Works of the United States government are not subject to copyright in the United States.
