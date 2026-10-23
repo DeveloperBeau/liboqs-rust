@@ -26,6 +26,6 @@
 
 ## A constant captures a binding of the same name
 
-- **Trap.** Rust reads a lower-case name in a pattern as a constant when a constant of that name is in scope. With Swift casing, constants and variables share one form, so `const seed` turns a parameter `seed` into a constant pattern.
-- **Finding.** A test module of `Modules/Falcon` had `const seed: u64` and a helper `fn seeded(seed: u64)`. The build failed with E0005, "refutable pattern in function argument", because `seed` was a constant pattern and not a new variable. In a `match` arm, the same collision builds and compares with the constant without a word.
-- **Rule.** Name a constant by its role, with a word that no binding in its scope uses, such as `operandSeed` or `nonceLength`.
+- **Trap.** Rust reads a lower-case name in a pattern as a constant when a constant of that name is in scope. With Swift casing, constants, statics and variables share one form, so `const seed` turns a parameter `seed` into a constant pattern.
+- **Finding.** A test module of `Modules/Falcon` had `const seed: u64` and a helper `fn seeded(seed: u64)`. The build failed with E0005, "refutable pattern in function argument", because `seed` was a constant pattern and not a new variable. In a `match` arm, the same collision builds and compares with the constant without a word. In SLH-DSA, `let mut descriptions` next to `static descriptions` failed with "let bindings cannot shadow statics", and a parameter `schemes` next to `const schemes` failed with "trait objects cannot be used in patterns".
+- **Rule.** Name a module constant or static by what it holds, with a word that no binding in its scope uses, such as `operandSeed`, `nonceLength` or `schemeDescriptions`, and keep the plain role words for parameters and bindings. An associated constant, such as `SLHDSA::schemes`, has no such conflict.

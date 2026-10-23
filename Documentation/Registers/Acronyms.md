@@ -21,6 +21,8 @@ A name writes each acronym in this table as one unit: all upper case (`MLKEM768`
 | `FFI` | Foreign function interface |
 | `FFT` | Fast Fourier transform |
 | `FIPS` | Federal Information Processing Standard |
+| `FORS` | Forest of random subsets |
+| `HMAC` | Hash-based message authentication code |
 | `HPS` | Hoffstein, Pipher and Silverman, the NTRU-HPS parameter sets |
 | `HQC` | Hamming Quasi-Cyclic |
 | `HRSS` | Hülsing, Rijneveld, Schanck and Schwabe, the NTRU-HRSS parameter sets |
@@ -33,12 +35,14 @@ A name writes each acronym in this table as one unit: all upper case (`MLKEM768`
 | `LDL` | The LDL decomposition: a lower triangular matrix, a diagonal matrix and the adjoint of the lower one |
 | `LMS` | Leighton-Micali Signature |
 | `MAYO` | The MAYO signature scheme |
+| `MGF` | Mask generation function |
 | `ML` | Module lattice |
 | `MQOM` | MQ on my Mind |
 | `NIST` | National Institute of Standards and Technology |
 | `NTRU` | The NTRU lattice scheme |
 | `OQS` | Open Quantum Safe |
 | `OS` | Operating system |
+| `PRF` | Pseudorandom function |
 | `RFC` | Request for Comments |
 | `RNG` | Random number generator |
 | `SHA` | Secure Hash Algorithm |
@@ -51,4 +55,5 @@ A name writes each acronym in this table as one unit: all upper case (`MLKEM768`
 | `UOV` | Unbalanced Oil and Vinegar |
 | `URL` | Uniform resource locator |
 | `UTF` | Unicode Transformation Format |
+| `WOTS` | Winternitz one-time signature |
 | `XMSS` | eXtended Merkle Signature Scheme |
