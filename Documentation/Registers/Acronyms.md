@@ -8,6 +8,7 @@ A name writes each acronym in this table as one unit: all upper case (`MLKEM768`
 | `ACVP` | Automated Cryptographic Validation Protocol |
 | `AES` | Advanced Encryption Standard |
 | `API` | Application programming interface |
+| `BDS` | Buchmann, Dahmen and Szydlo, the tree traversal of XMSS |
 | `BIKE` | Bit Flipping Key Encapsulation |
 | `CCA` | Chosen-ciphertext attack |
 | `CMA` | Chosen-message attack |
@@ -40,10 +41,12 @@ A name writes each acronym in this table as one unit: all upper case (`MLKEM768`
 | `MGF` | Mask generation function |
 | `ML` | Module lattice |
 | `MQOM` | MQ on my Mind |
+| `MT` | Multi-tree, as in XMSS^MT |
 | `NIST` | National Institute of Standards and Technology |
 | `NTRU` | The NTRU lattice scheme |
 | `OQS` | Open Quantum Safe |
 | `OS` | Operating system |
+| `OTS` | One-time signature |
 | `OV` | Oil and Vinegar, the name of the UOV parameter sets of liboqs, such as `OV-Is` |
 | `PIOP` | Polynomial interactive oracle proof |
 | `PRF` | Pseudorandom function |

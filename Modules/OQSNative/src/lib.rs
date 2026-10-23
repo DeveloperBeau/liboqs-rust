@@ -34,4 +34,5 @@ pub use OQSNativeSNOVA::SNOVA;
 #[cfg(feature = "std")]
 pub use OQSNativeSystemRandom::SystemRandom;
 pub use OQSNativeUOV::UOV;
+pub use OQSNativeXMSS::{XMSS, XMSSMT};
 pub use registry::Registry;

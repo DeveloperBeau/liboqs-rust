@@ -28,5 +28,6 @@ Each page describes one subsystem as the code is today: its purpose, its crates,
 | [UOV.md](UOV.md) | UOV | Yes |
 | [SNOVA.md](SNOVA.md) | SNOVA | Yes |
 | [MQOM.md](MQOM.md) | MQOM | Yes |
+| [XMSS.md](XMSS.md) | XMSS and XMSS^MT | Yes |
 | [RepositoryChecks.md](RepositoryChecks.md) | The `cargo xtask` checks for rings, names, versions, hygiene and unsafe code | Yes |
 | [Versioning.md](Versioning.md) | How the crate version follows the liboqs version | Yes |
