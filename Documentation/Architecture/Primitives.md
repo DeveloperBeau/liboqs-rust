@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Four crates of the `sharedComponents` ring give the primitives that more than one algorithm family uses. Three give the symmetric primitives, and each follows the API of liboqs `src/common`, so a translated family calls a primitive in the same order and with the same amounts as the C code. The fourth gives the constant-time sorting network of NTRU and NTRU Prime.
+Four crates of the `sharedComponents` ring give the primitives that more than one algorithm family uses. Three give the symmetric primitives, and each follows the API of liboqs `src/common`, so a translated family calls a primitive in the same order and with the same amounts as the C code. The fourth gives the constant-time sorting network of NTRU, NTRU Prime and Classic McEliece.
 
 | Crate | Folder | Library | Gives |
 |---|---|---|---|
@@ -41,12 +41,13 @@ The counter is the last four bytes of the counter block as a big-endian 32-bit n
 
 ## Sorting network
 
-`SortingNetwork` is the constant-time sort of 32-bit values of djbsort, which liboqs ships twice. `crypto_sort_int32.c` of the NTRU-HPS folders of PQClean is based on `crypto_sort/int32/x86` of SUPERCOP 20190110. `sntrup761.c` holds `crypto_sort_int32` from `crypto_sort/int32/portable4` of SUPERCOP 20240808, and `crypto_sort_uint32` on top of it. The two forms have the same network of comparisons, so one crate serves both families.
+`SortingNetwork` is the constant-time sort of djbsort, which liboqs ships three times. `crypto_sort_int32.c` of the NTRU-HPS folders of PQClean is based on `crypto_sort/int32/x86` of SUPERCOP 20190110. `sntrup761.c` holds `crypto_sort_int32` from `crypto_sort/int32/portable4` of SUPERCOP 20240808, and `crypto_sort_uint32` on top of it. The Classic McEliece folders of PQClean hold `int32_sort.h` and `uint64_sort.h`, with the same loops in an older form that tests `i & p` in place of stepping over the blocks. Every form has the same network of comparisons, in the same order, so one crate serves the three families.
 
-- `sort` is `crypto_sort_int32`. NTRU-HPS sorts its 30-bit keys with their marks as signed values.
+- `sort` is `crypto_sort_int32` and `int32_sort`. NTRU-HPS sorts its 30-bit keys with their marks as signed values, and Classic McEliece sorts the packed values of the control bits of its Benes network.
 - `sortUnsigned` is `crypto_sort_uint32`. It flips the top bit of each value, sorts the signed values and flips the bit back, so the order is the unsigned order. sntrup761 sorts its marked words with it.
+- `sortWords` is `uint64_sort`. Its exchange `uint64_MINMAX` swaps two words when the top bit of their difference is set. Two words that differ by less than `2^63` come out in ascending order. Two words that differ by `2^63` or more follow the same rule, so the larger word can come first, as in the C code. The key generation of Classic McEliece sorts its 32-bit order values shifted by 31 bits, with the index in the low bits, so every word is below `2^63`.
 
-The network depends only on the number of values, and each comparison exchanges two values with a mask, so the time does not depend on the values. A sort has one result for a list, so the port gives the same order as the C code for every input. Fewer than two values are already in order, as in `sntrup761.c`. The NTRU code assumes at least two values and always passes more.
+The network depends only on the number of values, and each comparison exchanges two values with a mask, so the time does not depend on the values. `sort` and `sortUnsigned` have one result for a list, so the port gives the order of the C code for every input. The exchange of `sortWords` is not an order for words that differ by `2^63` or more, so its result depends on the network, and the port makes the comparisons of the C code in the same order. Fewer than two values are already in order, as in `sntrup761.c`. The NTRU code assumes at least two values and always passes more.
 
 ## Tests
 
@@ -55,5 +56,5 @@ The network depends only on the number of values, and each comparison exchanges 
 - `Modules/SHA2/tests/KnownAnswers.rs` checks the FIPS 180-4 examples, with one million `a` bytes, and every split of every input length up to three blocks, across each padding edge. SHA-224, SHA-512/224 and SHA-512/256 also match Python `hashlib` at each padding edge.
 - `Modules/SHA3/tests/HashlibKnownAnswers.rs` checks SHA3-224 against the SHA-3 examples and Python `hashlib`, at the edges of its rate of 144 bytes and in pieces.
 - `Modules/AES/tests/KnownAnswers.rs` replicates `tests/test_aes.c` (FIPS 197 blocks, RFC 3686 counter vectors) and proves the counter rules with counter blocks built by hand, the wrap at 32 bits, the continuation of `fillCounterBlocks` and each misuse panic.
-- `Modules/SortingNetwork/src/SortingNetwork.rs` compares both sorts with the sort of the Rust library for every length up to 69 and for the lengths of NTRU and sntrup761, checks repeated values and the extremes, and compares the output of `crypto_sort_int32` of two NTRU-HPS sets and of `crypto_sort_int32` and `crypto_sort_uint32` of `sntrup761.c` on 24 values with the known answers of the C functions. The known answers of the families, such as `sample_fg` and `Short_fromlist`, run the sort on longer lists.
+- `Modules/SortingNetwork/src/SortingNetwork.rs` compares the three sorts with the sort of the Rust library for every length up to 69 and for the lengths of NTRU, sntrup761 and Classic McEliece, with words below `2^63` for `sortWords`. It checks repeated values and the extremes, and compares the output of `crypto_sort_int32` of two NTRU-HPS sets, of `crypto_sort_int32` and `crypto_sort_uint32` of `sntrup761.c` and of `int32_sort` of Classic McEliece on 24 values with the known answers of the C functions. It also compares the exchange `uint64_MINMAX` on nine pairs and `uint64_sort` on 24 words below and from `2^63` with the known answers of the C code. The known answers of the families, such as `sample_fg`, `Short_fromlist` and the control bits and public keys of Classic McEliece, run the sort on longer lists.
 - The parity tests of the facade crate compare each primitive with the C library.

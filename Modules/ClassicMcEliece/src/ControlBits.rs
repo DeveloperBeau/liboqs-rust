@@ -1,4 +1,4 @@
-use crate::sortingNetwork::SortingNetwork;
+use OQSNativeSortingNetwork::SortingNetwork;
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -59,7 +59,7 @@ impl ControlBits {
         for (x, entry) in a.iter_mut().enumerate() {
             *entry = (i32::from(permutation[x] ^ 1) << 16) + i32::from(permutation[x ^ 1]);
         }
-        SortingNetwork::sortIntegers(a);
+        SortingNetwork::sort(a);
         for (x, entry) in b.iter_mut().enumerate() {
             let px = a[x] & 0xFFFF;
             *entry = (px << 16) + Self::minimum(px, x as i32);
@@ -67,11 +67,11 @@ impl ControlBits {
         for (x, entry) in a.iter_mut().enumerate() {
             *entry = (((*entry as u32) << 16) + x as u32) as i32;
         }
-        SortingNetwork::sortIntegers(a);
+        SortingNetwork::sort(a);
         for (entry, bEntry) in a.iter_mut().zip(b.iter()) {
             *entry = ((*entry as u32) << 16).wrapping_add((*bEntry >> 16) as u32) as i32;
         }
-        SortingNetwork::sortIntegers(a);
+        SortingNetwork::sort(a);
         if logarithm <= 10 {
             for (bEntry, aEntry) in b.iter_mut().zip(a.iter()) {
                 *bEntry = ((*aEntry & 0xFFFF) << 10) + (*bEntry & 0x3FF);
@@ -80,11 +80,11 @@ impl ControlBits {
                 for (x, entry) in a.iter_mut().enumerate() {
                     *entry = ((b[x] & !0x3FF) << 6) + x as i32;
                 }
-                SortingNetwork::sortIntegers(a);
+                SortingNetwork::sort(a);
                 for (entry, bEntry) in a.iter_mut().zip(b.iter()) {
                     *entry = (((*entry as u32) << 20) + *bEntry as u32) as i32;
                 }
-                SortingNetwork::sortIntegers(a);
+                SortingNetwork::sort(a);
                 for (bEntry, aEntry) in b.iter_mut().zip(a.iter()) {
                     let ppcpx = *aEntry & 0xF_FFFF;
                     let ppcx = (*aEntry & 0xF_FC00) + (*bEntry & 0x3FF);
@@ -102,7 +102,7 @@ impl ControlBits {
                 for (x, entry) in a.iter_mut().enumerate() {
                     *entry = (b[x] & !0xFFFF) + x as i32;
                 }
-                SortingNetwork::sortIntegers(a);
+                SortingNetwork::sort(a);
                 for (entry, bEntry) in a.iter_mut().zip(b.iter()) {
                     *entry = (((*entry as u32) << 16) + (*bEntry & 0xFFFF) as u32) as i32;
                 }
@@ -110,12 +110,12 @@ impl ControlBits {
                     for (bEntry, aEntry) in b.iter_mut().zip(a.iter()) {
                         *bEntry = (*aEntry & !0xFFFF) + (*bEntry >> 16);
                     }
-                    SortingNetwork::sortIntegers(b);
+                    SortingNetwork::sort(b);
                     for (bEntry, aEntry) in b.iter_mut().zip(a.iter()) {
                         *bEntry = (((*bEntry as u32) << 16) + (*aEntry & 0xFFFF) as u32) as i32;
                     }
                 }
-                SortingNetwork::sortIntegers(a);
+                SortingNetwork::sort(a);
                 for (bEntry, aEntry) in b.iter_mut().zip(a.iter()) {
                     let cpx = (*bEntry & !0xFFFF) + (*aEntry & 0xFFFF);
                     *bEntry = Self::minimum(*bEntry, cpx);
@@ -128,7 +128,7 @@ impl ControlBits {
         for (x, entry) in a.iter_mut().enumerate() {
             *entry = (i32::from(permutation[x]) << 16) + x as i32;
         }
-        SortingNetwork::sortIntegers(a);
+        SortingNetwork::sort(a);
         let half = count / 2;
         for j in 0..half {
             let x = 2 * j;
@@ -139,7 +139,7 @@ impl ControlBits {
             b[x] = (((a[x] as u32) << 16) + fx as u32) as i32;
             b[x + 1] = (((a[x + 1] as u32) << 16) + (fx ^ 1) as u32) as i32;
         }
-        SortingNetwork::sortIntegers(b);
+        SortingNetwork::sort(b);
         position += (2 * logarithm as usize - 3) * step * half;
         for k in 0..half {
             let y = 2 * k;
@@ -150,7 +150,7 @@ impl ControlBits {
             a[y] = (ly << 16) + (b[y] & 0xFFFF);
             a[y + 1] = ((ly ^ 1) << 16) + (b[y + 1] & 0xFFFF);
         }
-        SortingNetwork::sortIntegers(a);
+        SortingNetwork::sort(a);
         position -= (2 * logarithm as usize - 2) * step * half;
         let mut halves = vec![0i16; count];
         for j in 0..half {

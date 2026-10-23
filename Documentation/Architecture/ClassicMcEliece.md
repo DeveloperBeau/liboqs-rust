@@ -10,13 +10,14 @@
 |---|---|---|
 | `oqs-native-classic-mceliece` | `Modules/ClassicMcEliece` | `features` |
 
+The sorts `int32_sort.h` and `uint64_sort.h` of the C code are `SortingNetwork::sort` and `SortingNetwork::sortWords` of the shared crate `oqs-native-sorting-network`, see [Primitives.md](Primitives.md).
+
 | Type | Role |
 |---|---|
 | `ClassicMcEliece` | The KEM, with the ten constants such as `classicMcEliece348864` and `classicMcEliece348864f`, `operations.c` |
 | `Parameters` | The parameters of `params.h`, the field polynomial of GF((2^m)^t), the layout of the secret key and the liboqs facts of a set |
 | `GaloisField` | GF(2^12) and GF(2^13): the products, squares, inverses and quotients of `gf.c`, the evaluation of `root.c`, and `bitrev` and `load_gf` of `util.c` |
 | `GoppaPolynomial` | The product `GF_mul` in GF((2^m)^t) and the minimal polynomial `genpoly_gen` of `sk_gen.c` |
-| `SortingNetwork` | The sorting networks of djbsort for 32-bit and 64-bit values, `int32_sort.h` and `uint64_sort.h` |
 | `ControlBits` | The control bits of the Benes network of a permutation, `controlbits.c` |
 | `BenesNetwork` | The Benes network and the support of the Goppa code, `benes.c` and `transpose.c` |
 | `ParityCheckMatrix` | The public key: the matrix of the Goppa code in systematic or semi-systematic form, `pk_gen.c` |
@@ -63,7 +64,7 @@ GF(2^12) reduces by `x^12 + x^3 + 1` and GF(2^13) by `x^13 + x^4 + x^3 + x + 1`,
 - Zero bytes and bytes of 0xFF never give a valid error vector, so an encapsulation with such a source never ends, as in the C code. The fuzz test starts at case 2.
 - The pivot search of 6960119f starts its window at column 1515, inside byte 189. The C code writes the first byte of the moved window as `(tmp[0] << tail) | mat[i][block_idx] << (8 - tail) >> (8 - tail)`. The byte is promoted to `int`, so the first five bits of the window become the or of the old and the moved bits. The port does the same. A key reaches it only when a pivot of the window falls outside the diagonal in its first five columns, about once in `2^27` keys, so a unit test runs the C function copied into a test program on a chosen matrix.
 - With `w` errors below `t`, the locator of the decoder is `x^(t - w)` times the locator of the errors, so the decoded vector also has the place whose support element is 0, when the support holds 0. The rejection tests use this to break one check at a time.
-- `uint64_sort` swaps two values when the top bit of their difference is set, so it orders only values below `2^63`, which are the only values that the key generation sorts.
+- `uint64_sort` swaps two values when the top bit of their difference is set, so it orders only values that differ by less than `2^63`. The key generation sorts only values below `2^63`. `SortingNetwork::sortWords` keeps the exchange and the order of the comparisons of the C code, so it gives the same result for every input.
 - The port computes some steps in another form that gives the same bytes. The elimination works on 64-bit words and skips the words below the word of the pivot, which are zero in both rows. The C code checks the control bits and computes them again on a mismatch, and the recursion is exact for every permutation, so the port computes them once. A decapsulation computes the factors `1 / g(L_i)^2` once for both double syndromes, and masks each term with the bit of the word in place of the product of the C code, because the term is always a reduced element.
 - Every input of a wrong length is `OQSError::invalidLength`. The ciphertext is checked before the secret key, and a public key of a wrong length draws no random bytes.
 
@@ -75,5 +76,5 @@ Each test file names the liboqs test that it replicates. liboqs has no vector te
 - `TestKEM.rs`: `tests/test_kem.c` through `KEMCorrectnessTest`. The four decisions of the decoder with keys of the identity network: an accepted vector of weight `t`, the weight check alone, the syndrome check alone, and the weight and one syndrome value that differ in the same bits, which an exclusive or of the fold would cancel. Changed ciphertexts, the parts of the secret key that the decapsulation reads, the layout of the secret key, the next seed after a failed attempt of the key pair with the attempt counts of liboqs, the random requests and the retries of the error vector, the padding checks of the 6960119 sets, the length errors and the seeded forms.
 - `FuzzTestKEM.rs`: `tests/fuzz_test_kem.c` through `KEMFuzzTest` from case 2, with one case of each set, and random secret keys, ciphertexts and public keys.
 - `TestKEMMem.rs`: `tests/test_kem_mem.c` through `KEMMemoryTest`.
-- Unit tests with the known answers of the C functions `gf_mul`, `gf_inv`, `gf_frac`, `GF_mul`, `genpoly_gen`, `controlbitsfrompermutation`, `apply_benes`, `support_gen`, `pk_gen` with its failing order values, `encrypt`, `synd`, `bm` and `decrypt` of liboqs 0.16.0, and of `mov_columns` of 6960119f copied into a test program. The arithmetic is also checked against references written by hand: the schoolbook products of the fields, the standard sort, and the identity sent through the layers of the control bits.
+- Unit tests with the known answers of the C functions `gf_mul`, `gf_inv`, `gf_frac`, `GF_mul`, `genpoly_gen`, `controlbitsfrompermutation`, `apply_benes`, `support_gen`, `pk_gen` with its failing order values, `encrypt`, `synd`, `bm` and `decrypt` of liboqs 0.16.0, and of `mov_columns` of 6960119f copied into a test program. The arithmetic is also checked against references written by hand: the schoolbook products of the fields and the identity sent through the layers of the control bits. The tests of the sorts are in `Modules/SortingNetwork`.
 - `Tools/Parity`: the base case and 1000 seeded variations of each set against the C library, and the hostile keys and ciphertexts of `HostileInputParity.rs`.
