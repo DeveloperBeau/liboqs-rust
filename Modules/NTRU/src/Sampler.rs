@@ -1,4 +1,5 @@
-use crate::{Parameters, PolynomialRing, SortingNetwork, Variant};
+use crate::{Parameters, PolynomialRing, Variant};
+use OQSNativeSortingNetwork::SortingNetwork;
 use alloc::vec;
 use alloc::vec::Vec;
 
