@@ -15,5 +15,6 @@ Each page describes one subsystem as the code is today: its purpose, its crates,
 | [Parity.md](Parity.md) | The parity checks with the C library and the parity program | Yes |
 | [MLKEM.md](MLKEM.md) | ML-KEM and Kyber | Yes |
 | [FrodoKEM.md](FrodoKEM.md) | FrodoKEM and eFrodoKEM | Yes |
+| [HQC.md](HQC.md) | HQC | Yes |
 | [RepositoryChecks.md](RepositoryChecks.md) | The `cargo xtask` checks for rings, names, versions, hygiene and unsafe code | Yes |
 | [Versioning.md](Versioning.md) | How the crate version follows the liboqs version | Yes |

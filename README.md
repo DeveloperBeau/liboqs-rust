@@ -16,6 +16,7 @@ The port is in progress. The repository holds the workspace, the standards, the 
 | Kyber | `Kyber512`, `Kyber768`, `Kyber1024` | Ported, identical to the C library |
 | FrodoKEM | `FrodoKEM-640-AES`, `FrodoKEM-640-SHAKE`, `FrodoKEM-976-AES`, `FrodoKEM-976-SHAKE`, `FrodoKEM-1344-AES`, `FrodoKEM-1344-SHAKE` | Ported, identical to the C library |
 | eFrodoKEM | `eFrodoKEM-640-AES`, `eFrodoKEM-640-SHAKE`, `eFrodoKEM-976-AES`, `eFrodoKEM-976-SHAKE`, `eFrodoKEM-1344-AES`, `eFrodoKEM-1344-SHAKE` | Ported, identical to the C library |
+| HQC | `HQC-1`, `HQC-3`, `HQC-5` | Ported, identical to the C library |
 
 `Tools/Parity/NotYetPorted.txt` lists each algorithm of liboqs that the port does not have yet.
 

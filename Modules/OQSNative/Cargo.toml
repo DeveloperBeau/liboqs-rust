@@ -19,6 +19,7 @@ path = "src/lib.rs"
 oqs-native-domain = { path = "../Domain", default-features = false }
 oqs-native-entities = { path = "../Entities", default-features = false }
 oqs-native-frodokem = { path = "../FrodoKEM", default-features = false }
+oqs-native-hqc = { path = "../HQC", default-features = false }
 oqs-native-ml-kem = { path = "../MLKEM", default-features = false }
 oqs-native-system-random = { path = "../SystemRandom", optional = true }
 
@@ -29,6 +30,7 @@ std = [
     "oqs-native-domain/std",
     "oqs-native-entities/std",
     "oqs-native-frodokem/std",
+    "oqs-native-hqc/std",
     "oqs-native-ml-kem/std",
     "dep:oqs-native-system-random",
 ]

@@ -77,5 +77,6 @@ The first difference stops the check with a `ParityMismatch`, which names the al
 - `AlgorithmCoverage.rs`: the registry and `NotYetPorted.txt` against the C library, and the facts of each registered algorithm against the C facts.
 - `SnapshotParity.rs`: the names of the frozen snapshot, and the snapshot line of each registered algorithm.
 - `RegisteredParity.rs`: every registered algorithm with the cases of `PARITY_CASES`, 2 by default, and the seed of `PARITY_SEED`. The suite runs in the dev profile, where a variation of a large family takes a large part of a second, so the release runs of `parity run` carry the 1000 variations.
+- `HostileInputParity.rs`: keys and ciphertexts of the right length with any bytes, only ones, only zeros or seeded bytes, give the result of the C library for every registered KEM: the same bytes or a failure on both sides. It also covers the HQC keys whose bits above `n` reach the reduction of the C code, see [HQC.md](HQC.md).
 
 CI runs the test suite on every pull request, then `known-answers --all` and `snapshot --check`, and `run` with 1000 variations in blocks of 50, in four shards of four processes.
