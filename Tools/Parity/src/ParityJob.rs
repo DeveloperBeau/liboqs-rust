@@ -1,6 +1,11 @@
 use crate::{KEMParity, LargeStack, ParityOptions, SignatureParity, Snapshot};
-use OQSNativeAlgorithmTests::{KEMKnownAnswerTest, KnownAnswerDigests, SignatureKnownAnswerTest};
-use OQSNativeCOracle::{COracle, OracleMechanism, OracleRandomness, OracleSignatureScheme};
+use OQSNativeAlgorithmTests::{
+    KEMKnownAnswerTest, KnownAnswerDigests, SignatureKnownAnswerTest, StatefulKnownAnswerDigests,
+    StatefulKnownAnswerTest, TestVectorFiles,
+};
+use OQSNativeCOracle::{
+    COracle, OracleMechanism, OracleRandomness, OracleSignatureScheme, OracleStatefulScheme,
+};
 use OQSNativeDomain::{KeyEncapsulating, Signing};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
@@ -51,8 +56,8 @@ impl<'check> ParityJob<'check> {
             .collect()
     }
 
-    /// The jobs of the known-answer run: each C algorithm of the digest files, KEMs first,
-    /// through the Rust harness.
+    /// The jobs of the known-answer run: each C algorithm of the digest files, KEMs first, then
+    /// the signature schemes and the stateful schemes, through the Rust harness.
     pub fn knownAnswerJobs(options: &ParityOptions) -> Vec<ParityJob<'static>> {
         let isAll = options.isAll;
         let mechanismJobs = KnownAnswerDigests::kem()
@@ -91,8 +96,28 @@ impl<'check> ParityJob<'check> {
                     Ok(Self::knownAnswerSummary(isAll))
                 }),
             });
+        // The stateful program has one run for each response file, so the digest file holds
+        // one digest for each scheme.
+        let statefulJobs = StatefulKnownAnswerDigests::names()
+            .into_iter()
+            .map(move |name| ParityJob {
+                name,
+                check: Box::new(move || {
+                    let scheme = OracleStatefulScheme::named(name)
+                        .ok_or("the C library has no such stateful scheme")?;
+                    let responseFile = TestVectorFiles::responseFile(name)?;
+                    let digest = StatefulKnownAnswerTest::digest(&scheme, &responseFile)?;
+                    Self::compareDigest(
+                        &digest,
+                        StatefulKnownAnswerDigests::digest(name),
+                        "response file",
+                    )?;
+                    Ok("response file digest identical".to_string())
+                }),
+            });
         mechanismJobs
             .chain(schemeJobs)
+            .chain(statefulJobs)
             .enumerate()
             .filter(|(position, job)| options.isSelected(*position, job.name))
             .map(|(_, job)| job)
@@ -290,13 +315,15 @@ mod tests {
     #[test]
     fn knownAnswerJobsFollowTheDigestFilesAndTheSelection() {
         let every = ParityJob::knownAnswerJobs(&ParityOptions::parse(&[]).expect("valid"));
-        assert_eq!(every.len(), 41 + 65);
+        assert_eq!(every.len(), 41 + 65 + 55);
         assert_eq!(every[0].name, "BIKE-L1");
         assert_eq!(every[41].name, "Falcon-1024");
+        assert_eq!(every[106].name, "XMSS-SHA2_10_256");
+        assert_eq!(every[160].name, "LMS_SHA256_H10_W4_H5_W8");
         let shard = ParityJob::knownAnswerJobs(
             &ParityOptions::parse(&["--shard".to_string(), "1/2".to_string()]).expect("valid"),
         );
-        assert_eq!(shard.len(), 53);
+        assert_eq!(shard.len(), 80);
         assert_eq!(shard[0].name, every[1].name);
     }
 }

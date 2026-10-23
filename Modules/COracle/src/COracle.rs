@@ -797,6 +797,11 @@ impl<'random> COracle<'random> {
     }
 
     /// True when `OQS_SIG_STFL_verify` accepts a signature.
+    ///
+    /// The C function reads the public key from a buffer of the length of the scheme. A shorter
+    /// key goes to the C code with zeros after it, because liboqs also accepts a raw LMS public
+    /// key, four bytes shorter than the HSS key, and reads only its bytes. A longer key is
+    /// refused.
     pub fn isValidStatefulSignature(
         &mut self,
         name: &str,
@@ -807,17 +812,22 @@ impl<'random> COracle<'random> {
         let Ok((name, description)) = self.statefulScheme(name) else {
             return false;
         };
-        checkedLength(publicKey, description.publicKeyLength).is_ok()
-            && unsafe {
-                oracleStatefulVerify(
-                    name.as_ptr(),
-                    message.as_ptr(),
-                    message.len(),
-                    signature.as_ptr(),
-                    signature.len(),
-                    publicKey.as_ptr(),
-                )
-            } == 0
+        if publicKey.len() > description.publicKeyLength {
+            return false;
+        }
+        let mut paddedKey = vec![0u8; description.publicKeyLength];
+        paddedKey[..publicKey.len()].copy_from_slice(publicKey);
+        let status = unsafe {
+            oracleStatefulVerify(
+                name.as_ptr(),
+                message.as_ptr(),
+                message.len(),
+                signature.as_ptr(),
+                signature.len(),
+                paddedKey.as_ptr(),
+            )
+        };
+        status == 0
     }
 
     fn statefulSignatureCount(

@@ -7,7 +7,9 @@
 //! a Rust algorithm and compares the digest of the text with the digest of the C library. The
 //! correctness, fuzz and memory programs of `tests/test_kem.c`, `tests/fuzz_test_kem.c`,
 //! `tests/test_kem_mem.c`, `tests/test_sig.c`, `tests/fuzz_test_sig.c` and
-//! `tests/test_sig_mem.c` check the behavior. Only tests use the crate.
+//! `tests/test_sig_mem.c` check the behavior. The known-answer program of the stateful
+//! schemes, `tests/kat_sig_stfl.c`, reads the response files of the liboqs source. Only tests
+//! use the crate.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -32,6 +34,8 @@ mod knownAnswerDigests;
 mod knownAnswerRandom;
 #[path = "KnownAnswerText.rs"]
 mod knownAnswerText;
+#[path = "ResponseFile.rs"]
+mod responseFile;
 #[path = "SignatureCorrectnessTest.rs"]
 mod signatureCorrectnessTest;
 #[path = "SignatureFuzzTest.rs"]
@@ -43,6 +47,10 @@ mod signatureKnownAnswerTest;
 mod signatureMemoryTest;
 #[path = "SignedMessageForm.rs"]
 mod signedMessageForm;
+#[path = "StatefulKnownAnswerDigests.rs"]
+mod statefulKnownAnswerDigests;
+#[path = "StatefulKnownAnswerTest.rs"]
+mod statefulKnownAnswerTest;
 #[cfg(feature = "std")]
 #[path = "TestVectorFiles.rs"]
 mod testVectorFiles;
@@ -57,11 +65,14 @@ pub use kemMemoryTest::KEMMemoryTest;
 pub use knownAnswerDigests::KnownAnswerDigests;
 pub use knownAnswerRandom::KnownAnswerRandom;
 pub use knownAnswerText::KnownAnswerText;
+pub use responseFile::ResponseFile;
 pub use signatureCorrectnessTest::SignatureCorrectnessTest;
 pub use signatureFuzzTest::SignatureFuzzTest;
 pub use signatureKnownAnswerTest::SignatureKnownAnswerTest;
 #[cfg(feature = "std")]
 pub use signatureMemoryTest::SignatureMemoryTest;
 pub use signedMessageForm::SignedMessageForm;
+pub use statefulKnownAnswerDigests::StatefulKnownAnswerDigests;
+pub use statefulKnownAnswerTest::StatefulKnownAnswerTest;
 #[cfg(feature = "std")]
 pub use testVectorFiles::TestVectorFiles;

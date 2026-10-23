@@ -14,7 +14,7 @@ impl KnownAnswerText {
     }
 
     /// Appends a line `label = number`, as `fprintf(fh, "count = %zu\n", count)` prints it.
-    pub fn appendNumber(&mut self, label: &str, number: usize) {
+    pub fn appendNumber(&mut self, label: &str, number: impl core::fmt::Display) {
         self.text.push_str(&format!("{label} = {number}\n"));
     }
 
@@ -28,6 +28,20 @@ impl KnownAnswerText {
         }
         for byte in bytes {
             self.text.push_str(&format!("{byte:02X}"));
+        }
+        self.text.push('\n');
+    }
+
+    /// Appends a line `label = hex` in lower-case hexadecimal, as `fprint_l_str` of
+    /// `tests/kat_sig_stfl.c` prints it. An empty value prints as `00`.
+    pub fn appendLowerCaseBytes(&mut self, label: &str, bytes: &[u8]) {
+        self.text.push_str(label);
+        self.text.push_str(" = ");
+        if bytes.is_empty() {
+            self.text.push_str("00");
+        }
+        for byte in bytes {
+            self.text.push_str(&format!("{byte:02x}"));
         }
         self.text.push('\n');
     }
@@ -54,6 +68,11 @@ mod tests {
         text.appendBytes("seed", &[0x0A, 0xFF, 0x00]);
         text.appendBlankLine();
         text.appendBytes("msg", &[]);
-        assert_eq!(text.text(), "count = 12\nseed = 0AFF00\n\nmsg = 00\n");
+        text.appendLowerCaseBytes("sm", &[0x0A, 0xFF]);
+        text.appendLowerCaseBytes("pk", &[]);
+        assert_eq!(
+            text.text(),
+            "count = 12\nseed = 0AFF00\n\nmsg = 00\nsm = 0aff\npk = 00\n"
+        );
     }
 }

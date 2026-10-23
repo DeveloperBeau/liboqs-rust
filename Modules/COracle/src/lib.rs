@@ -5,9 +5,9 @@
 //! same name through this crate. No shipped crate depends on it.
 //!
 //! `COracle` holds the lock of the C library for the time of its use, because the C library
-//! has one global random source. `OracleMechanism` and `OracleSignatureScheme` give the C
-//! algorithms the capability interfaces of the Rust algorithms, so a test can run the parity
-//! harness against the C code itself.
+//! has one global random source. `OracleMechanism`, `OracleSignatureScheme` and
+//! `OracleStatefulScheme` give the C algorithms the capability interfaces of the Rust
+//! algorithms, so a test can run the parity harness against the C code itself.
 //!
 //! Without the `std` feature the crate is empty, because the oracle is a test tool of a hosted
 //! build.
@@ -26,6 +26,9 @@ mod oracleRandomness;
 #[cfg(feature = "std")]
 #[path = "OracleSignatureScheme.rs"]
 mod oracleSignatureScheme;
+#[cfg(feature = "std")]
+#[path = "OracleStatefulScheme.rs"]
+mod oracleStatefulScheme;
 
 #[cfg(feature = "std")]
 pub use cOracle::COracle;
@@ -35,3 +38,5 @@ pub use oracleMechanism::OracleMechanism;
 pub use oracleRandomness::OracleRandomness;
 #[cfg(feature = "std")]
 pub use oracleSignatureScheme::OracleSignatureScheme;
+#[cfg(feature = "std")]
+pub use oracleStatefulScheme::OracleStatefulScheme;
