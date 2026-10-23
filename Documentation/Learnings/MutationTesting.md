@@ -137,3 +137,27 @@
 - **Trap.** A loop over `(0..length).step_by(16)` that writes `16.min(length - start)` elements at each start gives the same writes when the end of the range is one or two too high. The extra start writes no element, or no extra start is a multiple of 16.
 - **Finding.** In `systemMatrix` of MAYO, three mutants of the end of the range and of the count survived the first run of `oqs-native-mayo`. The one extra element of the count was in a column whose element is always zero.
 - **Rule.** Walk a slice of the exact length with `chunks_mut(16)`. A slice end that is too high then panics, or it writes into a place that a test checks.
+
+## A branch of the C code that no input takes gives equivalent mutants
+
+- **Trap.** A mutant of a guard that never fires survives every test, and no test can reach the guard.
+- **Finding.** The `goto done` of `crypto_sort_int32`, the lines 109 to 112 of `SortingNetwork.rs`, never runs. The loop of line 108 runs only when `i < j = n - 2q < i + p`, and then `j` reaches `i + p` before `n - q`. The two mutants of the branch survived the run of the sorting network.
+- **Rule.** Keep the branch as the C code has it. Prove from the invariant of the loop that it never runs, and record its mutants as equivalent with that invariant.
+
+## Extra comparisons that change nothing give an equivalent sorting network
+
+- **Trap.** A mutant of the loop control of a sorting network adds or repeats comparisons. Every sorting network gives the one sorted list, so neither a test of the output nor a random input can tell whether the mutant is equivalent.
+- **Finding.** Three mutants of `SortingNetwork::sortWith` passed every test. One repeats merges, and two add merges at the high places of a pass. For an input of zeros and ones, a pass of the merge exchange only raises the values at its low places and only lowers the values at its high places, so each extra merge compares two values that are already in order, and a repeated merge finds its chain as the first merge left it.
+- **Rule.** Compare the list of comparisons of the mutant with the list of the network, which depends only on the length, and prove with inputs of zeros and ones that each extra comparison changes nothing. A comparison commutes with each threshold of the values, so the proof holds for every input.
+
+## A reduction by estimated quotients stays exact with other estimates
+
+- **Trap.** A mutant that changes the estimate of a quotient in a reduction such as `Fq_freeze` survives every test of the residues, because the later steps correct a worse estimate.
+- **Finding.** Seven of the nine mutants of the constants `q16`, `q20` and `q28` of `ModularReduction::residueModuloModulus` give the centered residue for every input up to `2^31 / 14`, the limit of the 32-bit products of the C code. The other two, with `q16` of 13 and 16, give it for every input of the callers, which stay below `2 * 2295^2`, but their products overflow 32 bits from 105412007 and from 77901825 in absolute value.
+- **Rule.** Test a reduction up to the limit of the integer type of the C code as well as over the inputs of its callers. Record a mutant that stays exact over the whole range as equivalent, with the bound that each step leaves.
+
+## A mutant stopped by the memory cap can count as a timeout
+
+- **Trap.** A mutant whose loop fills a list reaches the memory cap of the `Mutants` workflow, and the run reports a timeout in place of a failed test. A reading of the log that looks only for a failed test or a panic puts the mutant among the timeouts with no failure.
+- **Finding.** The four mutants of the byte loop of `RadixEncoding::encode` of NTRU Prime printed "memory allocation of 2147483648 bytes failed" in CI, and their test programs had not ended at the limit of 10 seconds. Applied by hand under the same cap, each test program stopped with SIGABRT.
+- **Rule.** Read the log of each timeout for "memory allocation of". The cap stopped such a mutant. Count it with the timeouts, as the run reports it, and say in the register that the cap stopped it.
