@@ -53,3 +53,9 @@
 - Trap: an oracle that passes `as_ptr()` of an empty context gives the C library a pointer that is not null, and liboqs reads the pointer as well as the length.
 - Finding: the parity check of `Falcon-512` failed with "Rust succeeds and C fails" for the empty context. The liboqs wrapper of a scheme without context support signs only when `ctx_str == NULL && ctx_str_len == 0`, and the pointer of an empty Rust slice is a dangling address that is not null. `anEmptyContextIsTheNullContextOfTheCLibrary` failed before the fix.
 - Rule: the oracle passes the null pointer for an empty context, as `tests/test_sig.c` does. An empty input reaches the C library as the null pointer wherever the C code compares a pointer with `NULL`.
+
+## The CROSS verification reads the whole signature before its length check
+
+- Trap: the parity check of a short signature makes the C library read past its input.
+- Finding: the liboqs wrapper of CROSS calls `CROSS_verify` and refuses a length other than its own only after it, and `CROSS_verify` reads the whole `CROSS_sig_t`. The parity check of a signature one byte short read one byte past its copy. `aShortSignatureReachesTheCVerificationWithItsWholeLength` stopped with a memory fault for an empty signature, whose pointer points to no memory.
+- Rule: the oracle gives the C verification a copy of a shorter signature with zeros after it, up to the signature length of the scheme. The C code still receives the length of the signature.
