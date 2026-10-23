@@ -61,6 +61,8 @@ mod statefulKnownAnswerTest;
 mod statefulSignatureCorrectnessTest;
 #[path = "StatefulSignatureFuzzTest.rs"]
 mod statefulSignatureFuzzTest;
+#[path = "StatefulTreeHeight.rs"]
+mod statefulTreeHeight;
 #[path = "SuiteSample.rs"]
 mod suiteSample;
 #[cfg(feature = "std")]
@@ -92,6 +94,7 @@ pub use statefulKnownAnswerDigests::StatefulKnownAnswerDigests;
 pub use statefulKnownAnswerTest::StatefulKnownAnswerTest;
 pub use statefulSignatureCorrectnessTest::StatefulSignatureCorrectnessTest;
 pub use statefulSignatureFuzzTest::StatefulSignatureFuzzTest;
+pub use statefulTreeHeight::StatefulTreeHeight;
 pub use suiteSample::SuiteSample;
 #[cfg(feature = "std")]
 pub use testVectorFiles::TestVectorFiles;
