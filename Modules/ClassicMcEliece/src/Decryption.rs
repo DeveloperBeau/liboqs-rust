@@ -154,7 +154,8 @@ impl<'parameters> Decryption<'parameters> {
 mod tests {
     use super::Decryption;
     use crate::parameters::{allParameters, classicMcEliece348864, classicMcEliece6960119};
-    use crate::testSupport::{SeededWords, digest};
+    use crate::testSupport::digest;
+    use OQSNativeAlgorithmTests::FuzzRandom;
 
     #[test]
     fn theDecisionFoldsTheWeightAndEverySyndromeValueWithAnOr() {
@@ -246,17 +247,17 @@ mod tests {
             let name = parameters.description.name;
             let decryption = Decryption::new(parameters);
             let mask = parameters.field().mask();
-            let mut words = SeededWords::new(61);
+            let mut words = FuzzRandom::seeded(61);
             let mut goppa: Vec<u16> = (0..parameters.errorWeight)
-                .map(|_| words.next() as u16 & mask)
+                .map(|_| words.nextWord() as u16 & mask)
                 .collect();
             goppa.push(1);
             let support: Vec<u16> = (0..parameters.codeLength)
-                .map(|_| words.next() as u16 & mask)
+                .map(|_| words.nextWord() as u16 & mask)
                 .collect();
-            let mut words = SeededWords::new(62);
+            let mut words = FuzzRandom::seeded(62);
             let received: Vec<u8> = (0..parameters.errorVectorLength())
-                .map(|_| words.next() as u8)
+                .map(|_| words.nextWord() as u8)
                 .collect();
             let factors = decryption.syndromeFactors(&goppa, &support);
             let syndrome = decryption.syndrome(&factors, &support, &received);
@@ -269,12 +270,12 @@ mod tests {
             };
             assert_eq!(digest(&bytes(&syndrome)), syndromeDigest, "{name}");
             assert_eq!(digest(&bytes(&locator)), locatorDigest, "{name}");
-            let mut words = SeededWords::new(63);
+            let mut words = FuzzRandom::seeded(63);
             let secretKey: Vec<u8> = (0..parameters.description.secretKeyLength - 40)
-                .map(|_| words.next() as u8)
+                .map(|_| words.nextWord() as u8)
                 .collect();
             let ciphertext: Vec<u8> = (0..parameters.description.ciphertextLength)
-                .map(|_| words.next() as u8)
+                .map(|_| words.nextWord() as u8)
                 .collect();
             let decrypted = decryption.decrypted(&secretKey, &ciphertext);
             let mut output = decrypted.error.clone();

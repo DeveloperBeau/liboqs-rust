@@ -123,7 +123,8 @@ mod tests {
     use crate::parameters::{
         allParameters, classicMcEliece348864, classicMcEliece6960119, classicMcEliece8192128,
     };
-    use crate::testSupport::{SeededWords, digest};
+    use crate::testSupport::digest;
+    use OQSNativeAlgorithmTests::FuzzRandom;
 
     /// The bytes of 16-bit values, little-endian.
     fn valueBytes(values: &[u16]) -> Vec<u8> {
@@ -221,9 +222,9 @@ mod tests {
         // only bit i set, whatever the public key holds.
         for parameters in [&classicMcEliece348864, &classicMcEliece6960119] {
             let encryption = Encryption::new(parameters);
-            let mut words = SeededWords::new(17);
+            let mut words = FuzzRandom::seeded(17);
             let publicKey: Vec<u8> = (0..parameters.description.publicKeyLength)
-                .map(|_| words.next() as u8)
+                .map(|_| words.nextWord() as u8)
                 .collect();
             for position in [0usize, 9, parameters.rowCount() - 1] {
                 let mut error = vec![0u8; parameters.codeLength / 8];
@@ -243,9 +244,9 @@ mod tests {
         for parameters in [&classicMcEliece348864, &classicMcEliece6960119] {
             let encryption = Encryption::new(parameters);
             let rowLength = parameters.publicKeyRowLength();
-            let mut words = SeededWords::new(18);
+            let mut words = FuzzRandom::seeded(18);
             let publicKey: Vec<u8> = (0..parameters.description.publicKeyLength)
-                .map(|_| words.next() as u8)
+                .map(|_| words.nextWord() as u8)
                 .collect();
             let columnCount = parameters.codeLength - parameters.rowCount();
             for column in [0usize, 1, columnCount - 1] {
@@ -279,11 +280,11 @@ mod tests {
         ];
         for (parameters, syndromeDigest) in allParameters.iter().step_by(2).zip(expected) {
             let encryption = Encryption::new(parameters);
-            let mut words = SeededWords::new(51);
+            let mut words = FuzzRandom::seeded(51);
             let publicKey: Vec<u8> = (0..parameters.description.publicKeyLength)
-                .map(|_| words.next() as u8)
+                .map(|_| words.nextWord() as u8)
                 .collect();
-            let mut random = crate::testSupport::SeededRandom::new(52);
+            let mut random = FuzzRandom::seeded(52);
             let mut output = Vec::new();
             for _ in 0..4 {
                 let error = encryption.randomErrorVector(&mut random);
