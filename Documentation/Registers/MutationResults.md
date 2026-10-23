@@ -441,6 +441,34 @@ With the new case, the known-answer program and the unit tests of the crate move
 | The matrix of the system holds the k o unknowns of each row and a zero last column | `systemMatrix`: `-` replaced with `+` or `/` in `columnCount - 1`, and `*` replaced with `+` or `/` in `16 * block`, by hand | `systemMatrixGivesTheAnswerOfTheCFunction` |
 | Each bin of `S P S^T` is the bin of its row and its element | `quadraticForms`: each operator of `bin` replaced, by hand | `publicMapGivesTheValueOfTheCCode` |
 
+## Latest result for SLH-DSA
+
+The run of 2026-10-23 of the crate in the ten shards of the `Mutants` workflow of CI, on a commit of the branch `family/slh-dsa`: [the crate](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40026767732). The branch moved to a new base after the run, and no file of the crate changed. The workflow of the run did not yet cap the memory of the test programs, and every shard ended.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-slh-dsa`, first run in CI | 539 | 496 | 0 | 41 | 2 |
+
+The run had no timeout. One of the two missed mutants is a test gap, and `nodesOfEveryHeightUpToAWholeTreeAreTheNodesOfTheCFunction` now kills it. The other is equivalent.
+
+The test gap replaces `+` with `*` in the size of the stack of `FORS::node`, line 30, so the stack holds 14 nodes in place of 15. The node of height z needs z + 1 places. `FORS::sign` asks only for the heights from 0 to a - 1, so a signature needs at most 14 places, and the root of a whole tree of height 14 needs 15. `fors_node` of the C code takes every height up to a, because its stack of 14 nodes, `SLH_MAX_A`, and its output hold 15 nodes. The new test compares the nodes of every height from 0 to 14 of `SHA2_192S` and `SHAKE_256S` with the digests of `fors_node`. The C program that printed them includes `slh_dsa.c`, because the function is static, and takes the hash functions from `liboqs.a`. Its copy of `slh_sign_internal` gives the signatures of `liboqs.a`. With the mutant, the test fails with an index out of bounds at the index 14 of the stack. With `-` in place of `+`, the stack holds 13 nodes, and the new test and `testSigMemPassesForEachSchemeOfTheSuiteSampleAndEachPureSmallSet`, which signs with trees of height 14, both fail.
+
+### Equivalent mutants
+
+- `Hypertree.rs`, `chainDigits`, line 243: `-` replaced with `+` in `(8 - (checksumBits & 7)) & 7`. The port keeps the formula of FIPS 205, Algorithm 7, and of `wots_csum` of the C code. `checksumBits` is `len_2 lg_w`. `Parameters::checksumChainCount` gives 3 and `Parameters::winternitzBits` is 4 for every set, so `checksumBits` is 12 and `checksumBits & 7` is 4. The shift is `(8 - 4) & 7 = 4`, and with the mutant it is `(8 + 4) & 7 = 4`. So the checksum, its bytes and its digits are the same for every message. With `/` in place of `-` the shift is 2, and `chainDigitsOfTheZeroMessageCarryTheLargestChecksum` kills that mutant.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| A FORS node of every height up to a whole tree of the largest height is the node of the C code | `FORS::node`, line 30: `+` replaced with `*` or `-` in the size of the stack | `nodesOfEveryHeightUpToAWholeTreeAreTheNodesOfTheCFunction`, and for `-` also `testSigMemPassesForEachSchemeOfTheSuiteSampleAndEachPureSmallSet` |
+| The stack of `Hypertree::xmssNode` holds the whole top tree of height 9 of a key pair | `Hypertree::xmssNode`, line 102: `+` replaced with `*` or `-` | `testSigMemPassesForEachSchemeOfTheSuiteSampleAndEachPureSmallSet` |
+| The WOTS+ checksum adds w - 1 minus each digit, shifted so that its digits fill whole bytes | `Hypertree::chainDigits`, line 240: `-` replaced with `+`, line 243: `<<=` replaced with `>>=` | `chainDigitsOfTheZeroMessageCarryTheLargestChecksum` |
+| The tree and the leaf index take their bits after the FORS digest | `SLHDSA::treeAndLeafIndex`: each operator replaced | `treeAndLeafIndexTakeTheirBitsAfterTheFORSDigest` |
+| A context of 255 bytes signs and verifies, and a longer one is refused | `signWithContext`, line 395, and `isValidSignatureWithContext`, line 420: `>` replaced with `>=` | `aContextOfMoreThan255BytesIsRefusedAfterTheRandomRequest`, `testSigPassesForEachPureSchemeOfTheSuiteSample` and 2 more |
+| Only the SHA2 sets of categories 3 and 5 use SHA-512 | `Parameters::usesSHA512`, line 98: `>` replaced with `==` | `onlyTheSHA2SetsAboveCategoryOneUseSHA512`, `sha2FunctionsHashTheSeedBlockTheCompressedAddressAndTheInput` |
+| `PRF_msg` and `H_msg` of a SHA2 set of category 3 or 5 use SHA-512 | `HashContext::prfMessage`, line 191, and `messageDigest`, line 229: the match guard replaced | `signatureVectorsOfTheFastSHA2SetsGiveTheirSignatures`, `verificationVectorsGiveTheirVerdicts` |
+| A verification compares the last root with `PK.root` | `Hypertree::isValid`, line 92: `==` replaced with `!=` | `hypertreeSignatureVerifiesAndAChangedMessageDoesNot` |
+| Each field of the address is a big-endian word at its place | `Address::setWord`: each operator replaced | `eachFieldIsABigEndianWordAtItsPlaceOfFIPS205Figure2`, `compressedAddressKeepsTheBytesOfFIPS205Section11Point2` and 9 more |
+
 ## History
 
 | Run | Code | Mutants | Caught | Timeout | Unviable | Missed |
