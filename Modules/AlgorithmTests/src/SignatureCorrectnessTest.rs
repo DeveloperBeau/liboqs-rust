@@ -35,7 +35,7 @@ impl SignatureCorrectnessTest {
         if !scheme.isValidSignature(&signature, &message, publicKey) {
             return Err(format!("{name}: the signature does not verify"));
         }
-        Self::checkBitFlips(scheme, random, &message, &signature, publicKey, None)?;
+        Self::checkContextBitFlips(scheme, random, &message, &signature, publicKey, None)?;
         let mut context = [0u8; 257];
         random.fillRandomBytes(&mut context);
         if description.supportsContext {
@@ -55,7 +55,7 @@ impl SignatureCorrectnessTest {
                         "{name}: the signature with a {length}-byte context does not verify"
                     ));
                 }
-                Self::checkBitFlips(
+                Self::checkContextBitFlips(
                     scheme,
                     random,
                     &message,
@@ -88,13 +88,12 @@ impl SignatureCorrectnessTest {
                 "{name}: the signature with the empty context does not verify"
             ));
         }
-        Self::checkBitFlips(scheme, random, &message, &signature, publicKey, Some(&[]))
+        Self::checkContextBitFlips(scheme, random, &message, &signature, publicKey, Some(&[]))
     }
 
-    /// `test_sig_bitflip` of `tests/test_helpers.c`: each random bit flip of the message, and
-    /// of the signature for an SUF-CMA scheme, must fail the verification. The index of a flip
-    /// is a little-endian `u64` of 8 random bytes, modulo the number of bits.
-    fn checkBitFlips(
+    /// The bit flips of a signature with the plain form, or with the context form under a
+    /// context.
+    fn checkContextBitFlips(
         scheme: &dyn Signing,
         random: &mut dyn RandomGenerating,
         message: &[u8],
@@ -109,9 +108,31 @@ impl SignatureCorrectnessTest {
             }
             None => scheme.isValidSignature(signature, message, publicKey),
         };
+        Self::checkBitFlips(
+            description.name,
+            description.isSUFCMASecure,
+            random,
+            message,
+            signature,
+            &isValid,
+        )
+    }
+
+    /// `test_sig_bitflip` and `test_sig_stfl_bitflip` of `tests/test_helpers.c`: each random
+    /// bit flip of the message, and of the signature for an SUF-CMA scheme, must fail the
+    /// verification. The index of a flip is a little-endian `u64` of 8 random bytes, modulo the
+    /// number of bits. `isValid` verifies a message and a signature.
+    pub(crate) fn checkBitFlips(
+        name: &str,
+        isSUFCMASecure: bool,
+        random: &mut dyn RandomGenerating,
+        message: &[u8],
+        signature: &[u8],
+        isValid: &dyn Fn(&[u8], &[u8]) -> bool,
+    ) -> Result<(), String> {
         let mut tamperedMessage = message.to_vec();
         let mut tamperedSignature = signature.to_vec();
-        let partCount = if description.isSUFCMASecure { 2 } else { 1 };
+        let partCount = if isSUFCMASecure { 2 } else { 1 };
         for part in 0..partCount {
             let (partName, tampered) = if part == 0 {
                 ("message", &mut tamperedMessage)
@@ -131,8 +152,7 @@ impl SignatureCorrectnessTest {
                 tampered[bit / 8] ^= 1 << (bit % 8);
                 if isAccepted {
                     return Err(format!(
-                        "{}: the verification accepts the {partName} with bit {bit} flipped",
-                        description.name
+                        "{name}: the verification accepts the {partName} with bit {bit} flipped"
                     ));
                 }
             }
