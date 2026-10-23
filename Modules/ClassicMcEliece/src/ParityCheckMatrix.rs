@@ -296,15 +296,16 @@ mod tests {
         classicMcEliece348864, classicMcEliece348864f, classicMcEliece460896,
         classicMcEliece6960119, classicMcEliece6960119f,
     };
-    use crate::testSupport::{SeededWords, digest};
+    use crate::testSupport::digest;
+    use OQSNativeAlgorithmTests::FuzzRandom;
 
     /// A matrix of a set with seeded rows. The bits from column `n` up are zero, as in a matrix
     /// of the C code.
     fn seededMatrix(parameters: &'static Parameters, seed: u64) -> ParityCheckMatrix<'static> {
         let rowWords = parameters.codeLength.div_ceil(64);
-        let mut words = SeededWords::new(seed);
+        let mut words = FuzzRandom::seeded(seed);
         let mut rows: Vec<u64> = (0..parameters.rowCount() * rowWords)
-            .map(|_| words.next())
+            .map(|_| words.nextWord())
             .collect();
         for row in rows.chunks_exact_mut(rowWords) {
             row[rowWords - 1] &= (1 << (parameters.codeLength % 64)) - 1;
@@ -370,9 +371,9 @@ mod tests {
     #[test]
     fn twoEqualOrderValuesGiveNoKey() {
         let parameters = &classicMcEliece348864;
-        let mut words = SeededWords::new(31);
-        let goppa: Vec<u16> = (0..64).map(|_| words.next() as u16 & 0xFFF).collect();
-        let mut values: Vec<u32> = (0..4096).map(|_| words.next() as u32).collect();
+        let mut words = FuzzRandom::seeded(31);
+        let goppa: Vec<u16> = (0..64).map(|_| words.nextWord() as u16 & 0xFFF).collect();
+        let mut values: Vec<u32> = (0..4096).map(|_| words.nextWord() as u32).collect();
         values[4095] = values[17];
         assert!(ParityCheckMatrix::generatedKey(parameters, &goppa, &values).is_none());
     }
@@ -532,17 +533,17 @@ mod tests {
         for (parameters, keySeed, keyDigest) in expected {
             let name = parameters.description.name;
             let mask = parameters.field().mask();
-            let mut words = SeededWords::new(100);
+            let mut words = FuzzRandom::seeded(100);
             let element: Vec<u16> = (0..parameters.errorWeight)
-                .map(|_| words.next() as u16 & mask)
+                .map(|_| words.nextWord() as u16 & mask)
                 .collect();
             let goppa = GoppaPolynomial::new(parameters)
                 .minimalPolynomial(&element)
                 .expect("a Goppa polynomial");
             let values = |seed: u64| {
-                let mut words = SeededWords::new(seed);
+                let mut words = FuzzRandom::seeded(seed);
                 (0..parameters.fieldSize())
-                    .map(|_| words.next() as u32)
+                    .map(|_| words.nextWord() as u32)
                     .collect::<Vec<u32>>()
             };
             for seed in 200..keySeed {
