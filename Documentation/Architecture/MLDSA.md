@@ -14,7 +14,7 @@
 |---|---|
 | `MLDSA` | ML-DSA of FIPS 204, with the constants `mldsa44`, `mldsa65` and `mldsa87`, the `Signing` interface and the internal forms of the vector tests |
 | `PreHashAlgorithm` | The twelve hash functions of HashML-DSA, each with its object identifier and its hash length |
-| `Parameters` | The parameters of FIPS 204, Table 1, the lengths of the keys and the signature of Table 2, and the liboqs facts of a set |
+| `Parameters` | The parameters of FIPS 204, Table 1, the lengths of the keys and the signature of Table 2, the number of signing attempts of mldsa-native, and the liboqs facts of a set |
 | `InternalAlgorithms` | ML-DSA.KeyGen_internal, ML-DSA.Sign_internal and ML-DSA.Verify_internal of FIPS 204, Algorithms 6 to 8, and the hint encoding |
 | `Polynomial` | The arithmetic modulo q of mldsa-native: the NTT in the Montgomery domain, the reductions, the rounding, the norm check, the sampling and the bit packing |
 
@@ -46,7 +46,7 @@ The arithmetic keeps the signed representatives of mldsa-native at each step: th
 - A context of more than 255 bytes is `OQSError::contextTooLong`, and a verification under it is false.
 - The secret key is decoded with no range check, as in mldsa-native, so a key with coefficients out of the range of eta signs. `MalformedKeyParity.rs` in `Tools/Parity` shows that the C library gives the same signatures.
 - A signature or a public key of a wrong length is not valid. A verification never panics.
-- When every attempt of the rejection loop fails, the signature is `OQSError::operationFailed`. A secret key decodes to bounded coefficients, and no known input makes each of the thousands of attempts fail, so the path has no test.
+- When every attempt of the rejection loop fails, the signature is `OQSError::operationFailed`. A secret key decodes to bounded coefficients, and no known input makes each of the thousands of attempts fail, so the path has no test. A unit test of `Parameters` checks the number of attempts against `MLD_NONCE_UB` of the C code.
 - liboqs has no public API for the internal forms. `internalSignature`, `isValidInternalSignature`, `preHashSignature` and `isValidPreHashSignature` give the entry points that `tests/vectors_sig.c` calls, `signature_internal` with the external mu flag, `verify_internal`, `signature_pre_hash_internal` and `verify_pre_hash_internal`, each with an empty prefix where the C test passes none.
 
 ## Tests
@@ -59,6 +59,7 @@ Each test file names the liboqs test that it replicates.
 - `TestSigMem.rs`: `tests/test_sig_mem.c` through `SignatureMemoryTest`.
 - `VectorsSig.rs`: `tests/test_acvp_vectors.py` and `tests/vectors_sig.c`. The 75 key generation, 360 signature generation and 180 verification vectors of ACVP-Server, in the external, pre-hash and internal forms. The Python test hashes the message of a pre-hash vector with `hashlib`, and this test hashes it with `Modules/SHA2` and `Modules/SHA3`.
 - `WycheproofVectors.rs`: `tests/test_wycheproof_vectors.py`. The sign vectors with expanded keys and with seeds, and the verify vectors, valid and invalid.
-- Unit tests of `Polynomial`: the twiddle factors of mldsa-native and their definition, every value of the decomposition, of UseHint and of Power2Round against FIPS 204, the reductions on seeded values and on the edges of their domains, the NTT product against the schoolbook product, and the packing against the packing functions of mldsa-native.
+- Unit tests of `Parameters`: each constant of each set against `params.h` of mldsa-native and FIPS 204, Table 1, with the number of signing attempts, the lengths against Table 2, and the facts of each liboqs file.
+- Unit tests of `Polynomial`: the twiddle factors of mldsa-native and their definition, every value of the decomposition, of UseHint and of Power2Round against FIPS 204, the reductions on seeded values and on the edges of their domains, the NTT product against the schoolbook product, the packing against the packing functions of mldsa-native, and the uniform sampling of two seeds whose streams hold a candidate of q against `poly_uniform` of mldsa-native.
 - Unit tests of `InternalAlgorithms`: the hint encoding and each malformed hint encoding that mldsa-native refuses.
 - `Tools/Parity`: the base case and 1000 seeded variations of each set against the C library. `MalformedKeyParity.rs` signs on both sides with secret keys whose s1 or s2 hold coefficients out of range, whose t0 does not belong to the key pair, or whose bytes are all random.

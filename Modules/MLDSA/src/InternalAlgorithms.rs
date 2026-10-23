@@ -198,7 +198,6 @@ impl<'parameters> InternalAlgorithms<'parameters> {
         representative: &[u8; representativeLength],
         randomness: &[u8; seedLength],
     ) -> Option<Vec<u8>> {
-        let columnCount = self.parameters.columnCount;
         let key = self.signingKey(secretKey);
         let mut maskSeed = [0u8; representativeLength];
         Self::hash(
@@ -206,9 +205,7 @@ impl<'parameters> InternalAlgorithms<'parameters> {
             &mut maskSeed,
         );
         let matrix = self.matrix(&key.publicSeed);
-        // `MLD_NONCE_UB`: the masks of the last attempt use nonces below 2^16.
-        let attemptCount = (usize::from(u16::MAX) - columnCount) / columnCount;
-        (0..attemptCount).find_map(|attempt| {
+        (0..self.parameters.signingAttemptCount()).find_map(|attempt| {
             self.attemptedSignature(representative, &maskSeed, attempt as u16, &matrix, &key)
         })
     }
