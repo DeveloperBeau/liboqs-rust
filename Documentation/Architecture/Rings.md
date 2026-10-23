@@ -15,6 +15,7 @@ The workspace root `Cargo.toml` lists the member folders `Modules/*` and `Tools/
 | `oqs-native-aes` | `Modules/AES` | `sharedComponents` |
 | `oqs-native-sha2` | `Modules/SHA2` | `sharedComponents` |
 | `oqs-native-sha3` | `Modules/SHA3` | `sharedComponents` |
+| `oqs-native-sorting-network` | `Modules/SortingNetwork` | `sharedComponents` |
 | `oqs-native-kat-random` | `Modules/KATRandom` | `infrastructure` |
 | `oqs-native-system-random` | `Modules/SystemRandom` | `infrastructure` |
 | `oqs-native-c-oracle` | `Modules/COracle` | `infrastructure` |
