@@ -20,6 +20,7 @@ dependencies = [
  "oqs-native-ntru-prime",
  "oqs-native-slh-dsa",
  "oqs-native-system-random",
+ "oqs-native-uov",
 ]
 
 [[package]]
@@ -224,6 +225,18 @@ name = "oqs-native-system-random"
 version = "0.16.0"
 dependencies = [
  "oqs-native-domain",
+]
+
+[[package]]
+name = "oqs-native-uov"
+version = "0.16.0"
+dependencies = [
+ "oqs-native-aes",
+ "oqs-native-algorithm-tests",
+ "oqs-native-domain",
+ "oqs-native-entities",
+ "oqs-native-kat-random",
+ "oqs-native-sha3",
 ]
 
 [[package]]
