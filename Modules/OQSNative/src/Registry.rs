@@ -10,6 +10,7 @@ use OQSNativeMLKEM::{Kyber, MLKEM};
 use OQSNativeNTRU::NTRU;
 use OQSNativeNTRUPrime::NTRUPrime;
 use OQSNativeSLHDSA::SLHDSA;
+use OQSNativeUOV::UOV;
 
 /// Every algorithm of the port, by its liboqs name.
 ///
@@ -85,6 +86,18 @@ const signatureSchemeGroups: &[&[&dyn Signing]] = &[
         &CROSS::crossRSDPG256Balanced,
         &CROSS::crossRSDPG256Fast,
         &CROSS::crossRSDPG256Small,
+        &UOV::ovIs,
+        &UOV::ovIp,
+        &UOV::ovIII,
+        &UOV::ovV,
+        &UOV::ovIsCompressedPublicKey,
+        &UOV::ovIpCompressedPublicKey,
+        &UOV::ovIIICompressedPublicKey,
+        &UOV::ovVCompressedPublicKey,
+        &UOV::ovIsCompressedKeys,
+        &UOV::ovIpCompressedKeys,
+        &UOV::ovIIICompressedKeys,
+        &UOV::ovVCompressedKeys,
     ],
     SLHDSA::schemes,
 ];
