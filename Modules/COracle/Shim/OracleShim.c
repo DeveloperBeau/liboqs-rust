@@ -15,6 +15,13 @@
 
 #include "test_helpers.h"
 
+// The hash-sigs code of LMS inside liboqs. The build script adds its folder with -iquote, so
+// that its endian.h never hides the endian.h of the system.
+#include "endian.h"
+#include "hss.h"
+#include "hss_internal.h"
+#include "hss_sign_inc.h"
+
 // The facts of a KEM, as OQS_KEM holds them.
 typedef struct {
 	const char *name;
@@ -395,6 +402,106 @@ int oracleStatefulSignatureCount(const char *name, const uint8_t *secretKey, siz
 	OQS_SIG_STFL_SECRET_KEY_free(key);
 	OQS_SIG_STFL_free(sig);
 	return status;
+}
+
+// LMS working keys. OQS_SIG_STFL_sign of LMS loads a working key of hash-sigs from the private key
+// for each signature, which costs about one key generation. A working key here is loaded once and
+// signs on from its last state. The serialized key lives in Rust: its first PRIVATE_KEY_LEN bytes
+// are the private key, which each signature advances in place, as hss_advance_count advances the
+// private key of liboqs, and the rest is the aux data, which a signature never changes.
+
+// The memory that a working key may take. liboqs loads with a target of 0, which gives subtrees of
+// a few levels. A larger target gives larger subtrees, so the working key crosses fewer subtree
+// boundaries and loads again less often. The signatures are the same for any target.
+#define WORKING_KEY_MEMORY_TARGET ((size_t)64 << 20)
+
+// Loads a working key from a serialized secret key, with the aux data that the key carries. Returns
+// NULL when hash-sigs refuses the key.
+void *oracleLMSWorkingKeyLoad(uint8_t *secretKey, size_t secretKeyLength) {
+	if (secretKeyLength < PRIVATE_KEY_LEN) {
+		return NULL;
+	}
+	return hss_load_private_key(NULL, secretKey, WORKING_KEY_MEMORY_TARGET, secretKey + PRIVATE_KEY_LEN, secretKeyLength - PRIVATE_KEY_LEN, NULL);
+}
+
+void oracleLMSWorkingKeyFree(void *workingKey) {
+	hss_free_working_key(workingKey);
+}
+
+// One signature with a working key: the steps of oqs_sig_stfl_lms_sign after its load of the
+// working key. With no update function, hash-sigs advances the private key at secretKey in place.
+static bool signWithWorkingKey(struct hss_working_key *workingKey, uint8_t *secretKey, uint8_t *signature, size_t signatureCapacity, size_t *signatureLength, const uint8_t *message, size_t messageLength) {
+	if (workingKey == NULL) {
+		return false;
+	}
+	size_t length = hss_get_signature_len_from_working_key(workingKey);
+	if (length == 0 || length > signatureCapacity) {
+		return false;
+	}
+	struct hss_sign_inc context;
+	if (!hss_sign_init(&context, workingKey, NULL, secretKey, signature, length, NULL)) {
+		return false;
+	}
+	(void)hss_sign_update(&context, message, messageLength);
+	if (!hss_sign_finalize(&context, workingKey, signature, NULL)) {
+		return false;
+	}
+	*signatureLength = length;
+	return true;
+}
+
+// Signs a message with a working key and advances the serialized key in place.
+//
+// A working key of liboqs does not sign on correctly. The loop at the end of
+// hss_generate_signature that moves a tree to its next subtree skips the top tree, and it marks the
+// key as expired at the end of the first bottom tree. So a working key of one tree gives signatures
+// that do not verify from its first subtree boundary on, and a working key of two trees fails at
+// the end of its first bottom tree. OQS_SIG_STFL_sign never meets this, because it loads a new
+// working key for each signature. So each signature of the working key is verified. When the
+// signature fails or does not verify, the private key goes back to its state before the signature,
+// the working key is loaded again from the serialized key, and the new working key makes the
+// signature again, as the new working key of OQS_SIG_STFL_sign makes it.
+int oracleLMSWorkingKeySign(const char *name, void **workingKey, uint8_t *secretKey, size_t secretKeyLength, const uint8_t *publicKey, uint8_t *signature, size_t *signatureLength, const uint8_t *message, size_t messageLength) {
+	OQS_SIG_STFL *sig = OQS_SIG_STFL_new(name);
+	if (sig == NULL || secretKeyLength < PRIVATE_KEY_LEN) {
+		OQS_SIG_STFL_free(sig);
+		return OQS_ERROR;
+	}
+	uint8_t privateKey[PRIVATE_KEY_LEN];
+	memcpy(privateKey, secretKey, PRIVATE_KEY_LEN);
+	bool isSigned = signWithWorkingKey(*workingKey, secretKey, signature, sig->length_signature, signatureLength, message, messageLength);
+	if (!isSigned || OQS_SIG_STFL_verify(sig, message, messageLength, signature, *signatureLength, publicKey) != OQS_SUCCESS) {
+		memcpy(secretKey, privateKey, PRIVATE_KEY_LEN);
+		hss_free_working_key(*workingKey);
+		*workingKey = oracleLMSWorkingKeyLoad(secretKey, secretKeyLength);
+		isSigned = signWithWorkingKey(*workingKey, secretKey, signature, sig->length_signature, signatureLength, message, messageLength);
+	}
+	OQS_MEM_cleanse(privateKey, PRIVATE_KEY_LEN);
+	OQS_SIG_STFL_free(sig);
+	if (!isSigned) {
+		*signatureLength = 0;
+		return OQS_ERROR;
+	}
+	return OQS_SUCCESS;
+}
+
+// Reads the remaining (isTotal 0) or total (isTotal 1) signature count of a serialized key with a
+// working key. OQS_SIG_STFL_lms_sigs_total loads a new working key for its max_count, and
+// OQS_SIG_STFL_lms_sigs_left subtracts the count of the private key. This function takes the
+// max_count of the loaded working key. It refuses a count above max_count, as the load of liboqs
+// does. After the last signature, hash-sigs writes PARM_SET_END over the whole private key, so that
+// count is above max_count too.
+int oracleLMSWorkingKeySignatureCount(const void *workingKey, const uint8_t *secretKey, size_t secretKeyLength, int isTotal, unsigned long long *count) {
+	const struct hss_working_key *working = workingKey;
+	if (working == NULL || secretKeyLength < PRIVATE_KEY_LEN) {
+		return OQS_ERROR;
+	}
+	sequence_t current = get_bigendian(secretKey + PRIVATE_KEY_INDEX, PRIVATE_KEY_INDEX_LEN);
+	if (current > working->max_count) {
+		return OQS_ERROR;
+	}
+	*count = isTotal ? (unsigned long long)working->max_count : (unsigned long long)(working->max_count - current);
+	return OQS_SUCCESS;
 }
 
 // Primitives.
