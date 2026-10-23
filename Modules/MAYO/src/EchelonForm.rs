@@ -110,9 +110,12 @@ fn nonZeroMask(value: u8) -> u8 {
 /// echelon form of A has a last row of zeros.
 ///
 /// The matrix has m rows of `k o + 1` elements and then zero rows up to a multiple of 8, as
-/// `systemMatrix` gives it. The randomizer has `k o + 1` elements, the last one zero. The
-/// solution has `k o + 1` elements: the back substitution can change the one after the k o
-/// unknowns, as in the C code, and the signature uses only the first k o.
+/// `systemMatrix` gives it. The randomizer has `k o + 1` elements. The product `A r` reads the
+/// last one after the last column of A is cleared, so the result does not depend on it, as in
+/// the C code. The signature sets it to zero. The solution has `k o + 1` elements. It starts as
+/// the k o unknowns of the randomizer and a zero, because `x <- r` of the C code copies only the
+/// unknowns. The back substitution can change the element after the unknowns, as in the C code,
+/// and the signature uses only the first k o.
 pub(crate) fn sampledSolution(
     matrix: &mut [u8],
     target: &[u8],
@@ -121,7 +124,8 @@ pub(crate) fn sampledSolution(
     rowCount: usize,
 ) -> Option<Vec<u8>> {
     let columnCount = unknownCount + 1;
-    let mut solution = randomizer.to_vec();
+    let mut solution = vec![0u8; columnCount];
+    solution[..unknownCount].copy_from_slice(&randomizer[..unknownCount]);
     for row in 0..rowCount {
         matrix[row * columnCount + unknownCount] = 0;
     }
@@ -171,8 +175,9 @@ mod tests {
     /// column, five zero columns, a first column that is zero in the 40 first rows, a lower half
     /// that repeats the upper half, all zeros, three zero rows at the end, and a first column
     /// whose first entry that is not zero is at the last row of the pivot search, row 32, or just
-    /// after it.
-    const cases: [&str; 9] = [
+    /// after it. The last case is a seeded matrix whose randomizer has the element 9 after the
+    /// k o unknowns, where a signature has zero.
+    const cases: [&str; 10] = [
         "random",
         "zeroColumn",
         "fiveZeroColumns",
@@ -182,6 +187,7 @@ mod tests {
         "lastRowsZero",
         "pivotAtSearchEnd",
         "pivotPastSearch",
+        "randomizerTail",
     ];
 
     /// The seed of an input of a case: the input 1 is the matrix, 2 the target and 3 the
@@ -234,7 +240,7 @@ mod tests {
     type CaseAnswer = (&'static str, bool, &'static str, &'static str);
 
     /// The answers of each case for each set.
-    const knownAnswers: [(&Parameters, [CaseAnswer; 9]); 4] = [
+    const knownAnswers: [(&Parameters, [CaseAnswer; 10]); 4] = [
         (
             &mayo1,
             [
@@ -291,6 +297,12 @@ mod tests {
                     true,
                     "3062ecc351f1168f97cf797bc6198745616ebf1904e08de2d6cc71f51235986f",
                     "204f43ffb9195a81c3ec1cd37a872c829c394f37c4e36bc3b0c2a7c2951f5cbe",
+                ),
+                (
+                    "9839dacdfa7cd55c4bb2a0231de01e2e0f0fe1e55f9a330abb98a02473aa921f",
+                    true,
+                    "70fb64e60d82dc7f3ca700b6cddb894d82f7e4cc4b425ab03d34f66661000393",
+                    "865f26a9b6426be5cf7f5370401fe41f4c19698dfb1d5c744a5a64474592a00a",
                 ),
             ],
         ),
@@ -351,6 +363,12 @@ mod tests {
                     "46c495f5b987c1e7317fa9687ed849139e2224afd8791a89f58cecec32c19112",
                     "69a8967fda040e52d88c68db9408ee705e4e45132f1533b5294b1b1956bdec90",
                 ),
+                (
+                    "0949c055219e1147f11af8b5010d7551fd931c802cb26cda2aa6a94073dde319",
+                    true,
+                    "5d08f8e535d78a86912ee98ca5c9967a2d4b19a1d331a4505a0fb47074804834",
+                    "4e93d7da4cbbb0bd6afeaf87d72a871c404b231e2def8f6acde2e65b4bf109dc",
+                ),
             ],
         ),
         (
@@ -409,6 +427,12 @@ mod tests {
                     true,
                     "d5d1457dad7f0144c444c8a44919efae54d2402ec1679adbeaa0b310fc733e29",
                     "8a6378e3a9c758acb2c42a774915b4c79bd00d7d0a8f99a11deda3d9824f6788",
+                ),
+                (
+                    "670595ca561ac6d35d920c65791fa723cb00a496e1558b02ca87352bb654b506",
+                    true,
+                    "d6a2c04e0d9a8692246d5ab681b4bfc8e57fd0a81589d555bb66b40765d07d55",
+                    "5b54b285eb87dae3473b73c762f308be950a02ee257a481fcc239dffa949bbfb",
                 ),
             ],
         ),
@@ -469,6 +493,12 @@ mod tests {
                     "1195a4f0f9868a5a8bdb815d940d23f7e730f970d6d0936c6d3313be8f2adcf9",
                     "26c6fcd34aa3eba6a183dbd934a05c6393d2fa69da8a11c2e6ab310813d58442",
                 ),
+                (
+                    "87e3d0f72b1b10b034d9594fcd96a9bf29d477bf48a75e6db6e650c2959cfbae",
+                    true,
+                    "47e767a62d2abc5226b58e07c765d8044021437cada29de443ab6be527463610",
+                    "59bc355b9f09f6f9c8b2fa6de8acbea88bc23ae4ef16137d9884cbbf6e0ed042",
+                ),
             ],
         ),
     ];
@@ -501,7 +531,7 @@ mod tests {
                 let mut matrix = craftedMatrix(parameters, caseIndex);
                 let target = inputNibbles(seeds[1], parameters.equationCount);
                 let mut randomizer = inputNibbles(seeds[2], unknownCount);
-                randomizer.push(0);
+                randomizer.push(if *case == "randomizerTail" { 9 } else { 0 });
                 let solution = sampledSolution(
                     &mut matrix,
                     &target,
@@ -510,8 +540,10 @@ mod tests {
                     parameters.equationCount,
                 );
                 assert_eq!(solution.is_some(), answer.1, "{name}, {case}, {seeds:?}");
-                // The C program prints the randomizer as the solution when none is found.
-                let solution = solution.unwrap_or(randomizer);
+                // When no solution is found, the C program prints its x, which then holds the
+                // k o unknowns of the randomizer and the zero that the program put after them.
+                let solution =
+                    solution.unwrap_or_else(|| [&randomizer[..unknownCount], &[0]].concat());
                 assert_eq!(
                     digestOfBytes(&solution),
                     answer.2,
