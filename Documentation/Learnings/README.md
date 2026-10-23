@@ -6,3 +6,4 @@ Each page covers one area. Each entry has three parts: the trap, the finding tha
 |---|---|
 | [SwiftCasingInRust.md](SwiftCasingInRust.md) | Swift API casing in a Rust workspace |
 | [MutationTesting.md](MutationTesting.md) | Mutation testing with `cargo mutants` |
+| [COracle.md](COracle.md) | The C library as the test oracle |

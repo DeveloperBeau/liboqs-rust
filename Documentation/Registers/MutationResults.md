@@ -125,6 +125,41 @@ The run of 2026-10-23 on the branch `foundation/random`: 12 mutants, 12 caught, 
 | The HQC generator absorbs the domain byte | `HQCKATRandom::new`: the domain byte removed | `hqcGeneratorIsSHAKE256OfTheSeedAndTheDomainByte` |
 | The system source fills the buffer | `SystemRandom::fillRandomBytes`: body replaced with `()` | `readsGiveFreshBytesThatAreNotZero` |
 
+## Latest result for the oracle, the known-answer programs, the registry and the parity harness
+
+The runs of 2026-10-23 on the branch `foundation/oracle`, with `OQS_ORACLE_DIR` set to the oracle folder, because `cargo mutants` builds a copy of the workspace without `target`.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-c-oracle` | 138 | 112 | 0 | 26 | 0 |
+| `oqs-native-algorithm-tests` | 63 | 59 | 0 | 4 | 0 |
+| `oqs-native` | 21 | 2 | 0 | 7 | 12 |
+| `oqs-native-parity` | 183 | 169 | 1 | 8 | 5, then 1 |
+| `xtask`, the files of the oracle build | 26 | 21 | 0 | 5 | 0 |
+
+The second run of `oqs-native-parity` covered the four files that changed after the first: 113 mutants, 108 caught, 1 timeout, 3 unviable and 1 missed.
+
+### Equivalent mutants
+
+- `oqs-native`, `Registry.rs`: the 12 missed mutants replace a list with an empty list, a lookup with `None`, or the name of an algorithm with another text. The three lists are empty until the first family registers an algorithm, so no test can see a difference yet. `eachAlgorithmIsFoundByItsOwnName` and the coverage tests of `Tools/Parity` kill each of them once its list holds an algorithm. The family pull requests record the runs that kill them.
+- `oqs-native-parity`, `VariationGenerator::usesContextForm`: `==` replaced with `!=` in `self.below(2) == 0`. The coin decides the form of a variation with an empty context. The mutant inverts a fair coin, which gives the same distribution, so no test can tell the two apart.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| Every C call checks the input lengths first | `checkedLength`: `==` replaced with `!=` | `wrongLengthsAreErrorsBeforeAnyCCall` |
+| The oracle lists only the enabled algorithms | `enabledNames`: `== 1` replaced with `!= 1` | `descriptionsHoldTheFactsOfTheCLibrary` |
+| A second oracle on one thread stops at once | `COracle::new`: the assertion removed | `secondOracleOnOneThreadStopsAtOnceAndDoesNotWaitForItself` |
+| The known-answer text prints an empty value as `00` | `KnownAnswerText::appendBytes`: the empty case removed | `linesFollowTheFormatOfTheCPrograms` |
+| HQC uses the SHAKE256 generator | `KnownAnswerRandom::generator`: the condition replaced | `hqcUsesTheSHAKEGeneratorAndEveryOtherNameTheNISTGenerator` |
+| Each layout of `kat_sig` joins its parts in its order | `SignedMessageForm::signedMessage`: each arm replaced | `signedMessagesJoinThePartsInTheOrderOfTheForm`, `falconFormMovesTheSaltBeforeTheMessageAndTheHeaderAfterIt` |
+| A failure on one side only is a mismatch | `agreeOnFailure`: body replaced with `Ok(())` | `aFailureOnOneSideIsAMismatchThatNamesTheSide` |
+| A changed input changes exactly one bit | `VariationGenerator::withChangedBit`: `^=` replaced with `|=` or `&=`, `/` replaced with `%` | `aChangedBitChangesExactlyOneBitAndReachesEveryBit` |
+| A non-empty context always uses the context form | `VariationGenerator::usesContextForm`: `||` replaced with `&&`, `>` replaced | `aNonEmptyContextAlwaysUsesTheContextFormAndAnEmptyOneUsesBoth` |
+| The variations reach each message length range | `VariationGenerator::messageLength`: `+` replaced with `*` | `messageLengthsCoverEachRangeAndStayInTheLimit` |
+| A snapshot check counts each failure | `ParityJob::snapshotCheck`: `+=` replaced | `snapshotCheckCountsEachFailureAndEachMissedDigest` |
+| The oracle build clones only a missing source | `OracleBuild::steps`: the clone condition replaced | `missingSourceIsClonedAtTheVersionTagAndThenBuilt`, `presentSourceOfTheVersionIsBuiltWithoutAClone` |
+| The oracle build stops at the first failed step | `fetchOracle`: the early return removed | `fetchOracleStopsAtTheFirstFailedStep` |
+
 ## History
 
 | Run | Code | Mutants | Caught | Timeout | Unviable | Missed |

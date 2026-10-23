@@ -8,7 +8,7 @@ This project is free and open source. It is an independent port. It is not affil
 
 ## Status
 
-The port is at its start. The repository holds the workspace, the standards and the repository checks. No algorithm is ported yet.
+The port is at its start. The repository holds the workspace, the standards, the repository checks, the shared primitives, the random sources and the parity harness. No algorithm is ported yet. `Tools/Parity/NotYetPorted.txt` lists each algorithm of liboqs that the port does not have yet.
 
 ## Versions
 
@@ -16,13 +16,24 @@ The version of each crate equals the version of liboqs that it ports. `LIBOQS_VE
 
 ## Build and test
 
+The tests compare the port with the C library, so the first step builds the C library at the version in `LIBOQS_VERSION`. It needs `git`, `cmake` and a C compiler, and writes to `target/oracle/`.
+
 ```sh
+cargo xtask fetch-oracle
 cargo build --workspace
 cargo test --workspace
 cargo xtask check
 ```
 
-`cargo xtask check` runs the repository checks: rings, names, versions and hygiene. See [standards.md](standards.md) for the rules and [Documentation/Architecture/README.md](Documentation/Architecture/README.md) for how the code works.
+`cargo xtask check` runs the repository checks: rings, names, versions, hygiene and unsafe code. The full parity gate runs 1000 seeded variations of each algorithm against the C library:
+
+```sh
+cargo run --release -p oqs-native-parity -- run --processes 4
+cargo run --release -p oqs-native-parity -- snapshot --check --processes 4
+cargo run --release -p oqs-native-parity -- known-answers --all --processes 4
+```
+
+See [standards.md](standards.md) for the rules and [Documentation/Architecture/README.md](Documentation/Architecture/README.md) for how the code works.
 
 ## License
 

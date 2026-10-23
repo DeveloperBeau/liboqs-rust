@@ -11,3 +11,7 @@ The folder SHA-256 is the SHA-256 of each file under the upstream paths of the r
 | `Modules/SHA3` | `src/common/sha3/sha3.h`, `src/common/sha3/xkcp_sha3.c`, `src/common/pqclean_shims/fips202.h` | liboqs (API only, the code is written from FIPS 202) | `c33c7d6906ca3dc1dbcab090061b6225300431f3a9d07d9421041f1c2f33c20c` | MIT (port) |
 | `Modules/KATRandom` (`NISTKATRandom`) | `src/common/rand/rand_nist.c`, `src/common/rand/rand_nist.h` | liboqs, NIST-developed software | `fb764db1a65d68c010683fa0c3ac3dac0f99f636862b1b56363f8485bdf1614c` | NIST notice |
 | `Modules/KATRandom` (`HQCKATRandom`) | `tests/test_helpers.c` | liboqs | `b474a24e80c93ae8722f2378037fcf284689f65efe7a28657e3ce6f21af628c1` | MIT |
+| `Modules/AlgorithmTests` (`KEMKnownAnswerTest`, `KnownAnswerText`) | `tests/kat_kem.c` | liboqs | `c824bafeae91add06df1a18de1ba71536bf07daea12f5dee6d1d671fa7431396` | MIT |
+| `Modules/AlgorithmTests` (`SignatureKnownAnswerTest`, `SignedMessageForm`) | `tests/kat_sig.c` | liboqs | `6f30abe37d6cca6572eb0acc624ca94d9dbc7e90b244b9a348a560291f356724` | MIT |
+| `Modules/AlgorithmTests` (`KnownAnswerRandom`) | `tests/test_helpers.c` | liboqs | `b474a24e80c93ae8722f2378037fcf284689f65efe7a28657e3ce6f21af628c1` | MIT |
+| `Modules/AlgorithmTests` (`Data`, copies of the digest files) | `tests/KATs/kem/kats.json`, `tests/KATs/sig/kats.json` | liboqs | `82d82e2368b5bed1941a83eb582f71724243261c2151455ca4d4f88abd46f14a` | MIT |

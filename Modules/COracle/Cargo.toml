@@ -1,0 +1,32 @@
+[package]
+name = "oqs-native-c-oracle"
+description = "The liboqs C library as a test oracle for the parity tests of the native port."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+# Test-only: the crate links the C library, and no shipped crate may hold C code.
+publish = false
+build = "build.rs"
+
+[package.metadata]
+ring = "infrastructure"
+
+[lib]
+name = "OQSNativeCOracle"
+path = "src/lib.rs"
+
+[dependencies]
+oqs-native-domain = { path = "../Domain", default-features = false }
+oqs-native-entities = { path = "../Entities", default-features = false }
+
+[features]
+default = ["std"]
+# Without `std` the crate is empty. The oracle is a test tool of a hosted build, so only the
+# `std` build links the C library.
+std = ["oqs-native-domain/std", "oqs-native-entities/std"]
+
+[lints]
+workspace = true

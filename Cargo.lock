@@ -3,8 +3,35 @@
 version = 4
 
 [[package]]
+name = "oqs-native"
+version = "0.16.0"
+dependencies = [
+ "oqs-native-domain",
+ "oqs-native-entities",
+ "oqs-native-system-random",
+]
+
+[[package]]
 name = "oqs-native-aes"
 version = "0.16.0"
+
+[[package]]
+name = "oqs-native-algorithm-tests"
+version = "0.16.0"
+dependencies = [
+ "oqs-native-domain",
+ "oqs-native-entities",
+ "oqs-native-kat-random",
+ "oqs-native-sha2",
+]
+
+[[package]]
+name = "oqs-native-c-oracle"
+version = "0.16.0"
+dependencies = [
+ "oqs-native-domain",
+ "oqs-native-entities",
+]
 
 [[package]]
 name = "oqs-native-domain"
@@ -23,6 +50,21 @@ version = "0.16.0"
 dependencies = [
  "oqs-native-aes",
  "oqs-native-domain",
+ "oqs-native-sha3",
+]
+
+[[package]]
+name = "oqs-native-parity"
+version = "0.16.0"
+dependencies = [
+ "oqs-native",
+ "oqs-native-aes",
+ "oqs-native-algorithm-tests",
+ "oqs-native-c-oracle",
+ "oqs-native-domain",
+ "oqs-native-entities",
+ "oqs-native-kat-random",
+ "oqs-native-sha2",
  "oqs-native-sha3",
 ]
 
