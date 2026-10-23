@@ -110,8 +110,9 @@ mod tests {
     use crate::gf16::GF16;
     use crate::gf256::GF256;
     use crate::parameters::{Parameters, ovIII, ovIp, ovIs, ovV, triangleSize};
-    use crate::testInputs::{digest, sequence};
+    use crate::testInputs::sequence;
     use crate::{Field, FieldArithmetic};
+    use OQSNativeAlgorithmTests::OutputDigest;
 
     /// The value of the map by its definition: the sum over i <= j of `w_i w_j P(i, j)`, with
     /// the entries in the order of the upper triangular matrix of the n variables.
@@ -146,7 +147,12 @@ mod tests {
         let point = sequence(parameters.pointLength(), 31);
         let value = PublicMap::evaluated::<F>(parameters, &publicKey, &point);
         // `ov_publicmap` with the public key 30 at the point 31, from liboqs 0.16.0.
-        assert_eq!(digest(&value), expected, "{}", parameters.description.name);
+        assert_eq!(
+            OutputDigest::of(&value),
+            expected,
+            "{}",
+            parameters.description.name
+        );
         assert_eq!(value, definedValue::<F>(parameters, &publicKey, &point));
     }
 

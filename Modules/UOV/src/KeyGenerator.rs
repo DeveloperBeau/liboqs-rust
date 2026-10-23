@@ -144,8 +144,9 @@ mod tests {
         Parameters, ovIII, ovIIICompressedPublicKey, ovIp, ovIpCompressedPublicKey, ovIs,
         ovIsCompressedPublicKey, ovV, ovVCompressedPublicKey, publicSeedLength,
     };
-    use crate::testInputs::{digest, sequence};
+    use crate::testInputs::sequence;
     use OQSNativeAES::AES128;
+    use OQSNativeAlgorithmTests::OutputDigest;
     use OQSNativeSHA3::SHAKE256;
 
     #[test]
@@ -156,7 +157,7 @@ mod tests {
         let mut blocks = vec![0u8; 156];
         KeyGenerator::fillPublicBlocks(&seed, &mut blocks);
         assert_eq!(
-            digest(&blocks),
+            OutputDigest::of(&blocks),
             "519530989c84c4395a7e5829b487ad605a4c603d018040006c253796be94b180"
         );
         // Block n is AES-128 of the counter block with n in its last four bytes, big-endian.
@@ -209,22 +210,34 @@ mod tests {
         let name = classic.description.name;
         let secretKey = KeyGenerator::expandedSecretKey::<F>(classic, &sequence(32, 33));
         assert_eq!(
-            digest(secretKey.bytes()),
+            OutputDigest::of(secretKey.bytes()),
             answers.expandedSecretKey,
             "{name}"
         );
         let compressedKey = sequence(classic.compressedPublicKeyLength(), 34);
         let publicKey = KeyGenerator::expandedPublicKey(classic, &compressedKey);
         assert_eq!(publicKey.len(), classic.expandedPublicKeyLength());
-        assert_eq!(digest(&publicKey), answers.expandedPublicKey, "{name}");
+        assert_eq!(
+            OutputDigest::of(&publicKey),
+            answers.expandedPublicKey,
+            "{name}"
+        );
         let seed: [u8; 32] = sequence(32, 35).try_into().expect("32 bytes");
         let (publicKey, secretKey) = KeyGenerator::keyPair::<F>(classic, &seed);
-        assert_eq!(digest(&publicKey), answers.classicPublicKey, "{name}");
-        assert_eq!(digest(secretKey.bytes()), answers.secretKey, "{name}");
+        assert_eq!(
+            OutputDigest::of(&publicKey),
+            answers.classicPublicKey,
+            "{name}"
+        );
+        assert_eq!(
+            OutputDigest::of(secretKey.bytes()),
+            answers.secretKey,
+            "{name}"
+        );
         let (compressedPublicKey, compressedSecretKey) =
             KeyGenerator::keyPair::<F>(compressed, &seed);
         assert_eq!(
-            digest(&compressedPublicKey),
+            OutputDigest::of(&compressedPublicKey),
             answers.compressedPublicKey,
             "{name}"
         );

@@ -131,7 +131,8 @@ mod tests {
     use crate::FieldArithmetic;
     use crate::gf16::GF16;
     use crate::gf256::GF256;
-    use crate::testInputs::{digest, sequence};
+    use crate::testInputs::sequence;
+    use OQSNativeAlgorithmTests::OutputDigest;
 
     /// The answers of the C program for the seeds 20 to 29 of a shape: the result of
     /// `gf*mat_gaussian_elim`, the digest of the matrix and the constant after it, and the
@@ -162,14 +163,14 @@ mod tests {
                 "size {size}, seed {seed}"
             );
             assert_eq!(
-                digest(&system.echelonForm()),
+                OutputDigest::of(&system.echelonForm()),
                 *echelonDigest,
                 "size {size}, seed {seed}"
             );
             if let Some(solutionDigest) = solutionDigest {
                 let solution = system.solution();
                 assert_eq!(
-                    digest(&solution),
+                    OutputDigest::of(&solution),
                     *solutionDigest,
                     "size {size}, seed {seed}"
                 );
@@ -211,10 +212,14 @@ mod tests {
             }
             let mut system = LinearSystem::<F>::new(&columns, &constant, size);
             assert_eq!(system.eliminate(), solutionDigest.is_some(), "kind {kind}");
-            assert_eq!(digest(&system.echelonForm()), echelonDigest, "kind {kind}");
+            assert_eq!(
+                OutputDigest::of(&system.echelonForm()),
+                echelonDigest,
+                "kind {kind}"
+            );
             if let Some(solutionDigest) = solutionDigest {
                 let solution = system.solution();
-                assert_eq!(digest(&solution), solutionDigest, "kind {kind}");
+                assert_eq!(OutputDigest::of(&solution), solutionDigest, "kind {kind}");
                 assert_eq!(
                     product::<F>(&columns, &solution, size),
                     constant,
