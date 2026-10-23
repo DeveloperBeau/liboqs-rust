@@ -264,6 +264,21 @@ The run of 2026-10-23 on the branch `foundation/crate-builds`, of the functions 
 | The disk adapter resolves the links of a path and keeps the end that does not exist yet | `DiskFileSystem::resolvedPath`: body replaced with `Default::default()` | `resolvedPathFollowsALinkAndKeepsTheEndThatDoesNotExistYet` |
 | The oracle build gives CMake the folders with every link resolved | Run by hand: `OracleBuild::steps` with the folders not resolved | `linkedOracleFolderIsClonedAndBuiltAtTheFolderThatTheLinkNames` |
 
+## Latest result for the blocks of the parity run
+
+The run of 2026-10-23 on the branch `foundation/parity-blocks`, of the functions that changed: `ParitySettings::caseBlocks`, `ParityOptions::parse`, `ParityJob::parityJobs`, `ParityJob::checkBlock` and `run` of the program, with the explicit timeout of the parity crate.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-parity`, the functions of the blocks | 26 | 17 | 0 | 9 | 0 |
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The blocks of an algorithm cover its cases in order, and the last block takes the rest | `ParitySettings::caseBlocks`: `+` replaced with `-` or `*` | `caseBlocksSplitTheVariationsInOrderAndTheLastBlockTakesTheRest` |
+| Only the first block checks the base case | `ParityJob::checkBlock`: `==` replaced with `!=` | `parityJobsSplitTheVariationsOfEachAlgorithmIntoBlocksThatTheShardsSplit` |
+| A block size is a count above zero | `ParityOptions::parse`: `>` replaced | `wrongOptionsAreErrorsThatNameTheOption` |
+| A whole run keeps the summary of one job for each algorithm | `parityJobs`: the guard of the whole range replaced with `true` or `false` | `parityJobsSplitTheVariationsOfEachAlgorithmIntoBlocksThatTheShardsSplit`, `parityJobsReportExactlyTheBrokenAlgorithms` |
+
 ## History
 
 | Run | Code | Mutants | Caught | Timeout | Unviable | Missed |
