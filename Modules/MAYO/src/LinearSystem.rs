@@ -38,10 +38,13 @@ pub(crate) fn rightHandSide(
     let mut sum = vec![0u64; limbCount];
     for i in (0..vectorCount).rev() {
         for j in i..vectorCount {
-            let top = ((sum[last] >> topShift) % 16) as u8;
+            // The nibbles above the top element hold the elements that earlier steps shifted
+            // past it.
+            let top = ((sum[last] >> topShift) & 0x0F) as u8;
             sum[last] <<= 4;
             for limb in (0..last).rev() {
-                sum[limb + 1] ^= sum[limb] >> 60;
+                // The shift cleared the low nibble of the next word, so `+` joins the carry.
+                sum[limb + 1] += sum[limb] >> 60;
                 sum[limb] <<= 4;
             }
             for (place, coefficient) in parameters.reductionTail.iter().enumerate() {
@@ -180,10 +183,10 @@ pub(crate) fn systemMatrix(parameters: &Parameters, vinegarL: &mut [u64]) -> Vec
         .take(equationCount)
         .enumerate()
     {
-        for start in (0..columnCount - 1).step_by(16) {
-            let word = words[(row / 16) * width + start + row % 16];
-            let count = 16.min(columnCount - 1 - start);
-            for (offset, value) in matrixRow[start..start + count].iter_mut().enumerate() {
+        // The k o unknowns of the row, 16 to a word. The last column stays zero.
+        for (block, values) in matrixRow[..columnCount - 1].chunks_mut(16).enumerate() {
+            let word = words[(row / 16) * width + 16 * block + row % 16];
+            for (offset, value) in values.iter_mut().enumerate() {
                 *value = ((word >> (4 * offset)) & 0x0F) as u8;
             }
         }
