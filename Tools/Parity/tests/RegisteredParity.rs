@@ -2,12 +2,14 @@
 //! `PARITY_CASES` (2 by default here, and 1000 in the full gate of `parity run`), with the seed
 //! of `PARITY_SEED`.
 //!
-//! The default suite checks the signature schemes of `SuiteSample`. The C library signs a small
-//! set of SLH-DSA in one to two seconds, so the ignored test checks every registered scheme.
+//! The default suite checks the signature schemes and the stateful schemes of `SuiteSample`. The
+//! C library signs a small set of SLH-DSA in one to two seconds, and generates a key of a
+//! stateful tree of height 16 in two minutes, so the ignored tests check every registered
+//! scheme.
 
 use OQSNative::Registry;
 use OQSNativeAlgorithmTests::SuiteSample;
-use OQSNativeParity::{KEMParity, LargeStack, ParitySettings, SignatureParity};
+use OQSNativeParity::{KEMParity, LargeStack, ParitySettings, SignatureParity, StatefulParity};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -82,5 +84,36 @@ fn eachRegisteredSignatureSchemeOfTheSuiteSampleIsIdenticalToTheCLibrary() {
 #[ignore = "the C library signs each small set of SLH-DSA in one to two seconds, so the 156 SLH-DSA schemes take an hour, and parity run checks them in release builds"]
 fn everyRegisteredSignatureSchemeIsIdenticalToTheCLibrary() {
     let failures = signatureFailures(|_| true);
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// The failures of the registered stateful schemes whose names pass a filter.
+fn statefulFailures(isSelected: fn(&str) -> bool) -> Vec<String> {
+    let settings = ParitySettings::fromEnvironment(testCaseCount);
+    let checks = Registry::statefulSignatureSchemes()
+        .iter()
+        .filter(|scheme| isSelected(scheme.description().name))
+        .map(|scheme| {
+            Box::new(move || {
+                StatefulParity::new(*scheme, settings.seed)
+                    .checkEveryCase(settings.caseCount)
+                    .map(|_| ())
+                    .map_err(|mismatch| mismatch.to_string())
+            }) as Box<dyn Fn() -> Result<(), String> + Send + Sync>
+        })
+        .collect();
+    failures(checks)
+}
+
+#[test]
+fn eachRegisteredStatefulSchemeOfTheSuiteSampleIsIdenticalToTheCLibrary() {
+    let failures = statefulFailures(SuiteSample::contains);
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+#[ignore = "a key generation of a stateful set with a tree of height 16 or more takes minutes to a day, and parity run checks the stateful sets in release builds"]
+fn everyRegisteredStatefulSchemeIsIdenticalToTheCLibrary() {
+    let failures = statefulFailures(|_| true);
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }

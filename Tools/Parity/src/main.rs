@@ -13,7 +13,8 @@ const usage: &str = "usage: parity <command> [options]
 commands:
   run            check each registered algorithm against the C library: the base case and the
                  variations. A stateful scheme runs after the others, and its variations are the
-                 signatures of one key, at most its remaining count
+                 signatures of one key, at most its remaining count. A stateful set with a tree
+                 of height 20 or more runs only with --large-trees
   snapshot       print the snapshot of the C library, in the format of the Swift and Zig ports
   known-answers  run the liboqs known-answer programs on the C algorithms through the Rust
                  harness and on the registered Rust algorithms, and compare each digest with
@@ -29,6 +30,9 @@ options:
   --only NAME    check only the named algorithm (repeatable)
   --all          also compare the digests of every count (known-answers)
   --check        compare each digest with the frozen snapshot and print no snapshot (snapshot)
+  --large-trees  also check the stateful sets with a tree of height 20 or more, whose key
+                 generation takes from minutes to a day (run). Without it the run prints a
+                 skip line that names each of them
   --processes N  run the command in N processes, which split the jobs of the shard, and
                  fail when one fails. The C library has one global random source, so one
                  process runs one C operation at a time, and more processes use more
@@ -49,6 +53,7 @@ fn run(options: &ParityOptions) -> usize {
         Registry::statefulSignatureSchemes(),
         options,
     );
+    let skippedLines = ParityJob::skippedLines(Registry::statefulSignatureSchemes(), options);
     let algorithmCount = jobs
         .iter()
         .map(|job| job.name)
@@ -62,6 +67,9 @@ fn run(options: &ParityOptions) -> usize {
         "parity of {algorithmCount} algorithms, {} variations each{blocks}, seed {:#x}",
         options.settings.caseCount, options.settings.seed
     );
+    for line in skippedLines {
+        println!("{line}");
+    }
     ParityJob::runAll(jobs, &printLine)
 }
 
