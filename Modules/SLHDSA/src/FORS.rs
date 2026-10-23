@@ -115,7 +115,8 @@ impl FORS {
 #[cfg(test)]
 mod tests {
     use super::FORS;
-    use crate::{Address, HashContext, parameterSets};
+    use crate::{Address, HashContext, Parameters, parameterSets};
+    use OQSNativeAlgorithmTests::{LinearCongruentialSequence, OutputDigest};
 
     fn contextAtKeyPair(setIndex: usize) -> HashContext {
         let set = &parameterSets[setIndex];
@@ -181,6 +182,58 @@ mod tests {
             assert_ne!(
                 FORS::publicKeyFromSignature(&mut context, &signature, &changed),
                 publicKey
+            );
+        }
+    }
+
+    #[test]
+    fn nodesOfEveryHeightUpToAWholeTreeAreTheNodesOfTheCFunction() {
+        // The digests that a C program printed for `fors_node` of `slh_dsa.c` of liboqs 0.16.0,
+        // for each height from 0 to a. The function is static, so the program includes the source
+        // file. `FORS::sign` asks only for the heights below a, and FIPS 205, Algorithm 15, also
+        // gives the root of a whole tree. SHA2-192s and SHAKE-256s have trees of the largest
+        // height, so the whole tree fills the stack. The seed of a set is its index. Bits 16 to
+        // 23 of the next 4 n states give the secret key. The next two states give the high and
+        // the low half of the tree address, and the next one the key pair. At each height the
+        // next state modulo k 2^(a - height) gives the node index.
+        for (setIndex, expected) in [
+            (
+                2,
+                "4ab4fa6845318b766fe60a66c9f3d37ae10cc6f7d62cffc12d3a7a60014fa5ca",
+            ),
+            (
+                10,
+                "5dcc62d21f383a2ae18c5b3b5275b441802163144f28c3142a9fd04d94eee72a",
+            ),
+        ] {
+            let set = &parameterSets[setIndex];
+            let n = set.hashLength;
+            let treeHeight = set.forsTreeHeight;
+            assert_eq!(treeHeight as usize, Parameters::maximumFORSTreeHeight);
+            let mut sequence = LinearCongruentialSequence::new(setIndex as u32);
+            let secretKey: Vec<u8> = (0..4 * n)
+                .map(|_| (sequence.nextState() >> 16) as u8)
+                .collect();
+            let high = u64::from(sequence.nextState());
+            let low = u64::from(sequence.nextState());
+            let keyPair = sequence.nextState();
+            let mut context = HashContext::fromSecretKey(set, &secretKey);
+            context.address = Address::zero;
+            context.address.setTreeAddress((high << 32) | low);
+            context
+                .address
+                .setTypeAndClearKeepingKeyPair(Address::forsTree);
+            context.address.setKeyPairAddress(keyPair);
+            let mut nodes = Vec::new();
+            for nodeHeight in 0..=treeHeight {
+                let index = sequence.nextState() % (set.forsTreeCount << (treeHeight - nodeHeight));
+                nodes.extend_from_slice(&FORS::node(&mut context, index, nodeHeight)[..n]);
+            }
+            assert_eq!(
+                OutputDigest::of(&nodes),
+                expected,
+                "{}, seed {setIndex}",
+                set.liboqsName
             );
         }
     }
