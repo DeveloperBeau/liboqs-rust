@@ -36,6 +36,7 @@ The crate is test-only. A family crate may use it in its tests, as the ring regi
 | `JSONValue` | A small JSON reader for the vector files |
 | `LinearCongruentialSequence` | The seeded inputs of the C programs that give the known answers of the unit tests of the families |
 | `OutputDigest` | The digest that those C programs print: 32 bytes of SHAKE128, in hexadecimal |
+| `VectorRandom` | The random source of `tests/vectors_sig.c`: the seed or the randomness of a vector, in order |
 
 ## Data flow
 
@@ -67,6 +68,8 @@ The crate is test-only. A family crate may use it in its tests, as the ring regi
 ## Test vectors
 
 Some liboqs tests read vector files that they download, the ACVP files of NIST and the Wycheproof files of C2SP. `Documentation/Registers/TestVectors.md` holds the address and the SHA-256 of each file. `cargo xtask fetch-oracle` downloads each missing file to `target/oracle/<version>/vectors/` and rejects a file with another digest. `TestVectorFiles::document` reads a file, or names the command to run when the file is missing.
+
+`tests/vectors_sig.c` replaces the random source of liboqs with the bytes of the vector, so a key pair takes the seed of a vector and a signature takes its randomness. `VectorRandom` gives the same bytes through the Rust interface. A request past the end of the vector is a defect of the caller, and the source panics with the two lengths.
 
 ## Edge cases
 

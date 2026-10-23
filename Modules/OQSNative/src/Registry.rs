@@ -2,6 +2,7 @@ use OQSNativeBIKE::BIKE;
 use OQSNativeDomain::{KeyEncapsulating, Signing, StatefulSigning};
 use OQSNativeFrodoKEM::FrodoKEM;
 use OQSNativeHQC::HQC;
+use OQSNativeMLDSA::MLDSA;
 use OQSNativeMLKEM::{Kyber, MLKEM};
 
 /// Every algorithm of the port, by its liboqs name.
@@ -39,7 +40,7 @@ const mechanisms: &[&dyn KeyEncapsulating] = &[
 ];
 
 /// The signature schemes.
-const signatureSchemes: &[&dyn Signing] = &[];
+const signatureSchemes: &[&dyn Signing] = &[&MLDSA::mldsa44, &MLDSA::mldsa65, &MLDSA::mldsa87];
 
 /// The stateful signature schemes.
 const statefulSignatureSchemes: &[&dyn StatefulSigning] = &[];

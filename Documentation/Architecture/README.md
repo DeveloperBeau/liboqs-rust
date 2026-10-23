@@ -17,5 +17,6 @@ Each page describes one subsystem as the code is today: its purpose, its crates,
 | [FrodoKEM.md](FrodoKEM.md) | FrodoKEM and eFrodoKEM | Yes |
 | [HQC.md](HQC.md) | HQC | Yes |
 | [BIKE.md](BIKE.md) | BIKE | Yes |
+| [MLDSA.md](MLDSA.md) | ML-DSA | Yes |
 | [RepositoryChecks.md](RepositoryChecks.md) | The `cargo xtask` checks for rings, names, versions, hygiene and unsafe code | Yes |
 | [Versioning.md](Versioning.md) | How the crate version follows the liboqs version | Yes |
