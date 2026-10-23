@@ -36,7 +36,3 @@ mod parityCheckMatrix;
 
 pub use classicMcEliece::ClassicMcEliece;
 use parameters::Parameters;
-
-#[cfg(test)]
-#[path = "TestSupport.rs"]
-mod testSupport;

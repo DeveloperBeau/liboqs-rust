@@ -90,8 +90,7 @@ impl<'parameters> GoppaPolynomial<'parameters> {
 mod tests {
     use super::GoppaPolynomial;
     use crate::parameters::allParameters;
-    use crate::testSupport::digest;
-    use OQSNativeAlgorithmTests::FuzzRandom;
+    use OQSNativeAlgorithmTests::{FuzzRandom, OutputDigest};
 
     /// The element of GF((2^m)^t) of a seed, `t` values below `2^m`.
     fn seededElement(seed: u64, degree: usize, mask: u16) -> Vec<u16> {
@@ -166,30 +165,30 @@ mod tests {
 
     #[test]
     fn productsAndMinimalPolynomialsGiveTheKnownAnswersOfTheCFunctions() {
-        // The SHA3-256 of the outputs of `GF_mul` and `genpoly_gen` of the five base sets in
-        // liboqs 0.16.0, as little-endian 16-bit values. `GF_mul` multiplies the elements of the
-        // seeds 2k and 2k + 1 for k from 0 to 15, and `genpoly_gen` takes the elements of the
-        // seeds 100 to 103. A refused element would add the value 0xFFFF.
+        // The `OutputDigest` of the outputs of `GF_mul` and `genpoly_gen` of the five base sets
+        // in liboqs 0.16.0, as little-endian 16-bit values. `GF_mul` multiplies the elements of
+        // the seeds 2k and 2k + 1 for k from 0 to 15, and `genpoly_gen` takes the elements of
+        // the seeds 100 to 103. A refused element would add the value 0xFFFF.
         let expected = [
             (
-                "2d946c8c3df311548ebbbbaaaf3f3bfd76d922926ba2e18d2e7a873c89e2f4cd",
-                "f8f6e156c2cc9470a74f635a7e1a8a5bfc840a4a02cd38ec2595af6f0b091e00",
+                "5d80dfd032016acc6230355886cb99a3948b8bf43c7f6477604166399b2c7d61",
+                "e4748f65bc68daa093b6799091fbb2535f81d68d01210c02ee84045ceddd8cbe",
             ),
             (
-                "88193b4d062ea5f34d0b0ec223b74b38d85d7950cc56762fdc145f3ee2a394cb",
-                "675c07d51beda660b6a60f0acde89d1ce2b917fc26700ce5c2527caa5c3ef708",
+                "0e3d7cd93a3db3905cd42082667f839b1dc14b81b3f5f03fd2808d139bb88cad",
+                "16a2b85c9654f3b21987c2ccba83e83ed6f4a9b9730546a760ed6073cccd14d0",
             ),
             (
-                "d400f71284781784f9d1d440bf7bd7cfac32e36e53ec62445034ba55beed4d3e",
-                "0db6968735c9e8e3195ed879881b43f30a039a086c7767f8a95a388c952ad7fa",
+                "3388791bf3df5bac55821274614165c1be4162082701e929082d2d6706783b43",
+                "81eb4fd7126675d24fda3e1af92f9d4e1e9f73506fa21ebff42794e344533461",
             ),
             (
-                "b164885f18bdb04875864d3c5583fc5fe0ef25d817c130e32e0f9fd99f15ee1d",
-                "676822ccdcb9580d6394c9ec8b6bb6d7ea97caf504427246415a3b2986279dfa",
+                "280c6219b55567aefb1b4ab2a7069eaa589be34ed62e565dc6b4389347c79c68",
+                "4f858bff5452a5365b3beb95f544c8158d49bb8ecac8ef2a857e6c9ebed3cf9d",
             ),
             (
-                "d400f71284781784f9d1d440bf7bd7cfac32e36e53ec62445034ba55beed4d3e",
-                "0db6968735c9e8e3195ed879881b43f30a039a086c7767f8a95a388c952ad7fa",
+                "3388791bf3df5bac55821274614165c1be4162082701e929082d2d6706783b43",
+                "81eb4fd7126675d24fda3e1af92f9d4e1e9f73506fa21ebff42794e344533461",
             ),
         ];
         for (parameters, (productDigest, polynomialDigest)) in
@@ -218,8 +217,8 @@ mod tests {
                 }
             }
             let name = parameters.description.name;
-            assert_eq!(digest(&products), productDigest, "{name}");
-            assert_eq!(digest(&polynomials), polynomialDigest, "{name}");
+            assert_eq!(OutputDigest::of(&products), productDigest, "{name}");
+            assert_eq!(OutputDigest::of(&polynomials), polynomialDigest, "{name}");
         }
     }
 }
