@@ -41,3 +41,9 @@
 - Trap: a unit test of an internal function, such as a matrix product of FrodoKEM, needs a known answer that does not come from the Rust code, and the specification gives none for most inputs.
 - Finding: the FrodoKEM code of liboqs exports its internal functions, such as `oqs_kem_frodokem_640_aes_mul_add_as_plus_e`, as global symbols of `liboqs.a`. A small C program linked with the oracle library printed a digest of each function on seeded inputs, and the Rust functions gave each digest.
 - Rule: when liboqs exports an internal function, take the known answers of its unit test from it. The test names the C function, and its inputs come from a sequence that both programs can make. `nm` on `liboqs.a` of the oracle build lists the exported names.
+
+## A fetch through a linked oracle folder builds the C library again
+
+- Trap: `cargo xtask fetch-oracle` in a worktree whose `target/oracle` links to the oracle folder of another clone builds the whole C library again, although no source changed.
+- Finding: a fetch took 2 minutes 35 seconds on 4 processors. The tool gave CMake the relative folders `target/oracle/<version>/source` and `target/oracle/<version>/build`, so the CMake cache recorded the path through the link of the worktree that ran the last fetch. A fetch from another worktree changed that path, and CMake configured and compiled every file again. The new build also rewrote the `liboqs.a` that the tests of the other worktrees link.
+- Rule: a tool that gives a path to a program that records it gives the path with every link resolved. `OracleBuild` takes the folders from `FileReading::resolvedPath`.

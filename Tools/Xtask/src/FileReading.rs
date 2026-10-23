@@ -10,4 +10,10 @@ pub trait FileReading {
     ///
     /// Files that git ignores are not part of the repository and are not in the list.
     fn filePaths(&self) -> io::Result<Vec<PathBuf>>;
+
+    /// Returns the path that a path relative to the repository root names when every link in
+    /// it is resolved, for a program that records the paths that it is given.
+    ///
+    /// The end of the path that does not exist yet stays as it is, after the resolved start.
+    fn resolvedPath(&self, path: &Path) -> PathBuf;
 }
