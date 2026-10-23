@@ -36,7 +36,7 @@ impl<'buffer> BitReader<'buffer> {
             let refresh = self.buffer[self.position..self.position + amount]
                 .iter()
                 .rev()
-                .fold(0u32, |word, byte| (word << 8) | u32::from(*byte));
+                .fold(0u32, |word, byte| (word << 8) + u32::from(*byte));
             self.position += amount;
             self.window |= u64::from(refresh) << self.windowBits;
             self.windowBits += 8 * amount as i32;
