@@ -568,6 +568,30 @@ Of the 6 missed mutants, two are test gaps, one joined two disjoint bit fields w
 | The verification refuses a published vector with an exponent outside the restricted group | `Verifier::isValidSignature`, line 130: `&=` replaced with `\|=` | `aPublishedVectorWithTheSecondFormOfZeroIsRefusedByTheGroupCheckAlone` |
 | The refill of the window takes its bytes from the low end | `BitReader::draw`, line 39: `+` replaced with `*` | `drawsTakeTheBitsOfTheBufferFromTheLowEnd`, `theWindowTakesFourBytesWhenAtMost32BitsAreLeft` and 8 more |
 
+## Latest result for UOV
+
+The run of 2026-10-23 on the branch `family/uov`, before the new tests below, in the ten shards of the `Mutants` workflow of CI: [the crate](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40032860172). The workflow starts each test program under a cap of 6 GiB on its address space.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-uov`, in CI | 435 | 411 | 0 | 19 | 5 |
+
+The earlier run [40026767322](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40026767322), on an earlier commit, lost shard 9 when the runner ran out of memory, because the mutant that replaces `+=` with `*=` in `Signer::firstSolution` keeps the attempt count at 0 while `theFirstSuccessGivesItsResultExceptAtTheLastAttempt` records each attempt in a list, and in this run the cap stops that test program with a failed allocation, so the mutant counts as caught. The cap also stops the unit tests of the mutant that replaces `+` with `*` in the length of P1 and P2 in `KeyGenerator::expandedPublicKey`, line 128, which asks for 13589233152 bytes.
+
+The run had no timeouts. Of the five missed mutants, one is a test gap. No caller gives `BatchedMatrix::checkShapes` a target or a triangle of another shape, so the mutant that replaces its body with `()` passed every test. `aTargetOfAnotherShapeIsRefused` and `aTriangleOfAnotherShapeIsRefused` now break each of its two assertions alone, and both fail with the mutant. The other four are equivalent.
+
+### Equivalent mutants
+
+- `GF16.rs`, `square`, line 11: `^=` replaced with `|=`. Line 10 sets `square` to `element & 1`, so only bit 0 of `square` can be set, and only bit 2 of `(element << 1) & 4` can be set. The two values share no set bit, so an or gives the same value as an exclusive or for every byte. The line keeps the form of `gf16_squ` in `gf16.h`, `r4 ^= (a << 1) & 4`. `everySquareIsTheProductOfTheElementWithItself` checks the square of each of the 16 elements and passes with the mutant.
+- `PublicMap.rs`, `evaluated`, line 32: `>` replaced with `>=` in `F::elementBits > 4`. GF(256) has 8 element bits, so `isWide` stays true for it. GF(16) has 4, so the mutant makes `isWide` true for GF(16) as well. Line 51 then also adds each entry to a sum of `highSums`, and line 72 adds each sum times `half << 4` to the value, for each half from 1 to 15. The low four bits of `half << 4` are zero, and for GF(16) the product of `scaledWord`, which `multiplyAdd` adds, reads only the bits 0 to 3 of the scalar (`FieldArithmetic.rs`, lines 75 and 76). So each product of line 72 is zero, and the value is the same for every public key and every point. For any byte `factor`, `factor >> 4` is at most 15, so line 52 stays inside the 16 sums of line 37, and the mutant cannot panic. `theMapOfEachShapeGivesTheBytesOfTheCCode` and the known-answer signatures of OV-Is pass with the mutant.
+- `Signer.rs`, `signature`, line 73: `+` replaced with `*` or with `-` in `oilValues.len() + saltLength`. These are two mutants. The line only requests capacity for the oil values and the salt. Lines 74 and 75 append the same bytes with any capacity, because `extend_from_slice` grows the vector when its capacity is short, so the bytes and the length of the signature stay the same. The standard library leaves the capacity after `reserve_exact` open, because the allocator may give more space than the request. `oilValues` is the solution of the system of line 57, which has o unknowns, so it has `F::byteLength(o)` bytes (`LinearSystem.rs`, lines 29 and 93), 32, 44, 72 or 96 bytes for the four shapes. So `oilValues.len() - 16` never falls below zero, which would panic in the test build, and `oilValues.len() * 16` asks for at most 1536 bytes.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The products of the batched matrices refuse a target or a triangle of another shape | `BatchedMatrix::checkShapes`: the body replaced with `()` | `aTargetOfAnotherShapeIsRefused`, `aTriangleOfAnotherShapeIsRefused` |
+| A success of the last attempt of a signature is a failure, as in `ov_sign` | `Signer::firstSolution`, lines 88 and 92: `<` replaced with `<=` | `theFirstSuccessGivesItsResultExceptAtTheLastAttempt` |
+| The verification folds the differences of the bytes with an or | `PublicMap::isValidSignature`, line 101: `\|` replaced with `^` | `randomSecretKeysSignAndHostileSignaturesAreRefused` in CI, and `theSameBitChangedInTwoBytesOfTheMapIsRefused` by hand |
+
 ## History
 
 | Run | Code | Mutants | Caught | Timeout | Unviable | Missed |
