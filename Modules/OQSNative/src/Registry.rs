@@ -10,6 +10,7 @@ use OQSNativeMLKEM::{Kyber, MLKEM};
 use OQSNativeNTRU::NTRU;
 use OQSNativeNTRUPrime::NTRUPrime;
 use OQSNativeSLHDSA::SLHDSA;
+use OQSNativeSNOVA::SNOVA;
 use OQSNativeUOV::UOV;
 
 /// Every algorithm of the port, by its liboqs name.
@@ -98,6 +99,18 @@ const signatureSchemeGroups: &[&[&dyn Signing]] = &[
         &UOV::ovIpCompressedKeys,
         &UOV::ovIIICompressedKeys,
         &UOV::ovVCompressedKeys,
+        &SNOVA::snova24x5x4,
+        &SNOVA::snova24x5x4SHAKE,
+        &SNOVA::snova24x5x4WithExpandedSecretKey,
+        &SNOVA::snova24x5x4SHAKEWithExpandedSecretKey,
+        &SNOVA::snova37x17x2,
+        &SNOVA::snova25x8x3,
+        &SNOVA::snova56x25x2,
+        &SNOVA::snova49x11x3,
+        &SNOVA::snova37x8x4,
+        &SNOVA::snova24x5x5,
+        &SNOVA::snova60x10x4,
+        &SNOVA::snova29x6x5,
     ],
     SLHDSA::schemes,
 ];
