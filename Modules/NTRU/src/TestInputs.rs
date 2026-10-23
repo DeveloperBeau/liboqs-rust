@@ -184,7 +184,6 @@ NTRU-HRSS-1373 publicKey 269313a2a2f3a1187fb651229972e448ae7e818414caf5d370a589f
 NTRU-HRSS-1373 encryptionSecretKey 80eaac329fa552886475b3dabb4a9c38fb6fdfea23cdcbeb308a0d232a2b3496
 NTRU-HRSS-1373 hostileDecryption 7cf9fbd16286b18ca6795b5f9999244a16405ca41f49f7eac1b84b629361d9c6
 NTRU-HRSS-1373 hostileFailure 1
-sort values b35b807438dedf39713b3fb527c80b483f23adff888c7a7948cab67c5af882b9
 ";
 
 /// The answer of the C program for a set and a function.

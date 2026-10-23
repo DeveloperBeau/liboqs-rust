@@ -29,8 +29,6 @@ mod publicKeyEncryption;
 mod radixEncoding;
 #[path = "Sampler.rs"]
 mod sampler;
-#[path = "SortingNetwork.rs"]
-mod sortingNetwork;
 
 use encoding::Encoding;
 use hashFunctions::HashFunctions;
@@ -41,7 +39,6 @@ use polynomialRing::PolynomialRing;
 use publicKeyEncryption::PublicKeyEncryption;
 use radixEncoding::RadixEncoding;
 use sampler::Sampler;
-use sortingNetwork::SortingNetwork;
 
 #[cfg(test)]
 #[path = "TestInputs.rs"]
