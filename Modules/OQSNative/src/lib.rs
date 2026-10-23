@@ -26,6 +26,7 @@ pub use OQSNativeHQC::HQC;
 pub use OQSNativeMAYO::MAYO;
 pub use OQSNativeMLDSA::{MLDSA, PreHashAlgorithm};
 pub use OQSNativeMLKEM::{Kyber, MLKEM};
+pub use OQSNativeMQOM::MQOM;
 pub use OQSNativeNTRU::NTRU;
 pub use OQSNativeNTRUPrime::NTRUPrime;
 pub use OQSNativeSLHDSA::{PreHash, SLHDSA};
