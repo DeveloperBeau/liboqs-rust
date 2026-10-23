@@ -1,0 +1,78 @@
+name: Mutants
+
+# The mutation tests of one package, in ten shards. A push to a branch `mutants/<package>`,
+# such as `mutants/oqs-native-falcon`, runs them on that commit. Each shard prints its
+# outcomes and keeps its `mutants.out` folder as an artifact.
+# Documentation/Registers/MutationResults.md records the results.
+on:
+  push:
+    branches: ['mutants/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mutants-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mutants:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Restore cargo-mutants
+        id: mutants
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-mutants
+          key: cargo-mutants-27.1.0-${{ runner.os }}
+      - name: Install cargo-mutants
+        if: steps.mutants.outputs.cache-hit != 'true'
+        run: cargo install cargo-mutants --version 27.1.0 --locked
+      - name: Restore the C oracle
+        uses: actions/cache@v4
+        with:
+          path: target/oracle
+          key: oracle-${{ runner.os }}-${{ hashFiles('LIBOQS_VERSION', 'Tools/Xtask/src/OracleBuild.rs') }}
+      - name: Build the C oracle
+        run: cargo xtask fetch-oracle
+      - name: Mutation tests of the shard
+        run: |
+          package="${GITHUB_REF_NAME#mutants/}"
+          options=()
+          if [ "$package" = "oqs-native" ]; then
+            # The coverage tests of the parity crate are the tests that see a wrong registry.
+            options=(--test-package oqs-native,oqs-native-parity --timeout 900)
+          fi
+          # The copies of the tree that cargo-mutants builds have no `target` folder.
+          export OQS_ORACLE_DIR="$PWD/target/oracle/$(cat LIBOQS_VERSION)"
+          status=0
+          cargo mutants --package "$package" "${options[@]}" --shard ${{ matrix.shard }}/10 -j 2 --output shard || status=$?
+          # Exit code 2 reports missed mutants and 3 reports timeouts, which the register
+          # records. Any other failure fails the job.
+          if [ "$status" != 0 ] && [ "$status" != 2 ] && [ "$status" != 3 ]; then
+            exit "$status"
+          fi
+      - name: Outcomes of the shard
+        if: always()
+        run: |
+          for outcome in caught missed timeout unviable; do
+            echo "$outcome $(cat shard/mutants.out/$outcome.txt 2>/dev/null | wc -l)"
+          done
+          for outcome in missed timeout; do
+            echo "== $outcome"
+            cat shard/mutants.out/$outcome.txt 2>/dev/null || true
+          done
+      - name: Keep the outcomes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-shard-${{ matrix.shard }}
+          path: shard/mutants.out
