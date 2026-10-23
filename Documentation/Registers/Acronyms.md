@@ -45,6 +45,8 @@ A name writes each acronym in this table as one unit: all upper case (`MLKEM768`
 | `PRF` | Pseudorandom function |
 | `RFC` | Request for Comments |
 | `RNG` | Random number generator |
+| `RSDP` | Restricted syndrome decoding problem |
+| `RSDPG` | Restricted syndrome decoding problem in a subgroup, RSDP(G) |
 | `SHA` | Secure Hash Algorithm |
 | `SHAKE` | Secure Hash Algorithm Keccak, the extendable-output functions |
 | `SLH` | Stateless hash-based |

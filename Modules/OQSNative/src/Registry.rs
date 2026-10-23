@@ -1,4 +1,5 @@
 use OQSNativeBIKE::BIKE;
+use OQSNativeCROSS::CROSS;
 use OQSNativeDomain::{KeyEncapsulating, Signing, StatefulSigning};
 use OQSNativeFalcon::Falcon;
 use OQSNativeFrodoKEM::FrodoKEM;
@@ -66,6 +67,24 @@ const signatureSchemeGroups: &[&[&dyn Signing]] = &[
         &MAYO::mayo2,
         &MAYO::mayo3,
         &MAYO::mayo5,
+        &CROSS::crossRSDP128Balanced,
+        &CROSS::crossRSDP128Fast,
+        &CROSS::crossRSDP128Small,
+        &CROSS::crossRSDP192Balanced,
+        &CROSS::crossRSDP192Fast,
+        &CROSS::crossRSDP192Small,
+        &CROSS::crossRSDP256Balanced,
+        &CROSS::crossRSDP256Fast,
+        &CROSS::crossRSDP256Small,
+        &CROSS::crossRSDPG128Balanced,
+        &CROSS::crossRSDPG128Fast,
+        &CROSS::crossRSDPG128Small,
+        &CROSS::crossRSDPG192Balanced,
+        &CROSS::crossRSDPG192Fast,
+        &CROSS::crossRSDPG192Small,
+        &CROSS::crossRSDPG256Balanced,
+        &CROSS::crossRSDPG256Fast,
+        &CROSS::crossRSDPG256Small,
     ],
     SLHDSA::schemes,
 ];

@@ -11,6 +11,7 @@
 mod registry;
 
 pub use OQSNativeBIKE::BIKE;
+pub use OQSNativeCROSS::CROSS;
 pub use OQSNativeDomain::{
     KeyEncapsulating, KeyStatePersisting, RandomGenerating, Signing, StatefulSigning,
 };
