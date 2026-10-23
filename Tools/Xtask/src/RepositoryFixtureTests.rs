@@ -13,6 +13,8 @@ const approvedRegister: &str =
 const acronymRegister: &str = include_str!("../../../Documentation/Registers/Acronyms.md");
 const exceptionRegister: &str =
     include_str!("../../../Documentation/Registers/NamingExceptions.md");
+const unsafeRegister: &str =
+    "| File | Reason |\n|---|---|\n| `Modules/Entities/src/Wipe.rs` | volatile writes |\n";
 
 fn cleanRepository() -> MemoryFileSystem {
     MemoryFileSystem::withFiles(&[
@@ -30,6 +32,11 @@ fn cleanRepository() -> MemoryFileSystem {
         (
             "Documentation/Registers/NamingExceptions.md",
             exceptionRegister,
+        ),
+        ("Documentation/Registers/UnsafeCode.md", unsafeRegister),
+        (
+            "Modules/Entities/src/Wipe.rs",
+            "/// Wipes.\npub fn wipe() {\n    unsafe { clear() }\n}\n",
         ),
         (
             "Modules/Entities/Cargo.toml",

@@ -9,15 +9,19 @@ A name writes each acronym in this table as one unit: all upper case (`MLKEM768`
 | `AES` | Advanced Encryption Standard |
 | `API` | Application programming interface |
 | `BIKE` | Bit Flipping Key Encapsulation |
+| `CCA` | Chosen-ciphertext attack |
+| `CMA` | Chosen-message attack |
 | `CPU` | Central processing unit |
 | `CROSS` | Codes and Restricted Objects Signature Scheme |
 | `CTR` | Counter mode |
 | `DRBG` | Deterministic random bit generator |
 | `DSA` | Digital signature algorithm |
 | `ECB` | Electronic codebook mode |
+| `EUF` | Existential unforgeability |
 | `FFI` | Foreign function interface |
 | `HQC` | Hamming Quasi-Cyclic |
 | `ID` | Identifier |
+| `IND` | Indistinguishability |
 | `KAT` | Known-answer test |
 | `KEM` | Key encapsulation mechanism |
 | `LMS` | Leighton-Micali Signature |
@@ -34,6 +38,7 @@ A name writes each acronym in this table as one unit: all upper case (`MLKEM768`
 | `SLH` | Stateless hash-based |
 | `SNOVA` | The SNOVA signature scheme |
 | `SPDX` | Software Package Data Exchange |
+| `SUF` | Strong unforgeability |
 | `TOML` | Tom's Obvious Minimal Language |
 | `UOV` | Unbalanced Oil and Vinegar |
 | `URL` | Uniform resource locator |

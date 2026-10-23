@@ -6,7 +6,13 @@ The rings keep each crate small and testable. A crate depends only on a ring fur
 
 ## Crates
 
-The workspace root `Cargo.toml` lists the member folders. Today the only member is `Tools/Xtask`, in the `tooling` ring. Later crates go in `Modules/<Name>/`.
+The workspace root `Cargo.toml` lists the member folders `Modules/*` and `Tools/*`.
+
+| Crate | Folder | Ring |
+|---|---|---|
+| `oqs-native-entities` | `Modules/Entities` | `entities` |
+| `oqs-native-domain` | `Modules/Domain` | `domain` |
+| `xtask` | `Tools/Xtask` | `tooling` |
 
 Each crate states its ring in its own manifest:
 

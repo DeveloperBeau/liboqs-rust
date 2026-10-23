@@ -3,5 +3,16 @@
 version = 4
 
 [[package]]
+name = "oqs-native-domain"
+version = "0.16.0"
+dependencies = [
+ "oqs-native-entities",
+]
+
+[[package]]
+name = "oqs-native-entities"
+version = "0.16.0"
+
+[[package]]
 name = "xtask"
 version = "0.16.0"

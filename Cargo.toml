@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["Tools/*"]
+members = ["Modules/*", "Tools/*"]
 
 [workspace.package]
 version = "0.16.0"
@@ -12,7 +12,7 @@ repository = "https://github.com/DeveloperBeau/liboqs-rust"
 
 # Swift casing in every crate: see standards.md, section "Names and casing".
 [workspace.lints.rust]
-unsafe_code = "forbid"
+unsafe_code = "deny"
 missing_docs = "deny"
 non_snake_case = "allow"
 non_upper_case_globals = "allow"

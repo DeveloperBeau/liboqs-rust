@@ -24,6 +24,7 @@ The public surface is `run`, `Report`, `FileReading` and `DiskFileSystem`. The b
 | `DeclarationScanner` | The declared names of a Rust source file. |
 | `VersionCheck` | Every copy of the version against `LIBOQS_VERSION`. See [Versioning.md](Versioning.md). |
 | `HygieneCheck` | Em-dash, absolute paths, forbidden words and semicolons in prose. |
+| `UnsafeCodeCheck` | `unsafe` code only in the files of the unsafe code register. |
 | `Command` | The command words. |
 | `Report` | The output text and the exit status of one run. |
 
@@ -36,7 +37,7 @@ The public surface is `run`, `Report`, `FileReading` and `DiskFileSystem`. The b
 ## Commands
 
 - `cargo xtask check` runs every check.
-- `cargo xtask check-rings`, `check-names`, `check-versions` and `check-hygiene` run one check.
+- `cargo xtask check-rings`, `check-names`, `check-versions`, `check-hygiene` and `check-unsafe` run one check.
 
 The command exits with status 0 when there is no finding, 1 when there is a finding, and 2 for a wrong command.
 
@@ -62,6 +63,10 @@ The scanner has limits. It does not read the names inside a pattern of a type, s
 - A semicolon is a finding in the prose of a Markdown file at the root or under `Documentation/`. Text in a fenced code block or in a code span is not prose.
 
 The forbidden words come from the `HYGIENE_WORDS` variable, a comma-separated list, or else from the local file `info/hygiene-words` in the git folder. The repository never holds the list, because the list is the words that the repository must not hold. Without a list, the word scan does not run and the command prints a note.
+
+## Unsafe code
+
+`UnsafeCodeCheck` reads every Rust file through `RustTokenizer`, so `unsafe` in a comment, a string or a raw identifier is not code. A file with an `unsafe` token must have a row in `Documentation/Registers/UnsafeCode.md`. A row whose file has no `unsafe` token is a finding too, so the register cannot keep a stale exception.
 
 ## Tests
 
