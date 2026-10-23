@@ -39,54 +39,51 @@ impl PublicKeyExpansion {
 #[cfg(test)]
 mod tests {
     use super::PublicKeyExpansion;
-    use OQSNativeSHA3::SHA3256;
+    use OQSNativeAlgorithmTests::OutputDigest;
 
-    fn lowerHex(bytes: &[u8]) -> String {
-        bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-    }
-
-    /// The SHA3-256 of the first bytes of each expansion of the seed 0 to 15, from
-    /// `AES_128_CTR` and `snova_shake` of the oracle build of liboqs, for each length.
+    /// The digest of `OutputDigest` of the first bytes of each expansion of the seed 0 to
+    /// 15, from `AES_128_CTR` and `snova_shake` of the oracle build of liboqs, for each
+    /// length.
     const knownAnswers: [(usize, &str, &str); 8] = [
         (
             1,
-            "16890c874a9866761e8ddfe9dcc43db13e7d0be0a84aa19a8e404d81211f6b80",
-            "3ad30c155d0447cd2aed572e9cf838704b5f1f22a9de7734ceb11ee83a781947",
+            "aaa6cdd5e68f5090cec9511fe196cf6e4489ab68dd837c53f41fea4be08efd6c",
+            "5a2cf27eaff297eb8f8e38e56c332d174fa6b6d635322b32ec6ff49661278ebe",
         ),
         (
             16,
-            "513567a88f5745c3659116c35fecb3f201fdea6a9ca717b3711386c11d926bad",
-            "12b6a9510c62911e4081b4793f1acb65e9192d944af155d937fd78a6e4c24ca9",
+            "79dcb8542cec838643d903e3a0282d2574315a4c4ae479a69a3f911a16bb62a4",
+            "d525e07ece7e8f34eb7bd2024bde4d3609438c7d10d2b3ce973aefa71488d37d",
         ),
         (
             167,
-            "fb3c36e2762cff2b7ff7798d7c26b8c1be49b040e705c0b8db6d6e2e3b5ba00f",
-            "437cf31b2a3185558810248c10622dd1078e2f4ed3a8edf0e2994617011dd061",
+            "fce3a88837922b9191d18b5bd2c9c363ea72249c74045adeeb44afefc4bd736e",
+            "b302a5bce3f2813db5e486dee15bf3641bb1ecaec9012371580404db0dbe2dae",
         ),
         (
             168,
-            "313678ff7f05e34643d2849da95464bc67b89221b5ebb9b2fe2382e80c541482",
-            "fd3c4dcb289d91e554dc957ab93d5d6e2aee5df585a25af4efee090415ef7c0a",
+            "e8d5cdec4128692ec148a18e8193fcc2a17562a494edc7a791859bee2b4e87ed",
+            "936d7be638149bf5ae8f27abb6b640aba2ae71838b5c9db17b4c8cabb6e74a83",
         ),
         (
             169,
-            "a3ddfbda237ad39b370ca14a553e1d1b25a0988db1b7666028f04d96e5dd9b42",
-            "ee8865d2a1c2d5cb23da4752165d1b5ee02b68346cf5fb9e4774dcdd865ee957",
+            "a44897f179dd0cb88456e27ae88e2d82966cb9b483abce91fbeb6be04612ce06",
+            "47784b9dee130946e1c611a9d4f4fb5d9510cab4e1f26af803d8b53fb3a2e502",
         ),
         (
             336,
-            "51fb6edac342f42d5dde99c83af35717d8e379e761dcf84e6889841e390a1c8a",
-            "fab4d63b3840c603c0b0e5d3ade49478169de67cae230f6b38ef3e46f1dd1d01",
+            "74946e0d1d96e01e469b18fbb0bc33f6044e19f0c016e8129a4d70655473e925",
+            "b05fbf8b380b5044e3dff8161de3bf13ff120e6bbd1b37f3d2245e2c2a77c9cd",
         ),
         (
             1000,
-            "a4fd0c73963802e1c68486c70a7082286624cae8c76745d620a49a7c3bd049b3",
-            "8719d68d0611041fb8a21316ff67e9f29081654742abac464afc25a0f0da5957",
+            "a707e75563ac4276f991444374418d8279b097a33d1ad8836d41cb2163444743",
+            "93afe8a638c2b0b78fb5a2e4ede075cb784583b2f5533397994857c4a004efe6",
         ),
         (
             8000,
-            "31e403aa10c6201a428532af4040dd56b691f8c9df10b921bf8f243b5352c220",
-            "c68cabfadfcec5f20e6f42c9a2576409330aa634f27cb5b8596f0936ca984833",
+            "0ae577b0683a84a5a71375e7cb1d17388c8cd01b6cf7b0e3619db42af7863e70",
+            "e4194c4a5df4d288ef345a833ed19015c08c4ea04c6c313f6649262595624901",
         ),
     ];
 
@@ -95,13 +92,9 @@ mod tests {
         let seed: [u8; 16] = core::array::from_fn(|index| index as u8);
         for (length, aesDigest, shakeDigest) in knownAnswers {
             let aes = PublicKeyExpansion::aes128Counter.expanded(&seed, length);
-            assert_eq!(lowerHex(&SHA3256::hash(&aes)), aesDigest, "AES, {length}");
+            assert_eq!(OutputDigest::of(&aes), aesDigest, "AES, {length}");
             let shake = PublicKeyExpansion::shake128Counter.expanded(&seed, length);
-            assert_eq!(
-                lowerHex(&SHA3256::hash(&shake)),
-                shakeDigest,
-                "SHAKE, {length}"
-            );
+            assert_eq!(OutputDigest::of(&shake), shakeDigest, "SHAKE, {length}");
         }
     }
 
