@@ -17,6 +17,8 @@ Each page describes one subsystem as the code is today: its purpose, its crates,
 | [FrodoKEM.md](FrodoKEM.md) | FrodoKEM and eFrodoKEM | Yes |
 | [HQC.md](HQC.md) | HQC | Yes |
 | [BIKE.md](BIKE.md) | BIKE | Yes |
+| [NTRU.md](NTRU.md) | NTRU-HPS and NTRU-HRSS | Yes |
+| [NTRUPrime.md](NTRUPrime.md) | Streamlined NTRU Prime, sntrup761 | Yes |
 | [MLDSA.md](MLDSA.md) | ML-DSA | Yes |
 | [Falcon.md](Falcon.md) | Falcon | Yes |
 | [MAYO.md](MAYO.md) | MAYO | Yes |

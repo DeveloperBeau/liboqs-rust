@@ -25,6 +25,8 @@ oqs-native-hqc = { path = "../HQC", default-features = false }
 oqs-native-mayo = { path = "../MAYO", default-features = false }
 oqs-native-ml-dsa = { path = "../MLDSA", default-features = false }
 oqs-native-ml-kem = { path = "../MLKEM", default-features = false }
+oqs-native-ntru = { path = "../NTRU", default-features = false }
+oqs-native-ntru-prime = { path = "../NTRUPrime", default-features = false }
 oqs-native-system-random = { path = "../SystemRandom", optional = true }
 
 [features]
@@ -40,6 +42,8 @@ std = [
     "oqs-native-mayo/std",
     "oqs-native-ml-dsa/std",
     "oqs-native-ml-kem/std",
+    "oqs-native-ntru/std",
+    "oqs-native-ntru-prime/std",
     "dep:oqs-native-system-random",
 ]
 
