@@ -27,7 +27,7 @@ The four-way forms of liboqs (`shake128_x4`) are a speed form. The port computes
 
 ## SHA-2
 
-`SHA256` and `SHA512Core` (private, shared by `SHA384`, `SHA512`, `SHA512224` and `SHA512256`) hold the state, the partial block and the total length. `SHA224` is a `SHA256` with the initial hash value of SHA-224. A truncated form starts from its own initial hash value and gives the first bytes of the final state. `absorb` takes any number of bytes, so the `inc_blocks` of liboqs (whole blocks) and its `inc_finalize` (the rest) map to `absorb` and `finalize`.
+`SHA256` and `SHA512Core` (private, shared by `SHA384`, `SHA512`, `SHA512224` and `SHA512256`) hold the state, the partial block and the total length. `SHA224` is a `SHA256` with the initial hash value of SHA-224. A truncated form starts from its own initial hash value and gives the first bytes of the final state. `absorb` takes any number of bytes, so the `inc_blocks` of liboqs (whole blocks) and its `inc_finalize` (the rest) map to `absorb` and `finalize`. The `absorb` of `SHA256` copies whole pieces of the input into the partial block and compresses whole blocks in place, so the millions of short hashes of LMS run as fast as the C code.
 
 ## AES
 
