@@ -239,3 +239,15 @@
 - Trap: the parity tests of the suite, which check every registered algorithm, take an hour once a slow family is registered.
 - Finding: the C library signs a small set of SLH-DSA in 0.55 to 1.6 seconds in a release build. `RegisteredParity.rs` runs 11 cases of each scheme, `SnapshotParity.rs` the base case of each, and `runOverTheRegistryReportsItsSize` ran `parity run` over the whole registry with a limit of 120 seconds.
 - Rule: `SuiteSample` of `oqs-native-algorithm-tests` holds the algorithms of the default suite, and every test of every algorithm is behind `#[ignore]` with the reason. A slow family adds its rule to `SuiteSample`, and `parity run` stays the full gate.
+
+## A padding check of the C code can accept every input
+
+- Trap: a port that checks the padding bits of each unpacked vector, as the comments of the C code say it does, gives another result than the C function for the restricted vectors of RSDP.
+- Finding: `generic_unpack_3_bit` of the CROSS code computes its mask as `0xFF << (n * 3) & 0x7`. The shift binds before the and, so the mask is zero and the check passes for any padding. `unpack_fz_vec` of the oracle library returned 1 for seeded bytes with set padding bits, and the port with a mask of the real padding bits failed that known answer and two other tests. A changed padding bit is still refused, because the first commitment of a round hashes the bytes of the signature. A port that packed the unpacked values again would hash other bytes and accept the change: `aPaddingBitOfARestrictedVectorChangesTheCommitment` failed for that defect.
+- Rule: port each check as the C code computes it, and take its known answer from the C function. When a check of the C code accepts every input, find the step that still refuses the input, and test that step with an input that breaks no other rule.
+
+## An upstream bound must hold for every input before a port relies on it
+
+- Trap: a port that keeps a fixed room for a variable number of items, as the C code does, panics where the C code would write past the room.
+- Finding: the room of a CROSS signature for its seed path and its Merkle proof is `TREE_NODES_TO_STORE`, from a script of the CROSS team that liboqs does not ship. It is a bound and not the exact maximum: 108 for t = 256 and w = 215, where the longest seed path has 105 seeds. `theStoredNodeCountHoldsTheLongestPathAndProofOfAnyChallenge` computes the longest path and proof of each set over every challenge, by dynamic programming over the tree, and checks it against the room.
+- Rule: when a port relies on a bound of the upstream code, a test proves the bound for every input, not only for the inputs of the known answers.
