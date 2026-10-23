@@ -24,6 +24,7 @@ A name writes each acronym in this table as one unit: all upper case (`MLKEM768`
 | `HQC` | Hamming Quasi-Cyclic |
 | `ID` | Identifier |
 | `IND` | Indistinguishability |
+| `JSON` | JavaScript Object Notation |
 | `KAT` | Known-answer test |
 | `KEM` | Key encapsulation mechanism |
 | `LMS` | Leighton-Micali Signature |

@@ -58,6 +58,8 @@ mod statefulKnownAnswerTest;
 #[cfg(feature = "std")]
 #[path = "TestVectorFiles.rs"]
 mod testVectorFiles;
+#[path = "VectorRandom.rs"]
+mod vectorRandom;
 
 pub use fuzzRandom::FuzzRandom;
 pub use jsonValue::JSONValue;
@@ -82,3 +84,4 @@ pub use statefulKnownAnswerDigests::StatefulKnownAnswerDigests;
 pub use statefulKnownAnswerTest::StatefulKnownAnswerTest;
 #[cfg(feature = "std")]
 pub use testVectorFiles::TestVectorFiles;
+pub use vectorRandom::VectorRandom;
