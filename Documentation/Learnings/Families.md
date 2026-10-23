@@ -287,3 +287,9 @@
 - Trap: a port that hashes the whole message seems to match the C library for every message.
 - Finding: `oqs_snova.c` hashes the message with `shake256(message, message_len, ...)`, whose length is an `int`. The object code of the oracle build sign-extends the low 32 bits of `message_len` (`movslq`), so for a message of `2^31` bytes or more the C code reads past the message or hashes only a part of it. No test reaches that length.
 - Rule: check the type of each length that a C helper takes. When the C code is undefined or wrong for some inputs, the port keeps the correct result, and the architecture page of the family names the difference.
+
+## A restored source file can be older than the build of the wrong code
+
+- Trap: a check of a test against deliberately wrong code copies a source file, changes it, runs the tests and moves the copy back. Cargo can keep the test binary of the wrong code, so a later run of the package fails on code that is right, or passes on code that is no longer there.
+- Finding: the copy of `PublicMap.rs` kept the time at which it was made, 0.3 seconds before cargo started the build of the wrong offset. After the copy moved back, the file was older than that build, so cargo kept the unit test binary of the wrong offset. `cargo test -p oqs-native-snova` then failed two known answers of `SNOVA_37_17_2` on the restored code, while `cargo test --workspace`, which builds another binary with the features of the workspace, passed.
+- Rule: give a restored file a new modification time, for example with `touch`, and run the tests of the package again after each check against wrong code.
