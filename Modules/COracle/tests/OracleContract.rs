@@ -376,6 +376,37 @@ fn anEmptyContextIsTheNullContextOfTheCLibrary() {
 }
 
 #[test]
+fn aShortSignatureReachesTheCVerificationWithItsWholeLength() {
+    // The CROSS code of liboqs verifies the whole signature of its scheme and then refuses a
+    // length other than its own. The oracle gives it a shorter signature with zeros after it, so
+    // the C code reads no byte past the input. Without the copy, the empty signature gives the C
+    // code a pointer to no memory.
+    let mut oracle = COracle::new(OracleRandomness::nist(countingEntropy()));
+    let name = "cross-rsdp-128-balanced";
+    let message = b"the quick brown fox";
+    let keyPair = oracle.generateSignatureKeyPair(name).expect("key pair");
+    let signature = oracle
+        .sign(name, message, keyPair.secretKey.bytes())
+        .expect("signature");
+    assert!(oracle.isValidSignature(name, &signature, message, &keyPair.publicKey));
+    // Each input is a copy of its own length, as the parity checks make it. The empty copy has
+    // no memory at all.
+    for length in [0, 1, signature.len() - 1] {
+        let short = signature[..length].to_vec();
+        assert!(
+            !oracle.isValidSignature(name, &short, message, &keyPair.publicKey),
+            "{length}"
+        );
+        assert!(
+            !oracle.isValidSignatureWithContext(name, &short, message, &[], &keyPair.publicKey),
+            "{length}"
+        );
+    }
+    let longer = [&signature[..], &[0]].concat();
+    assert!(!oracle.isValidSignature(name, &longer, message, &keyPair.publicKey));
+}
+
+#[test]
 fn statefulSigningAdvancesTheSecretKeyThatTheCLibraryPersists() {
     let name = "LMS_SHA256_H5_W1";
     let mut oracle = COracle::new(OracleRandomness::nist(countingEntropy()));
