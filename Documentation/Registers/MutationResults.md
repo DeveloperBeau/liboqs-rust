@@ -281,11 +281,16 @@ The run of 2026-10-23 on the branch `foundation/parity-blocks`, of the functions
 
 ## Latest result for HQC
 
-The first run of 2026-10-23 on the branch `family/hqc`.
+The runs of 2026-10-23 on the branch `family/hqc`, with `OQS_ORACLE_DIR` set to the oracle folder. The second run took the 38 missed and timed-out mutants of the first run again with `--iterate`, after the new tests, with a timeout of 600 seconds. The facade ran with the tests of `oqs-native-parity` as well.
 
 | Crate | Mutants | Caught | Timeout | Unviable | Missed |
 |---|---|---|---|---|---|
-| `oqs-native-hqc` | 864 | 793 | 9 | 33 | 29 |
+| `oqs-native-hqc`, first run | 864 | 793 | 9 | 33 | 29 |
+| `oqs-native-hqc`, second run of the 38 | 38 | 13 | 7 | 0 | 18 |
+| `oqs-native-hqc`, both runs | 864 | 806 | 7 | 33 | 18 |
+| `oqs-native`, with the tests of `oqs-native-parity` | 21 | 6 | 0 | 7 | 8 |
+
+The 18 missed mutants of the second run are the equivalent mutants below, and the 7 timeouts are the endless loops of the rejection sampler. The 8 missed mutants of the facade replace the signature list or the stateful list, which stay empty until the first signature family, as in the FrodoKEM run.
 
 Seven of the nine timeouts stop the rejection loop of key generation, `rejectionSupport`: the deleted `!` of line 154, `barrettReduced` replaced with 0 or with 1, and four mutants of `Parameters::rejectionThreshold`, which replace the body with 0 or with 1, `*` with `/`, or `<<` with `>>`. With each of them no candidate gives a new position, so the loop never ends. The mutant of `rejectionThreshold` that replaces `/` with `%` ends. Its threshold is above every candidate, `derivedValuesAreTheValuesOfParametersHeader` fails at once, and `barrettReductionIsTheRemainderForEveryCandidateBelowTheThreshold` then reduces about 1.7 billion candidates in place of 50 million. The ninth timeout, `ReedSolomon::errorLocator` line 96, is an equivalent mutant. Every test that ended passed, and the suite did not end in 36 seconds on a loaded machine. It is in the list below.
 
