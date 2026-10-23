@@ -4,7 +4,8 @@ description = "SLH-DSA of FIPS 205, a native port of the SLH-DSA algorithms of l
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license.workspace = true
+# The port is under MIT, and slhdsa-c is under Apache-2.0 OR ISC OR MIT.
+license = "MIT AND (Apache-2.0 OR ISC OR MIT)"
 authors.workspace = true
 repository.workspace = true
 
