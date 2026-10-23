@@ -95,3 +95,21 @@
 - **Trap.** When the program stops calling a function, the tests that still call it can all expect success. A mutant that returns success then survives.
 - **Finding.** Since the parity jobs check blocks with `checkCase`, only the harness tests call `SignatureParity::checkEveryCase`, and for a signature scheme each of them expected `Ok(())`. The mutant that returns `Ok(())` survived the ML-DSA run of `SignatureParity.rs`. `aSignatureDefectInTheBaseCaseNamesTheSnapshotField` now runs it on a broken scheme, as `aKEMDefectInTheBaseCaseNamesTheSnapshotField` does for a mechanism.
 - **Rule.** When a change moves the program off a function, check that a test still sees the function fail, or remove the function.
+
+## Integer division hides a small change of the dividend
+
+- **Trap.** A mutant that turns `q - 1` into `q + 1` or into `q / 1` in `(q - 1) / 88` survives every test, because the quotient does not change.
+- **Finding.** The first run of `oqs-native-ml-dsa` had twelve such mutants, in the gamma2 of each parameter set and in the threshold `(q - 1) / 2`. q - 1 is a multiple of 88, of 32 and of 2, and q + 1 and q leave a remainder below the divisor. The mutant that replaces `2^32 % q` with `2^32 + q` in `rootPowers` is of the same kind, because the loop takes the product modulo q after its first step.
+- **Rule.** Compute the value of each mutant of a constant before writing a test for it. A test of the constant cannot kill a mutant that keeps the value. Record such a mutant as equivalent, with the values on both sides.
+
+## A threshold that no input reaches gives an equivalent mutant
+
+- **Trap.** A comparison with a threshold gives the same result with `>=` in place of `>`, or with the threshold one higher, when no input of the comparison lies at the threshold.
+- **Finding.** The centering of the twiddle factors of ML-DSA compares each entry with `(q - 1) / 2`, and no entry is 4190208 or 4190209. The selection of `decomposed` compares the low part with `(q - 1) / 2`, and each low part is at most gamma2 or at least `q - gamma2`. Three mutants survived. `twiddleFactorsAreTheTableOfMLDSANative` and `decompositionAndHintsFollowFIPS204ForEveryValue` check every input and pass with them.
+- **Rule.** Prove such a mutant with a test that checks every input of the domain of the comparison. The register names the lines that keep the inputs in that domain.
+
+## An equivalent mutant is the first to pass the time limit
+
+- **Trap.** On a loaded machine, a timeout is more likely an equivalent mutant than a mutant that a test kills.
+- **Finding.** `cargo test` stops at the first test binary that fails, so the suite of a caught mutant usually ends after the unit tests. An equivalent mutant runs every test binary. In the first run of `oqs-native-ml-dsa`, at a load average of 15 to 28, nine of the 21 timeouts were equivalent mutants, and each passed every test by hand.
+- **Rule.** Check each timeout by hand with a generous limit before the register counts it as caught. Look first at the timeouts in constant expressions, whose mutants cannot make a loop endless.

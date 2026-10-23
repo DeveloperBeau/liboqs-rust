@@ -348,6 +348,46 @@ The missed mutant of the comparison of decapsulation is a test gap, and `aDecode
 | The weight of a syndrome counts only the coefficients below r | `Syndrome::weight`: each operator replaced | `weightCountsTheCoefficientsBelowR` |
 | The sampler gives the positions of the C sampler | `Sampler::positions`: the scaling and the repeat rule replaced | `decoderGivesTheErrorOfTheCDecoderForACiphertextBeyondItsReach`, `decoderGivesTheErrorsOfTheCDecoderForHostileInputs` |
 
+## Latest result for ML-DSA
+
+The first run of 2026-10-23 on the branch `family/ml-dsa`. The load average of the machine was 15 to 28, and the disk filled up before the run ended.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-ml-dsa` | 624 | 547 | 21 | 43 | 11 |
+
+The full disk spoiled the results of five mutants of `decomposed` in `Polynomial.rs`: `*` replaced with `+` or with `/` at both places of line 117, and `-` replaced with `+` in `low - modulus`, line 118. Two of them never ran, so the counts of the table add up to 622. Applied by hand, each mutant of line 117 fails 26 tests and the mutant of line 118 fails 17, among them `decompositionAndHintsFollowFIPS204ForEveryValue` and the known answers of every count of each set.
+
+Eleven of the 21 timeouts are endless loops of the samplers. Applied by hand, each kept the unit tests that sample a polynomial running for 300 seconds, where the whole unit test binary ends in under a second.
+
+- `sampledUniform`, line 390, and `sampledShort`, line 420: `<` replaced with `<=`. The loop goes on at 256 coefficients and takes no candidate.
+- `sampledUniform`, line 393, and `sampledShort`, line 424: `==` replaced with `!=`. The inner loop stops before its first candidate.
+- `sampledUniform`, line 403, and `sampledShort`, line 429: `+=` replaced with `*=`. The count stays at 0.
+- `sampledUniform`, line 400: `&` replaced with `|`. Each candidate is at least `2^23 - 1`, which is above q.
+- `boundedCoefficient`, line 441: the body replaced with `None`, and line 444: `<` replaced with `>`. No half byte gives a coefficient for eta 2, so `sampledShort` never ends. `boundedCoefficientsAreTheCoeffFromHalfByteOfFIPS204` fails at once.
+- `sampledInBall`, line 483: `+=` replaced with `*=`. The position stays at byte 8 of the stream, and the loop never ends when that byte is above `256 - tau`.
+- `sampledInBall`, line 484: `<=` replaced with `>`. At the index 255 no byte is above the index.
+
+One more timeout ends with a failed test, but only after hours. In `sampledUniform`, line 401, `<` replaced with `==` lets only a candidate of exactly q count, and such a candidate comes once in 2^23 candidates. One polynomial then takes about 2^31 candidates, about 30 seconds in the test build. `samplesStayInTheirRangesAndDependOnTheirSeeds` fails after one such polynomial, because its coefficients are q. `keyPairsHaveTheLayoutOfFIPS204` samples 204 of them, so the unit tests end after more than an hour.
+
+The other nine timeouts are equivalent mutants. Applied by hand, each passed every test of the crate. A caught mutant usually stops the suite at the first test binary that fails, and an equivalent mutant runs every binary, so on the loaded machine the equivalent mutants passed the time limit. They are in the list below.
+
+Of the 11 missed mutants, four are test gaps. `eachConstantIsTheConstantOfFIPS204AndOfTheHeaderOfMLDSANative` and `uniformSamplingSkipsACandidateOfQAndGivesThePolynomialOfTheCFunction` kill them. The other seven are equivalent.
+
+### Equivalent mutants
+
+- `Parameters.rs`, the gamma2 of `mldsa44`, `mldsa65` and `mldsa87` at the lines 161, 175 and 189, which were the lines 154, 168 and 182 in the first run, `Parameters::commitmentBits`, line 54, and `Polynomial.rs`, `isNarrowRounding`, line 102: `-` replaced with `+` or with `/` in `(q - 1) / 88` and `(q - 1) / 32`. These are ten mutants, five missed and five timeouts. q - 1 = 8380416 is 88 times 95232 and 32 times 261888. q + 1 and q leave the remainders 2 and 1, so the quotients stay 95232 and 261888. The constant does not change, so the program does not change.
+- `Polynomial.rs`, `rootPowers`, line 47, and `decomposed`, line 118: `-` replaced with `/` in `(q - 1) / 2`. q is odd, so `q / 2` is 4190208 as well.
+- `Polynomial.rs`, `rootPowers`, line 47: `>` replaced with `>=`, and `-` replaced with `+` in `(modulusWide - 1) / 2`. The first mutant changes the centering only for an entry of 4190208 before the centering, and the second only for an entry of 4190209. No entry from 1 to 255 has one of these values. `twiddleFactorsAreTheTableOfMLDSANative` checks every entry against its definition and passes with both mutants, and `zetas` is a constant, so the program does not change.
+- `Polynomial.rs`, `rootPowers`, line 30: `%` replaced with `+` in `(1i64 << 32) % modulusWide`. The start value is then `2^32 + q`, which is congruent to `2^32 mod q`. Each entry from 1 to 255 multiplies the start value by 1753 at least once, because BitRev8 of its index is at least 1, and takes the product modulo q. The product stays below 2^43, so it does not overflow, and each remainder is the same. `twiddleFactorsAreTheTableOfMLDSANative` passes with the mutant.
+- `Polynomial.rs`, `decomposed`, line 118: `-` replaced with `+` in `(modulus - 1) / 2 - low`. The selection then subtracts q only above 4190209 in place of above 4190208, so the output changes only for a low part of exactly 4190209. For a standard representative, line 117 gives a low part from `-gamma2 + 1` to gamma2 when the high part does not wrap, and the value itself, from `q - gamma2` to `q - 1`, when the high part wraps to 0. gamma2 is at most 261888, so no low part is 4190209. `decompositionAndHintsFollowFIPS204ForEveryValue` checks every value from 0 to `q - 1` for both values of gamma2 and passes with the mutant. Only standard representatives reach `decomposed`. In `InternalAlgorithms.rs`, `attemptedSignature` and `isValidSignature` give `Polynomial::decomposed` and `Polynomial::hintedHigh` the output of `nonNegative`, which maps each coefficient of `inverseTransform`, below q in absolute value, into the range from 0 to `q - 1`.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| A signature makes the attempts of mldsa-native before it fails | `InternalAlgorithms::signature`, line 210 of the first run, now `Parameters::signingAttemptCount`: `-` replaced with `+` or `/`, `/` replaced with `*` | `eachConstantIsTheConstantOfFIPS204AndOfTheHeaderOfMLDSANative` |
+| The uniform sampler refuses a candidate of q | `Polynomial::sampledUniform`, line 401: `<` replaced with `<=` | `uniformSamplingSkipsACandidateOfQAndGivesThePolynomialOfTheCFunction` |
+| Decompose gives the high and the low part of FIPS 204 | `decomposed`, line 117: `*` replaced with `+` or `/`, line 118: `-` replaced with `+` in `low - modulus` | `decompositionAndHintsFollowFIPS204ForEveryValue` and the known answers of every count of each set |
+
 ## History
 
 | Run | Code | Mutants | Caught | Timeout | Unviable | Missed |
