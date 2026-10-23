@@ -15,6 +15,8 @@ extern crate alloc;
 
 #[path = "FuzzRandom.rs"]
 mod fuzzRandom;
+#[path = "JSONValue.rs"]
+mod jsonValue;
 #[path = "KEMCorrectnessTest.rs"]
 mod kemCorrectnessTest;
 #[path = "KEMFuzzTest.rs"]
@@ -41,8 +43,12 @@ mod signatureKnownAnswerTest;
 mod signatureMemoryTest;
 #[path = "SignedMessageForm.rs"]
 mod signedMessageForm;
+#[cfg(feature = "std")]
+#[path = "TestVectorFiles.rs"]
+mod testVectorFiles;
 
 pub use fuzzRandom::FuzzRandom;
+pub use jsonValue::JSONValue;
 pub use kemCorrectnessTest::KEMCorrectnessTest;
 pub use kemFuzzTest::KEMFuzzTest;
 pub use kemKnownAnswerTest::KEMKnownAnswerTest;
@@ -57,3 +63,5 @@ pub use signatureKnownAnswerTest::SignatureKnownAnswerTest;
 #[cfg(feature = "std")]
 pub use signatureMemoryTest::SignatureMemoryTest;
 pub use signedMessageForm::SignedMessageForm;
+#[cfg(feature = "std")]
+pub use testVectorFiles::TestVectorFiles;

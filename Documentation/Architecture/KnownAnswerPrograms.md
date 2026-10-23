@@ -29,6 +29,8 @@ The crate is test-only. A family crate may use it in its tests, as the ring regi
 | `SignatureFuzzTest` | The program `fuzz_test_sig`, with seeded cases, and hostile signatures and keys |
 | `SignatureMemoryTest` | The program `test_sig_mem`: the three steps with the values in files between them |
 | `FuzzRandom` | The random source of the fuzz cases: all zeros, all ones, or seeded SplitMix64 bytes, and the hostile values and wrong lengths of a case |
+| `TestVectorFiles` | The vector files that `cargo xtask fetch-oracle` downloads, see `Documentation/Registers/TestVectors.md` |
+| `JSONValue` | A small JSON reader for the vector files |
 
 ## Data flow
 
@@ -47,6 +49,10 @@ The crate is test-only. A family crate may use it in its tests, as the ring regi
 - `SignatureFuzzTest` drives the key pair and the signature with a `FuzzRandom` source, as `fuzz_test_sig` drives them with `rand()`. The message of case `n` has `n` bytes. Hostile signatures and public keys, of the right length and of a wrong length, must be refused, and a secret key of a wrong length must give the length error.
 - `SignatureMemoryTest` writes the keys, the message and the signature to files between the steps and removes the files at the end.
 - The hostile values of a fuzz case come from `FuzzRandom::hostile(seed, case)`, and a wrong length from `FuzzRandom::wrongLength(case, length)`, so the inputs of a reported case can be made again.
+
+## Test vectors
+
+Some liboqs tests read vector files that they download, the ACVP files of NIST and the Wycheproof files of C2SP. `Documentation/Registers/TestVectors.md` holds the address and the SHA-256 of each file. `cargo xtask fetch-oracle` downloads each missing file to `target/oracle/<version>/vectors/` and rejects a file with another digest. `TestVectorFiles::document` reads a file, or names the command to run when the file is missing.
 
 ## Edge cases
 

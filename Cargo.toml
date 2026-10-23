@@ -21,3 +21,8 @@ non_camel_case_types = "allow"
 [workspace.lints.clippy]
 all = { level = "deny", priority = -1 }
 upper_case_acronyms = "allow"
+
+# The tests run thousands of cryptographic operations. The first optimization level makes
+# them fast and keeps the overflow checks and the debug assertions of a test build.
+[profile.dev]
+opt-level = 1

@@ -1,4 +1,5 @@
 use OQSNativeDomain::{KeyEncapsulating, Signing, StatefulSigning};
+use OQSNativeMLKEM::{Kyber, MLKEM};
 
 /// Every algorithm of the port, by its liboqs name.
 ///
@@ -7,7 +8,14 @@ use OQSNativeDomain::{KeyEncapsulating, Signing, StatefulSigning};
 pub struct Registry;
 
 /// The key encapsulation mechanisms.
-const mechanisms: &[&dyn KeyEncapsulating] = &[];
+const mechanisms: &[&dyn KeyEncapsulating] = &[
+    &Kyber::kyber512,
+    &Kyber::kyber768,
+    &Kyber::kyber1024,
+    &MLKEM::mlkem512,
+    &MLKEM::mlkem768,
+    &MLKEM::mlkem1024,
+];
 
 /// The signature schemes.
 const signatureSchemes: &[&dyn Signing] = &[];

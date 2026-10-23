@@ -1,11 +1,12 @@
-use crate::{FileReading, ProcessStep};
+use crate::{FileReading, ProcessStep, TestVector};
 use std::path::{Path, PathBuf};
 
 /// The build of the C oracle: liboqs at the version of the repository, built as a portable
-/// static library in `target/oracle/<version>`.
+/// static library in `target/oracle/<version>`, with the test vector files of the register.
 ///
-/// The source goes to `source` and the build to `build`. A second run builds again, which
-/// CMake does in a few seconds when nothing changed.
+/// The source goes to `source`, the build to `build` and the vector files to `vectors`. A
+/// second run builds again, which CMake does in a few seconds when nothing changed, and
+/// downloads only a vector file that is missing or that has another SHA-256.
 pub struct OracleBuild {
     version: String,
 }
@@ -41,6 +42,11 @@ impl OracleBuild {
         Path::new("target/oracle").join(&self.version)
     }
 
+    /// The folder of the test vector files, relative to the repository root.
+    pub fn vectorFolder(&self) -> PathBuf {
+        self.folder().join("vectors")
+    }
+
     /// The version that a liboqs `CMakeLists.txt` declares, such as `0.16.0`.
     pub fn declaredVersion(cmakeText: &str) -> Option<String> {
         let value = |name: &str| -> Option<String> {
@@ -60,7 +66,7 @@ impl OracleBuild {
     }
 
     /// The steps that make the oracle ready: the clone when the source is missing, then the
-    /// configuration and the build.
+    /// configuration and the build, then a download of each vector file that is not present.
     ///
     /// A source of another version is an error, because the oracle must be the version of
     /// the repository.
@@ -101,6 +107,24 @@ impl OracleBuild {
             "cmake",
             &["--build", &buildText, "--parallel"],
         ));
+        let vectorFolder = self.vectorFolder();
+        for vector in TestVector::load(files)? {
+            if !vector.isPresent(files, &vectorFolder) {
+                let path = vector.path(&vectorFolder).to_string_lossy().to_string();
+                steps.push(ProcessStep::new(
+                    "curl",
+                    &[
+                        "-fsSL",
+                        "--retry",
+                        "3",
+                        "--create-dirs",
+                        "-o",
+                        &path,
+                        &vector.address,
+                    ],
+                ));
+            }
+        }
         Ok(steps)
     }
 }
@@ -108,7 +132,10 @@ impl OracleBuild {
 #[cfg(test)]
 mod tests {
     use super::OracleBuild;
-    use crate::MemoryFileSystem;
+    use crate::{MemoryFileSystem, TestVector};
+
+    /// A register of two vector files, `a.json` with the text `abc` and `b.json`.
+    const register: &str = "| File | Address | SHA-256 | Source |\n|---|---|---|---|\n| `a.json` | https://example.org/a | `ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad` | test |\n| `b.json` | https://example.org/b | `00` | test |\n";
 
     const cmakeLines: &str = "set(OQS_VERSION_MAJOR 0)\nset(OQS_VERSION_MINOR 16)\nset(OQS_VERSION_PATCH 0)\nset(OQS_VERSION_PRE_RELEASE \"\")\n";
 
@@ -132,7 +159,10 @@ mod tests {
     #[test]
     fn missingSourceIsClonedAtTheVersionTagAndThenBuilt() {
         let steps = OracleBuild::new("0.16.0")
-            .steps(&MemoryFileSystem::withFiles(&[]))
+            .steps(&MemoryFileSystem::withFiles(&[(
+                TestVector::registerPath,
+                register,
+            )]))
             .expect("steps");
         let lines: Vec<String> = steps.iter().map(|step| step.to_string()).collect();
         assert_eq!(
@@ -147,18 +177,25 @@ mod tests {
             lines[2],
             "cmake --build target/oracle/0.16.0/build --parallel"
         );
-        assert_eq!(lines.len(), 3);
+        assert_eq!(
+            lines[3],
+            "curl -fsSL --retry 3 --create-dirs -o target/oracle/0.16.0/vectors/a.json https://example.org/a"
+        );
+        assert_eq!(lines.len(), 5);
     }
 
     #[test]
     fn presentSourceOfTheVersionIsBuiltWithoutAClone() {
-        let files = MemoryFileSystem::withFiles(&[(
-            "target/oracle/0.16.0/source/CMakeLists.txt",
-            cmakeLines,
-        )]);
+        let files = MemoryFileSystem::withFiles(&[
+            ("target/oracle/0.16.0/source/CMakeLists.txt", cmakeLines),
+            (TestVector::registerPath, register),
+            ("target/oracle/0.16.0/vectors/a.json", "abc"),
+        ]);
         let steps = OracleBuild::new("0.16.0").steps(&files).expect("steps");
-        assert_eq!(steps.len(), 2);
-        assert_eq!(steps[0].program, "cmake");
+        // The vector file with the right digest is not downloaded again, the other one is.
+        let programs: Vec<&str> = steps.iter().map(|step| step.program.as_str()).collect();
+        assert_eq!(programs, vec!["cmake", "cmake", "curl"]);
+        assert!(steps[2].to_string().ends_with("https://example.org/b"));
     }
 
     #[test]

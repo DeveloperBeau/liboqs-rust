@@ -19,5 +19,8 @@ path = "src/lib.rs"
 name = "xtask"
 path = "src/main.rs"
 
+[dependencies]
+oqs-native-sha2 = { path = "../../Modules/SHA2" }
+
 [lints]
 workspace = true

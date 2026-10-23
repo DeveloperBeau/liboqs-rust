@@ -10,4 +10,5 @@ A register is the one owner of a rule that needs a list. A change that adds an i
 | [NamingExceptions.md](NamingExceptions.md) | The names that a language or framework forces into another form | `cargo xtask check-names` |
 | [UnsafeCode.md](UnsafeCode.md) | The files that may hold `unsafe` code, each with its reason | `cargo xtask check-unsafe` |
 | [UpstreamSources.md](UpstreamSources.md) | The upstream liboqs source that each Rust module translates | People. A later tool reads it. |
+| [TestVectors.md](TestVectors.md) | The test vector files of the tests, with their addresses and SHA-256 | `cargo xtask fetch-oracle` |
 | [MutationResults.md](MutationResults.md) | The mutation results for each rule and the test that kills each mutant | People |

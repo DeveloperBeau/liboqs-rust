@@ -86,3 +86,15 @@ NIST-developed software is expressly provided "AS IS." NIST MAKES NO WARRANTY OF
 You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
 ```
 
+## ML-KEM and Kyber
+
+- Algorithm: CRYSTALS-Kyber, by Peter Schwabe, with Roberto Avanzi, Joppe Bos, Léo Ducas, Eike Kiltz, Tancrède Lepoint, Vadim Lyubashevsky, John M. Schanck, Gregor Seiler and Damien Stehlé. ML-KEM is its standard form, NIST FIPS 203. See https://pq-crystals.org/kyber/ and https://csrc.nist.gov/pubs/fips/203.
+- ML-KEM in liboqs: [mlkem-native](https://github.com/pq-code-package/mlkem-native) of the PQ Code Package, commit `0ba906cb14b1c241476134d7403a811b382ca498`. License: Apache-2.0 OR ISC OR MIT.
+- Kyber in liboqs: the reference code of the Kyber team, [pq-crystals/kyber](https://github.com/pq-crystals/kyber), commit `441c0519a07e8b86c8d079954a6b10bd31d29efc` with the liboqs patches. License: CC0-1.0 OR Apache-2.0.
+- Use in this repository: `Modules/MLKEM` follows FIPS 203 and the Kyber submission of round 3, and gives the bytes of these two implementations. The port is under MIT, which both upstream licenses allow.
+
+## Test vectors
+
+- [NIST ACVP-Server](https://github.com/usnistgov/ACVP-Server), tag `v1.1.0.41`: the ML-KEM vectors. Works of the United States government are not subject to copyright in the United States.
+- [Wycheproof](https://github.com/C2SP/wycheproof) of C2SP, commit `032b56abd1368843e4def50b4975032ec1ec7ba4`: the ML-KEM vectors. License: Apache-2.0.
+- The repository holds the addresses and SHA-256 of these files in `Documentation/Registers/TestVectors.md`, and not the files. `cargo xtask fetch-oracle` downloads them for the tests.

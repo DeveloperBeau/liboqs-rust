@@ -160,6 +160,41 @@ The second run of `oqs-native-parity` covered the four files that changed after 
 | The oracle build clones only a missing source | `OracleBuild::steps`: the clone condition replaced | `missingSourceIsClonedAtTheVersionTagAndThenBuilt`, `presentSourceOfTheVersionIsBuiltWithoutAClone` |
 | The oracle build stops at the first failed step | `fetchOracle`: the early return removed | `fetchOracleStopsAtTheFirstFailedStep` |
 
+## Latest result for ML-KEM, Kyber and the behavior programs
+
+The runs of 2026-10-23 on the branch `family/ml-kem`, with `OQS_ORACLE_DIR` set to the oracle folder.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-ml-kem` | 339 | 292 | 4 | 40 | 3 |
+| `oqs-native-algorithm-tests` | 242 | 217 | 8 | 17 | 0 |
+| `oqs-native` | 21 | 5 | 0 | 7 | 9 |
+| `xtask`, the files of the vector download | 26 | 21 | 0 | 5 | 0 |
+
+The first run of `oqs-native-ml-kem` missed 7 of 350 mutants, and the first run of `oqs-native-algorithm-tests` missed 80 of 271, most of them in the signature programs, which had no tests yet. The table holds the second runs, after the new tests and the simpler JSON reader. The four timeouts of ML-KEM are in the rejection loop of `sampledUniform`, which then never ends. The eight of the test support are in the JSON reader, whose position then stops moving.
+
+### Equivalent mutants
+
+- `oqs-native-ml-kem`, `Polynomial.rs`, `twelveBitPair`: `|` replaced with `^`, twice. The operands of the first `|` hold bits 0 to 7 and bits 8 to 11, and the operands of the second hold bits 0 to 3 and bits 4 to 11. They have no set bit in common, so `|` and `^` give the same value for every input.
+- `oqs-native-ml-kem`, `Polynomial.rs`, `rootPowers`: `|` replaced with `^` in `(reversed << 1) | bit`. The shift clears bit 0, and the other operand is bit 0 alone, so the two operators give the same value.
+- `oqs-native`, `Registry.rs`: 9 of the 12 mutants that P0 recorded. They replace the signature list or the stateful list with an empty list, a lookup with `None`, or a name with another text. Those lists stay empty until the first signature family. The three mutants of the KEM list are now caught by `eachAlgorithmIsFoundByItsOwnName` and the coverage tests of `Tools/Parity`.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The decapsulation compares every byte of the re-encryption | `MLKEM::decapsulation`, line 112, and `Kyber::decapsulate`, line 121: the or of the fold of the differences replaced with `^` | `aCiphertextWithTheSameBitChangedInTwoBytesIsRejected` |
+| ML-KEM refuses a public key with a coefficient of q or more | `MLKEM::encapsulation`, line 64: `!` deleted | `fuzzTestKEMPassesForEveryParameterSet`, `aPublicKeyWithACoefficientAboveTheModulusIsRejected` |
+| The modulus check refuses q and accepts q - 1 | `Polynomial::isCanonicalEncoding`, line 216: `<` replaced with `<=` | `decodingOfTwelveBitsReducesModuloQAndTheCheckSeesIt` |
+| Sampling keeps only the values below q | `Polynomial::sampledUniform`, line 259: `<` replaced with `<=` | `uniformSamplingGivesCanonicalValuesThatDependOnTheIndexBytes` and the known-answer tests of each set |
+| Compression rounds to the nearest value | `Polynomial::compressed`, line 223: `+` replaced with `-` | `compressionRoundsToTheNearestValueForEveryCoefficient` |
+| A wrong length gives the length error with the expected length | `KEMFuzzTest::run`, line 93, and `SignatureFuzzTest::run`, line 68: match guard replaced with `true` | `fuzzTestReportsAWrongSecretAndAWrongLengthCheck`, `fuzzTestReportsEachFailingStepWithTheCaseAndTheSeed` |
+| Each bit flip must fail the verification | `SignatureCorrectnessTest::checkBitFlips`: body replaced with `Ok(())` | `correctnessTestReportsTheFirstAcceptedBitFlip`, `correctnessTestFlipsTheSignatureOnlyForAnSUFCMAScheme` |
+| The index of a flip is the random `u64` modulo the number of bits | `checkBitFlips`, line 124: `%` replaced with `/` or `+` | `correctnessTestReportsTheFirstAcceptedBitFlip` and 4 more |
+| The signature flips belong to the second part only | `checkBitFlips`, line 126: `==` replaced with `!=` | `correctnessTestFlipsTheSignatureOnlyForAnSUFCMAScheme` |
+| SLH-DSA steps through the context lengths by a prime | `SignatureCorrectnessTest::run`, line 44: `%` replaced with `/` | `correctnessTestSignsUnderEachContextLengthAndStepsThroughThemByAPrimeForSLHDSA` |
+| The hostile values of a case can be made again | `FuzzRandom::hostile`, line 42: each operator replaced or deleted | `hostileValuesStartSplitMix64AtTheSeedAndTheComplementOfTheCase` |
+| A wrong length is longer for an even case and shorter for an odd case | `FuzzRandom::wrongLength`, lines 48 and 50: each operator replaced | `wrongLengthsAreLongerForEvenCasesAndShorterForOddCases` |
+| The vector folder is the folder of `OQS_ORACLE_DIR`, or else of the workspace | `TestVectorFiles::folder`: body replaced | `folderIsTheVectorFolderOfTheOracleFolder` |
+
 ## History
 
 | Run | Code | Mutants | Caught | Timeout | Unviable | Missed |
