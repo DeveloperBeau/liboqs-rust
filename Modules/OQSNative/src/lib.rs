@@ -10,6 +10,7 @@
 #[path = "Registry.rs"]
 mod registry;
 
+pub use OQSNativeBIKE::BIKE;
 pub use OQSNativeDomain::{
     KeyEncapsulating, KeyStatePersisting, RandomGenerating, Signing, StatefulSigning,
 };

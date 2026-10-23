@@ -6,6 +6,7 @@ version = 4
 name = "oqs-native"
 version = "0.16.0"
 dependencies = [
+ "oqs-native-bike",
  "oqs-native-domain",
  "oqs-native-entities",
  "oqs-native-frodokem",
@@ -26,6 +27,17 @@ dependencies = [
  "oqs-native-entities",
  "oqs-native-kat-random",
  "oqs-native-sha2",
+ "oqs-native-sha3",
+]
+
+[[package]]
+name = "oqs-native-bike"
+version = "0.16.0"
+dependencies = [
+ "oqs-native-algorithm-tests",
+ "oqs-native-domain",
+ "oqs-native-entities",
+ "oqs-native-kat-random",
  "oqs-native-sha3",
 ]
 

@@ -1,3 +1,4 @@
+use OQSNativeBIKE::BIKE;
 use OQSNativeDomain::{KeyEncapsulating, Signing, StatefulSigning};
 use OQSNativeFrodoKEM::FrodoKEM;
 use OQSNativeHQC::HQC;
@@ -11,6 +12,9 @@ pub struct Registry;
 
 /// The key encapsulation mechanisms.
 const mechanisms: &[&dyn KeyEncapsulating] = &[
+    &BIKE::bikeL1,
+    &BIKE::bikeL3,
+    &BIKE::bikeL5,
     &HQC::hqc1,
     &HQC::hqc3,
     &HQC::hqc5,
