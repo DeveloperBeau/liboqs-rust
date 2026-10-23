@@ -1,0 +1,24 @@
+[package]
+name = "oqs-native-sha2"
+description = "SHA-256, SHA-384 and SHA-512, as liboqs uses them."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[package.metadata]
+ring = "sharedComponents"
+
+[lib]
+name = "OQSNativeSHA2"
+path = "src/lib.rs"
+
+[features]
+default = ["std"]
+# Without `std` the crate builds with `core` only.
+std = []
+
+[lints]
+workspace = true

@@ -3,6 +3,10 @@
 version = 4
 
 [[package]]
+name = "oqs-native-aes"
+version = "0.16.0"
+
+[[package]]
 name = "oqs-native-domain"
 version = "0.16.0"
 dependencies = [
@@ -11,6 +15,14 @@ dependencies = [
 
 [[package]]
 name = "oqs-native-entities"
+version = "0.16.0"
+
+[[package]]
+name = "oqs-native-sha2"
+version = "0.16.0"
+
+[[package]]
+name = "oqs-native-sha3"
 version = "0.16.0"
 
 [[package]]
