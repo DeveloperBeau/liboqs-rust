@@ -19,6 +19,7 @@ A name writes each acronym in this table as one unit: all upper case (`MLKEM768`
 | `ECB` | Electronic codebook mode |
 | `EUF` | Existential unforgeability |
 | `FFI` | Foreign function interface |
+| `FIPS` | Federal Information Processing Standard |
 | `HQC` | Hamming Quasi-Cyclic |
 | `ID` | Identifier |
 | `IND` | Indistinguishability |

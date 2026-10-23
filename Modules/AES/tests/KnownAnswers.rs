@@ -15,7 +15,7 @@ fn key<const LENGTH: usize>(hex: &str) -> [u8; LENGTH] {
 }
 
 #[test]
-fn aes128EncryptsTheBlockOfFips197() {
+fn aes128EncryptsTheBlockOfFIPS197() {
     let cipher = AES128::new(&key("000102030405060708090a0b0c0d0e0f"));
     let mut ciphertext = [0u8; 16];
     cipher.encryptBlocks(&bytes("00112233445566778899aabbccddeeff"), &mut ciphertext);
@@ -26,7 +26,7 @@ fn aes128EncryptsTheBlockOfFips197() {
 }
 
 #[test]
-fn aes256EncryptsTheBlockOfFips197() {
+fn aes256EncryptsTheBlockOfFIPS197() {
     let cipher = AES256::new(&key(
         "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
     ));
