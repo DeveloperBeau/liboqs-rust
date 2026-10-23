@@ -1,9 +1,10 @@
 //! Parity of every Rust algorithm with the C algorithm of the same name.
 //!
 //! `KEMParity` and `SignatureParity` run the base case of the Swift and Zig ports and seeded
-//! variations, and compare each value of the Rust side with the value of the C side. `Snapshot`
-//! is the snapshot format of the Swift and Zig ports. `ParityJob` runs the checks of many
-//! algorithms on every processor. The tests of the crate run every registered algorithm, and
+//! variations, and compare each value of the Rust side with the value of the C side.
+//! `StatefulParity` runs the base case and the signatures of one key of a stateful scheme.
+//! `Snapshot` is the snapshot format of the Swift and Zig ports. `ParityJob` runs the checks of
+//! many algorithms on every processor. The tests of the crate run every registered algorithm, and
 //! the `parity` program runs the full gate.
 
 #[path = "KEMParity.rs"]
@@ -22,6 +23,8 @@ mod paritySettings;
 mod signatureParity;
 #[path = "Snapshot.rs"]
 mod snapshot;
+#[path = "StatefulParity.rs"]
+mod statefulParity;
 #[path = "VariationGenerator.rs"]
 mod variationGenerator;
 
@@ -33,4 +36,5 @@ pub use parityOptions::ParityOptions;
 pub use paritySettings::ParitySettings;
 pub use signatureParity::{SignatureBaseCase, SignatureParity, baseCaseMessage};
 pub use snapshot::Snapshot;
+pub use statefulParity::StatefulParity;
 pub use variationGenerator::VariationGenerator;

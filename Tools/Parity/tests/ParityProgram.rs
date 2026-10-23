@@ -163,6 +163,11 @@ fn runOverTheSuiteSampleOfTheRegistryReportsItsSizeAndEachAlgorithm() {
                 .iter()
                 .map(|scheme| scheme.description().name),
         )
+        .chain(
+            OQSNative::Registry::statefulSignatureSchemes()
+                .iter()
+                .map(|scheme| scheme.description().name),
+        )
         .filter(|name| SuiteSample::contains(name))
         .collect();
     let mut arguments = vec!["run", "--cases", "2", "--seed", "5"];
