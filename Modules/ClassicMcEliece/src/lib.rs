@@ -5,11 +5,11 @@
 //! `Classic-McEliece-348864` to `Classic-McEliece-8192128f`, whose C code is the portable code
 //! of the Classic McEliece team in PQClean. The code is a binary Goppa code over the field of
 //! `GaloisField`, with the Goppa polynomial of `GoppaPolynomial`. The key generation orders the
-//! field elements with `SortingNetwork`, brings the parity-check matrix of
-//! `ParityCheckMatrix` into systematic or semi-systematic form, and stores the support as the
-//! control bits of a Benes network, `ControlBits` and `BenesNetwork`. `Encryption` makes the
-//! error vector and its syndrome, and `Decryption` decodes it with the Berlekamp-Massey
-//! algorithm.
+//! field elements with the sorting network of the shared crate `oqs-native-sorting-network`,
+//! brings the parity-check matrix of `ParityCheckMatrix` into systematic or semi-systematic
+//! form, and stores the support as the control bits of a Benes network, `ControlBits` and
+//! `BenesNetwork`. `Encryption` makes the error vector and its syndrome, and `Decryption`
+//! decodes it with the Berlekamp-Massey algorithm.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -33,8 +33,6 @@ mod goppaPolynomial;
 mod parameters;
 #[path = "ParityCheckMatrix.rs"]
 mod parityCheckMatrix;
-#[path = "SortingNetwork.rs"]
-mod sortingNetwork;
 
 pub use classicMcEliece::ClassicMcEliece;
 use parameters::Parameters;
