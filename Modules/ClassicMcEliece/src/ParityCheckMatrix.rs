@@ -1,5 +1,5 @@
 use crate::Parameters;
-use crate::sortingNetwork::SortingNetwork;
+use OQSNativeSortingNetwork::SortingNetwork;
 use alloc::vec;
 use alloc::vec::Vec;
 

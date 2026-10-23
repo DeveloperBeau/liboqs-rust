@@ -131,9 +131,9 @@ You are solely responsible for determining the appropriateness of using and dist
 ## Sorting network (djbsort)
 
 - Algorithm: djbsort, the constant-time sorting software of Daniel J. Bernstein in SUPERCOP. See https://sorting.cr.yp.to/.
-- djbsort in liboqs: two copies. `crypto_sort_int32.c` of the four NTRU-HPS folders of PQClean, `src/kem/ntru/pqclean_ntruhps*_clean`, states that it is based on `crypto_sort/int32/x86` of supercop-20190110. `src/kem/ntruprime/sntrup761_openssh/sntrup761.c` holds `crypto_sort_int32` from `crypto_sort/int32/portable4/sort.c` of supercop-20240808, and `crypto_sort_uint32` on top of it.
-- License: public domain, as liboqs ships both copies. The `LICENSE` file of each PQClean folder states public domain, and liboqs gives `spdx-license-identifier: CC0-1.0` for that code in `docs/algorithms/kem/ntru.yml`. The header of `sntrup761.c` and the `LICENSE` file of its folder state public domain, and liboqs gives `spdx-license-identifier: Public domain` in `docs/algorithms/kem/ntruprime.yml`.
-- Use in this repository: `Modules/SortingNetwork` translates the sort for NTRU and NTRU Prime. The port is under MIT, which a public domain upstream allows, so the crate keeps the license of the workspace.
+- djbsort in liboqs: three copies. `crypto_sort_int32.c` of the four NTRU-HPS folders of PQClean, `src/kem/ntru/pqclean_ntruhps*_clean`, states that it is based on `crypto_sort/int32/x86` of supercop-20190110. `src/kem/ntruprime/sntrup761_openssh/sntrup761.c` holds `crypto_sort_int32` from `crypto_sort/int32/portable4/sort.c` of supercop-20240808, and `crypto_sort_uint32` on top of it. The ten Classic McEliece folders of PQClean, `src/kem/classic_mceliece/pqclean_mceliece*_clean`, hold `int32_sort.h` and `uint64_sort.h`.
+- License: public domain, as liboqs ships every copy. The `LICENSE` file of each NTRU folder of PQClean states public domain, and liboqs gives `spdx-license-identifier: CC0-1.0` for that code in `docs/algorithms/kem/ntru.yml`. The header of `sntrup761.c` and the `LICENSE` file of its folder state public domain, and liboqs gives `spdx-license-identifier: Public domain` in `docs/algorithms/kem/ntruprime.yml`. The `LICENSE` file of each Classic McEliece folder states public domain, and liboqs gives `spdx-license-identifier: Public domain` in `docs/algorithms/kem/classic_mceliece.yml`.
+- Use in this repository: `Modules/SortingNetwork` translates the sort for NTRU, NTRU Prime and Classic McEliece. The port is under MIT, which a public domain upstream allows, so the crate keeps the license of the workspace.
 
 ## ML-DSA
 
@@ -251,7 +251,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Classic McEliece in liboqs: the `clean` code of the Classic McEliece team in [PQClean](https://github.com/PQClean/PQClean), commit `1eacfdafc15ddc5d5759d0b85b4cef26627df181` with the liboqs patch `classic_mceliece_memset.patch`, for the version SUPERCOP-20221025, in the folders `src/kem/classic_mceliece/pqclean_mceliece<set>_clean`.
 - License: public domain. The `LICENSE` file of each folder reads "The official Classic McEliece software is in the public domain." and names https://classic.mceliece.org/impl.html, and liboqs states `spdx-license-identifier: Public domain` in `docs/algorithms/kem/classic_mceliece.yml`. The liboqs wrappers `src/kem/classic_mceliece/kem_classic_mceliece.h` and `kem_classic_mceliece_<set>.c` are MIT, as liboqs is.
 - The C code cites David Nassimi and Sartaj Sahni, "Parallel algorithms to set up the Benes permutation network", and https://cr.yp.to/papers/controlbits-20200923.pdf for the control bits, ePrint 2017/793 for the implementation of the Benes network, and http://crypto.stanford.edu/~mironov/cs359/massey.pdf for the Berlekamp-Massey algorithm.
-- Use in this repository: `Modules/ClassicMcEliece` translates the `clean` code and gives its bytes. The port is under MIT, which a public domain upstream allows, so the crate keeps the license of the workspace.
+- Use in this repository: `Modules/ClassicMcEliece` translates the `clean` code and gives its bytes. The sorts of `int32_sort.h` and `uint64_sort.h` are in `Modules/SortingNetwork`. The port is under MIT, which a public domain upstream allows, so the crate keeps the license of the workspace.
 
 ## Test vectors
 
