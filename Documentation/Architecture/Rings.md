@@ -36,6 +36,7 @@ The workspace root `Cargo.toml` lists the member folders `Modules/*` and `Tools/
 | `oqs-native-snova` | `Modules/SNOVA` | `features` |
 | `oqs-native-mqom` | `Modules/MQOM` | `features` |
 | `oqs-native-xmss` | `Modules/XMSS` | `features` |
+| `oqs-native-lms` | `Modules/LMS` | `features` |
 | `oqs-native` | `Modules/OQSNative` | `composition` |
 | `oqs-native-parity` | `Tools/Parity` | `tooling` |
 | `xtask` | `Tools/Xtask` | `tooling` |

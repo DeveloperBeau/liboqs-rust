@@ -5,6 +5,7 @@ use OQSNativeDomain::{KeyEncapsulating, Signing, StatefulSigning};
 use OQSNativeFalcon::Falcon;
 use OQSNativeFrodoKEM::FrodoKEM;
 use OQSNativeHQC::HQC;
+use OQSNativeLMS::LMS;
 use OQSNativeMAYO::MAYO;
 use OQSNativeMLDSA::MLDSA;
 use OQSNativeMLKEM::{Kyber, MLKEM};
@@ -145,8 +146,9 @@ const signatureSchemes: &[&dyn Signing] =
     &joined::<_, { countOf(signatureSchemeGroups) }>(signatureSchemeGroups);
 
 /// The stateful signature schemes, in groups in the order of the liboqs list: the 21 sets of
-/// `XMSS::schemes`, then the 16 sets of `XMSSMT::schemes`.
-const statefulSignatureSchemeGroups: &[&[&dyn StatefulSigning]] = &[XMSS::schemes, XMSSMT::schemes];
+/// `XMSS::schemes`, the 16 sets of `XMSSMT::schemes`, then the 33 sets of `LMS::schemes`.
+const statefulSignatureSchemeGroups: &[&[&dyn StatefulSigning]] =
+    &[XMSS::schemes, XMSSMT::schemes, LMS::schemes];
 
 /// The stateful signature schemes, the groups one after another.
 const statefulSignatureSchemes: &[&dyn StatefulSigning] =
@@ -329,15 +331,20 @@ mod tests {
             .map(|scheme| scheme.description().name)
             .collect();
         assert_eq!(names, groupNames);
-        // The 21 sets of XMSS come first and the 16 sets of XMSS^MT after them, as in liboqs.
-        assert_eq!(names.len(), 37);
+        // The 21 sets of XMSS come first, the 16 sets of XMSS^MT after them and the 33 sets of
+        // LMS last, as in liboqs.
+        assert_eq!(names.len(), 70);
         assert_eq!(
-            [names[0], names[20], names[21], names[36]],
+            [
+                names[0], names[20], names[21], names[36], names[37], names[69]
+            ],
             [
                 "XMSS-SHA2_10_256",
                 "XMSS-SHAKE256_20_256",
                 "XMSSMT-SHA2_20/2_256",
-                "XMSSMT-SHAKE_60/12_256"
+                "XMSSMT-SHAKE_60/12_256",
+                "LMS_SHA256_H5_W1",
+                "LMS_SHA256_H20_W8_H20_W8"
             ]
         );
     }
