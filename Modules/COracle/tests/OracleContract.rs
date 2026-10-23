@@ -332,6 +332,50 @@ fn signatureRoundTripAcceptsTheSignatureAndRejectsChanges() {
 }
 
 #[test]
+fn anEmptyContextIsTheNullContextOfTheCLibrary() {
+    // A Rust slice of length zero has a pointer that is not null. A scheme without context
+    // support, such as Falcon, refuses a context pointer that is not null even with a length of
+    // zero, so the empty context must reach the C library as the null pointer, as in
+    // `tests/test_sig.c`. A scheme with context support signs with it too.
+    let mut oracle = COracle::new(OracleRandomness::nist(countingEntropy()));
+    let message = b"the quick brown fox";
+    for name in ["Falcon-512", "ML-DSA-44"] {
+        let keyPair = oracle.generateSignatureKeyPair(name).expect("key pair");
+        let signature = oracle
+            .signWithContext(name, message, &[], keyPair.secretKey.bytes())
+            .expect("the empty context signs");
+        assert!(
+            oracle.isValidSignatureWithContext(name, &signature, message, &[], &keyPair.publicKey),
+            "{name}"
+        );
+        assert!(
+            oracle.isValidSignature(name, &signature, message, &keyPair.publicKey),
+            "{name}"
+        );
+    }
+    // A context of one byte stays refused without context support.
+    let keyPair = oracle
+        .generateSignatureKeyPair("Falcon-512")
+        .expect("key pair");
+    assert_eq!(
+        oracle
+            .signWithContext("Falcon-512", message, b"c", keyPair.secretKey.bytes())
+            .map(|_| ()),
+        Err(OQSError::operationFailed)
+    );
+    let signature = oracle
+        .sign("Falcon-512", message, keyPair.secretKey.bytes())
+        .expect("signature");
+    assert!(!oracle.isValidSignatureWithContext(
+        "Falcon-512",
+        &signature,
+        message,
+        b"c",
+        &keyPair.publicKey
+    ));
+}
+
+#[test]
 fn statefulSigningAdvancesTheSecretKeyThatTheCLibraryPersists() {
     let name = "LMS_SHA256_H5_W1";
     let mut oracle = COracle::new(OracleRandomness::nist(countingEntropy()));
