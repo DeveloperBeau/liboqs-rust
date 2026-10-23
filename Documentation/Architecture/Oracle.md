@@ -52,6 +52,7 @@ The C verification of a stateful signature reads the public key from a buffer of
 - The C library has one global random source. `COracle` holds the lock for its whole life, so two tests never share the source. This lock is the one global state of the crate, and its declaration says why.
 - A thread that holds an oracle and makes a second one would wait for itself. `COracle::new` panics at once with the reason.
 - An unknown name, or a name with a zero byte, gives `OQSError::operationFailed`, or `None` for a description.
+- An empty context reaches the C library as the null pointer, as `tests/test_sig.c` passes it. The liboqs wrapper of a scheme without context support refuses every other pointer, and the pointer of an empty Rust slice is not null.
 - Some C algorithms keep several megabytes on the stack. The callers run each check on a thread with a large stack. See `LargeStack` in [Parity.md](Parity.md).
 
 ## Tests
@@ -61,4 +62,5 @@ The C verification of a stateful signature reads the public key from a buffer of
 - `nistRandomGivesTheSeedsOfTheNISTKnownAnswerFiles`: the first two seeds of every NIST KAT response file.
 - `knownAnswerRandomIsSHAKE256ForHQCAndTheNISTDRBGForOthers`: the HQC generator against the C SHAKE256 of the seed and the domain byte.
 - `sourceRandomFeedsTheCCodeInItsOwnRequests`: ML-KEM asks for 64 bytes for a key pair and 32 for an encapsulation.
+- `anEmptyContextIsTheNullContextOfTheCLibrary`: `Falcon-512` and `ML-DSA-44` sign and verify with the empty context, and `Falcon-512` refuses a context of one byte.
 - Round trips and changed inputs of a KEM, a signature scheme and a stateful scheme, the seeded forms, wrong lengths, unknown names, the second oracle on one thread, and the standard answers of the primitives.
