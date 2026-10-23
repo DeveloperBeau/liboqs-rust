@@ -137,3 +137,9 @@
 - **Trap.** A loop over `(0..length).step_by(16)` that writes `16.min(length - start)` elements at each start gives the same writes when the end of the range is one or two too high. The extra start writes no element, or no extra start is a multiple of 16.
 - **Finding.** In `systemMatrix` of MAYO, three mutants of the end of the range and of the count survived the first run of `oqs-native-mayo`. The one extra element of the count was in a column whose element is always zero.
 - **Rule.** Walk a slice of the exact length with `chunks_mut(16)`. A slice end that is too high then panics, or it writes into a place that a test checks.
+
+## A deliberate defect can be equivalent to the code
+
+- **Trap.** A test that passes against a deliberate defect looks too weak, when the defect changes nothing.
+- **Finding.** The first defect of the 3-bit padding check of CROSS used the mask `(0xFF << (n * 3)) & 0xFF`. For the 3 or 7 values after the last group of 8 in the RSDP sets, the shift is 9 or 21 bits, so this mask is zero as well, and every test passed. The mask `0xFF << (3 n mod 8)` of the real padding bits failed three tests.
+- **Rule.** Before a deliberate defect judges a test, check that the defect changes what the code computes, for example with the values of the changed expression for the inputs of the tests.
