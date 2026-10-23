@@ -24,6 +24,11 @@ oqs-native-kat-random = { path = "../KATRandom", default-features = false }
 oqs-native-sha2 = { path = "../SHA2", default-features = false }
 oqs-native-sha3 = { path = "../SHA3", default-features = false }
 
+[dev-dependencies]
+# The behavior tests of the stateful programs run them on the C schemes, as the harness tests
+# of the parity crate do.
+oqs-native-c-oracle = { path = "../COracle" }
+
 [features]
 default = ["std"]
 # Without `std` the crate builds with `core` and `alloc` only.
