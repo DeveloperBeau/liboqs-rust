@@ -1,4 +1,6 @@
-use crate::{KEMParity, LargeStack, ParityMismatch, ParityOptions, SignatureParity, Snapshot};
+use crate::{
+    KEMParity, LargeStack, ParityMismatch, ParityOptions, SignatureParity, Snapshot, StatefulParity,
+};
 use OQSNativeAlgorithmTests::{
     KEMKnownAnswerTest, KnownAnswerDigests, SignatureKnownAnswerTest, StatefulKnownAnswerDigests,
     StatefulKnownAnswerTest, TestVectorFiles,
@@ -22,14 +24,19 @@ pub struct ParityJob<'check> {
 }
 
 impl<'check> ParityJob<'check> {
-    /// The jobs of the parity gate for the selected mechanisms and schemes, mechanisms first.
+    /// The jobs of the parity gate for the selected mechanisms, signature schemes and stateful
+    /// schemes, in that order.
     ///
-    /// Each algorithm has one job for each block of its variations, and the first block also
-    /// checks the base case. The positions of the shard count over the blocks of both lists,
-    /// so the blocks of one algorithm go to different shards.
+    /// Each mechanism and signature scheme has one job for each block of its variations, and the
+    /// first block also checks the base case. The variations of a stateful scheme are the
+    /// signatures of one key, and each needs the key of the one before it, so a stateful scheme
+    /// is one job. Its job signs at most the remaining count of the key, and its summary says
+    /// so. The positions of the shard count over the blocks and the stateful jobs of the three
+    /// lists, so the blocks of one algorithm go to different shards.
     pub fn parityJobs(
         mechanisms: &'check [&'check dyn KeyEncapsulating],
         schemes: &'check [&'check dyn Signing],
+        statefulSchemes: &'check [&'check dyn StatefulSigning],
         options: &ParityOptions,
     ) -> Vec<ParityJob<'check>> {
         let settings = options.settings;
@@ -75,8 +82,18 @@ impl<'check> ParityJob<'check> {
                 }
             })
         });
+        let statefulJobs = statefulSchemes.iter().map(move |scheme| ParityJob {
+            name: scheme.description().name,
+            check: Box::new(move || {
+                StatefulParity::new(*scheme, settings.seed)
+                    .checkEveryCase(settings.caseCount)
+                    .map(|variationCount| Self::statefulSummary(variationCount, settings.caseCount))
+                    .map_err(|mismatch| mismatch.to_string())
+            }),
+        });
         mechanismJobs
             .chain(schemeJobs)
+            .chain(statefulJobs)
             .enumerate()
             .filter(|(position, job)| options.isSelected(*position, job.name))
             .map(|(_, job)| job)
@@ -97,6 +114,18 @@ impl<'check> ParityJob<'check> {
             .clone()
             .try_for_each(case)
             .map_err(|mismatch| mismatch.to_string())
+    }
+
+    /// The summary of a passed stateful job: the variations that it signed, and the remaining
+    /// count of the key when that count stopped the run before the case count.
+    fn statefulSummary(variationCount: u64, caseCount: u64) -> String {
+        if variationCount < caseCount {
+            format!(
+                "base case and {variationCount} of {caseCount} variations identical, the remaining count of the key"
+            )
+        } else {
+            format!("base case and {variationCount} variations identical")
+        }
     }
 
     /// The jobs of the known-answer run: each algorithm of the digest files, KEMs first, then
