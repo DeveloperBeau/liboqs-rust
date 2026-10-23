@@ -1,6 +1,6 @@
 [package]
 name = "oqs-native-aes"
-description = "Constant-time bitsliced AES-128 and AES-256 encryption in ECB and CTR modes, as liboqs uses them."
+description = "Constant-time bitsliced AES-128 and AES-256 encryption in ECB and CTR modes, and Rijndael with a 256-bit block, as liboqs uses them."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

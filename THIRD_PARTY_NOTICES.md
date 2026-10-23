@@ -41,7 +41,7 @@ SOFTWARE.
 ## BearSSL (AES)
 
 - Project: [BearSSL](https://bearssl.org/), by Thomas Pornin, through liboqs `src/common/aes/aes_c.c`.
-- Use in this repository: `Modules/AES` translates the constant-time bitsliced AES (`aes_ct64`) of that file.
+- Use in this repository: `Modules/AES` translates the constant-time bitsliced AES (`aes_ct64`) of that file. Its `Rijndael256` translates the form of the MQOM code, see the MQOM section.
 - License: MIT.
 
 ```text
@@ -252,6 +252,37 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - License: public domain. The `LICENSE` file of each folder reads "The official Classic McEliece software is in the public domain." and names https://classic.mceliece.org/impl.html, and liboqs states `spdx-license-identifier: Public domain` in `docs/algorithms/kem/classic_mceliece.yml`. The liboqs wrappers `src/kem/classic_mceliece/kem_classic_mceliece.h` and `kem_classic_mceliece_<set>.c` are MIT, as liboqs is.
 - The C code cites David Nassimi and Sartaj Sahni, "Parallel algorithms to set up the Benes permutation network", and https://cr.yp.to/papers/controlbits-20200923.pdf for the control bits, ePrint 2017/793 for the implementation of the Benes network, and http://crypto.stanford.edu/~mironov/cs359/massey.pdf for the Berlekamp-Massey algorithm.
 - Use in this repository: `Modules/ClassicMcEliece` translates the `clean` code and gives its bytes. The sorts of `int32_sort.h` and `uint64_sort.h` are in `Modules/SortingNetwork`. The port is under MIT, which a public domain upstream allows, so the crate keeps the license of the workspace.
+
+## MQOM
+
+- Algorithm: MQOM, MQ on my Mind, by Ryad Benadjila, Charles Bouillaguet, Thibauld Feneuil and Matthieu Rivain, the principal submitters that liboqs names in `docs/algorithms/sig/mqom.yml`. MQOM is a candidate of round 2 of the NIST call for additional signatures. See https://mqom.org/.
+- MQOM in liboqs: the implementation of the MQOM team, [mqom/mqom-v2](https://github.com/mqom/mqom-v2), commit `ec6b7fa86e232a25f8b2f151a4b4eebb8e81b5e7`, in `src/sig/mqom`. liboqs builds each set from the folder `mqom_mqom_common` and the parameter folder of the set.
+- Copyright (c) 2025 CryptoExperts. License: MIT, in the `LICENSE` file of `src/sig/mqom/mqom_mqom_common`, and liboqs gives `spdx-license-identifier: MIT` in `docs/algorithms/sig/mqom.yml`. The bitsliced Rijndael of `rijndael_ct64_enc.h` is BearSSL code, Copyright (c) 2016 Thomas Pornin under the license of the BearSSL section, which the MQOM team changed for several keys and for Rijndael-256. The liboqs wrappers `src/sig/mqom/sig_mqom.h` and `sig_mqom_mqom2_*.c` are MIT, as liboqs is.
+- Use in this repository: `Modules/AES` translates the bitsliced Rijndael-256 of `rijndael_ct64_enc.h` as `Rijndael256`. The port is under MIT, the license of the upstream code, so the crate keeps the license of the workspace.
+
+```text
+MIT License
+
+Copyright (c) 2025 CryptoExperts
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
 
 ## Test vectors
 
