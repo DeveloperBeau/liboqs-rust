@@ -154,8 +154,7 @@ impl<'parameters> Decryption<'parameters> {
 mod tests {
     use super::Decryption;
     use crate::parameters::{allParameters, classicMcEliece348864, classicMcEliece6960119};
-    use crate::testSupport::digest;
-    use OQSNativeAlgorithmTests::FuzzRandom;
+    use OQSNativeAlgorithmTests::{FuzzRandom, OutputDigest};
 
     #[test]
     fn theDecisionFoldsTheWeightAndEverySyndromeValueWithAnOr() {
@@ -209,36 +208,36 @@ mod tests {
 
     #[test]
     fn syndromesLocatorsAndDecryptionsGiveTheKnownAnswersOfTheCFunctions() {
-        // The SHA3-256 of the outputs of `synd`, `bm` and `decrypt` of liboqs 0.16.0 for each
-        // base set, as little-endian 16-bit values, with inputs from SplitMix64: a Goppa
+        // The `OutputDigest` of the outputs of `synd`, `bm` and `decrypt` of liboqs 0.16.0 for
+        // each base set, as little-endian 16-bit values, with inputs from SplitMix64: a Goppa
         // polynomial and a support of the seed 61, a received word of the seed 62, and a secret
         // key and a ciphertext of the seed 63. The decryption adds its error vector and its
         // return value.
         let expected = [
             (
-                "ff920cc0153d27136d58a9bb19cee6805ddcc2bddd9386f30a7381140688be84",
-                "66a415180b797ab09f034f3d96acf1a5a082eb8f5fd195583fc2fe2a6e33f294",
-                "b765ef2d4df9581c6f03717edbc070bf46178aa96410a29bd6601875d545084b",
+                "2d656484608d8519abb4bc159aceceb7634cd3e2688fcb2a060dfb163ee99a19",
+                "49afe425bf55e59794716820b3ec4bb9901a47f86a3a86158c7a052e4c7e801f",
+                "c776972af868f971a885d4362cb9ee3de4202597989a582bd9f59c9296bb82c6",
             ),
             (
-                "f0852fe04fd89da29ecd9a47497c0f4119fa24b115a2c3348da2f2e7ab6ab973",
-                "e84ff69a973633ec2053d46044067e39b7f21ac9a50a46287bffce767cd2530d",
-                "96585d709232b69150530272ec3937aebdfcc27fa382cc7fa89c109d9a0eeab6",
+                "aa186a71cb75e0c94356974f73cf5529e2e4b617bd14ffe1d0e5cc92702f8061",
+                "3c4a93afe210ff1dc5308386611d7ef7da4ca78b534cbdc82d14f187c64f37c6",
+                "7e77b0e035d1e31830c8d10ae97da99fc3c3ed9038e93f114bd1e77b1e9c09c3",
             ),
             (
-                "6255f8d2eebd99ad4f3fa2e0dc5881329935ecfa8a4c3f1431bc1bc1fe18ac5b",
-                "0a939556fe6de7c21397ef8a9abbd2fb043cdbbae191ec493ed16e17ce24c888",
-                "5c52a3407a57ac29d91ba258b265aea982a5a1217c1b2ba49455016cce8ddc22",
+                "36cf98c0ed0fe3dad0d50a591b29928f1453081b7cf5cd555c004d9c4cf8e6ba",
+                "d4523e1355791253b8a60647dd682248ff519b2bc22805bdd7ce8462bfd6927e",
+                "b76ef15e11c03c5d5e600d67b945909f3a06cb5efcf69b98389a8b5d4ff14504",
             ),
             (
-                "ed41b0ae657e0e7073e1b0a231bf0850e62cc235383573e37c0e016b96a4bf5c",
-                "9de7f6d4ed17d9d691c825518a55861fb622b43cf0a7c560a29f61a795c87b7f",
-                "2cff008b47f41bdef5b8fb398e2184e9022a715b61e1b35acb3d0d680bdadf3f",
+                "2fb5376fd6f9f6d5f7eca744f7eef7d32ef84d34ffbb346a920153ff8117abc1",
+                "d864f774cf336bca03a2cdc4dc1cb6dee011776c74a68233ee7b70a8ac130286",
+                "f31c759cc40435a6b7b8a1ce857fcdd4eff52afa1f90d0ec573af3b0edfcf55a",
             ),
             (
-                "af8e3df7262cf35f70bb08a08c1d5c845168a00072942d5da7a325649db085b3",
-                "a36a2119b54c6e490504b5f3b4d31e52ed4e6b3a399559ee67ac704ee09a8266",
-                "872dd099f6a2f745aeea16ca9782b2c19994924ad8597664551e1dfac8ce4e3d",
+                "8af07f45022a15e25ca6c726e2d7990047a0b1add6b32c5d97f2c5b9ce9ee31b",
+                "32d2ff9100046e70a60d0ae3b4d2072f4178be6fe42fd18b7b9206837a8474d9",
+                "2f049416725a1e76111ff6e1252d2e9ab17d246721da829f708c438f4f89bbe7",
             ),
         ];
         for (parameters, (syndromeDigest, locatorDigest, decryptionDigest)) in
@@ -268,8 +267,12 @@ mod tests {
                     .flat_map(|value| value.to_le_bytes())
                     .collect()
             };
-            assert_eq!(digest(&bytes(&syndrome)), syndromeDigest, "{name}");
-            assert_eq!(digest(&bytes(&locator)), locatorDigest, "{name}");
+            assert_eq!(
+                OutputDigest::of(&bytes(&syndrome)),
+                syndromeDigest,
+                "{name}"
+            );
+            assert_eq!(OutputDigest::of(&bytes(&locator)), locatorDigest, "{name}");
             let mut words = FuzzRandom::seeded(63);
             let secretKey: Vec<u8> = (0..parameters.description.secretKeyLength - 40)
                 .map(|_| words.nextWord() as u8)
@@ -280,7 +283,7 @@ mod tests {
             let decrypted = decryption.decrypted(&secretKey, &ciphertext);
             let mut output = decrypted.error.clone();
             output.push(decrypted.failure);
-            assert_eq!(digest(&output), decryptionDigest, "{name}");
+            assert_eq!(OutputDigest::of(&output), decryptionDigest, "{name}");
         }
     }
 }

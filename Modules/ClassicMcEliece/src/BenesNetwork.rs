@@ -237,8 +237,7 @@ mod tests {
     use crate::controlBits::ControlBits;
     use crate::controlBits::tests::{routedIdentity, seededPermutation};
     use crate::parameters::{classicMcEliece348864, classicMcEliece460896, classicMcEliece8192128};
-    use crate::testSupport::digest;
-    use OQSNativeAlgorithmTests::FuzzRandom;
+    use OQSNativeAlgorithmTests::{FuzzRandom, OutputDigest};
 
     #[test]
     fn transposeSwapsRowsAndColumns() {
@@ -312,26 +311,26 @@ mod tests {
 
     #[test]
     fn networksAndSupportsGiveTheKnownAnswersOfTheCFunctions() {
-        // The SHA3-256 of the rows after `apply_benes` and of the supports of `support_gen` of
-        // `pqclean_mceliece348864_clean`, `pqclean_mceliece460896_clean` and
+        // The `OutputDigest` of the rows after `apply_benes` and of the supports of
+        // `support_gen` of `pqclean_mceliece348864_clean`, `pqclean_mceliece460896_clean` and
         // `pqclean_mceliece8192128_clean` in liboqs 0.16.0, with control bits of any value from
         // SplitMix64 of the seed 21 and a row from the seed 22. The supports are little-endian
         // 16-bit values.
         let expected = [
             (
                 &classicMcEliece348864,
-                "2b2c31276e658a9c3a44d3783760e3a0267da1cc6c6776946a3595fbe1e3b698",
-                "c4db8ebde6a7f1820a445cc01b1fe08a412682de9f240b7abe6410e246cd93be",
+                "769f04b125019ce05415c4664c0acb093c1ae6c8b334fb57414c0c1a236659b8",
+                "7796cf0c6171ae8a9bce13b9c5194583529583633847170a6a44de7b4138a035",
             ),
             (
                 &classicMcEliece460896,
-                "7309d6dab1c1ba87d789efbc82d8ec5668e90b0160b5c7b21f642375c736ee14",
-                "1099ccbb4d36cda104a19aa33e3eb234400538135a5a49655a4c9eb1ef3c7603",
+                "0939861b011540b9516766585dc96ade935ef7254d553d91e5eae9011b2e189a",
+                "5563fbd9d089f7cfbd830fe121cdf749a419d1da4b92bad19039ce3cc6b0b0e3",
             ),
             (
                 &classicMcEliece8192128,
-                "7309d6dab1c1ba87d789efbc82d8ec5668e90b0160b5c7b21f642375c736ee14",
-                "f99f89ff00c83a29991976b02e2d003e8620af799c9c672afcca1b280e320612",
+                "0939861b011540b9516766585dc96ade935ef7254d553d91e5eae9011b2e189a",
+                "821d6c7ea6bb267b1d8f65178543fbc9dcd823e01de56093fd40b318a6ee6963",
             ),
         ];
         for (parameters, rowDigest, supportDigest) in expected {
@@ -351,8 +350,8 @@ mod tests {
                 .flat_map(|element| element.to_le_bytes())
                 .collect();
             let name = parameters.description.name;
-            assert_eq!(digest(&row), rowDigest, "{name}");
-            assert_eq!(digest(&support), supportDigest, "{name}");
+            assert_eq!(OutputDigest::of(&row), rowDigest, "{name}");
+            assert_eq!(OutputDigest::of(&support), supportDigest, "{name}");
         }
     }
 }
