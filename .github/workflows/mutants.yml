@@ -2,7 +2,8 @@ name: Mutants
 
 # The mutation tests of one package, in ten shards. A push to a branch `mutants/<package>`,
 # such as `mutants/oqs-native-falcon`, runs them on that commit. Each shard prints its
-# outcomes and keeps its `mutants.out` folder as an artifact.
+# outcomes and keeps its `mutants.out` folder as an artifact, and the summary job adds the
+# outcomes of the ten shards.
 # Documentation/Registers/MutationResults.md records the results.
 on:
   push:
@@ -76,3 +77,24 @@ jobs:
         with:
           name: mutants-shard-${{ matrix.shard }}
           path: shard/mutants.out
+
+  summary:
+    needs: mutants
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch the outcomes of the shards
+        uses: actions/download-artifact@v4
+        with:
+          pattern: mutants-shard-*
+          path: shards
+      - name: Outcomes of the package
+        run: |
+          echo "shards $(ls shards | wc -l)"
+          for outcome in caught missed timeout unviable; do
+            echo "$outcome $(cat shards/*/$outcome.txt 2>/dev/null | wc -l)"
+          done
+          for outcome in missed timeout; do
+            echo "== $outcome"
+            cat shards/*/$outcome.txt 2>/dev/null | sort || true
+          done
