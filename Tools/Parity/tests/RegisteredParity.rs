@@ -1,8 +1,12 @@
 //! Parity of every registered algorithm with the C library: the base case and the variations of
 //! `PARITY_CASES` (2 by default here, and 1000 in the full gate of `parity run`), with the seed
 //! of `PARITY_SEED`.
+//!
+//! The default suite checks the signature schemes of `SuiteSample`. The C library signs a small
+//! set of SLH-DSA in one to two seconds, so the ignored test checks every registered scheme.
 
 use OQSNative::Registry;
+use OQSNativeAlgorithmTests::SuiteSample;
 use OQSNativeParity::{KEMParity, LargeStack, ParitySettings, SignatureParity};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -51,11 +55,12 @@ fn everyRegisteredMechanismIsIdenticalToTheCLibrary() {
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
-#[test]
-fn everyRegisteredSignatureSchemeIsIdenticalToTheCLibrary() {
+/// The failures of the registered signature schemes whose names pass a filter.
+fn signatureFailures(isSelected: fn(&str) -> bool) -> Vec<String> {
     let settings = ParitySettings::fromEnvironment(testCaseCount);
     let checks = Registry::signatureSchemes()
         .iter()
+        .filter(|scheme| isSelected(scheme.description().name))
         .map(|scheme| {
             Box::new(move || {
                 SignatureParity::new(*scheme, settings.seed)
@@ -64,6 +69,18 @@ fn everyRegisteredSignatureSchemeIsIdenticalToTheCLibrary() {
             }) as Box<dyn Fn() -> Result<(), String> + Send + Sync>
         })
         .collect();
-    let failures = failures(checks);
+    failures(checks)
+}
+
+#[test]
+fn eachRegisteredSignatureSchemeOfTheSuiteSampleIsIdenticalToTheCLibrary() {
+    let failures = signatureFailures(SuiteSample::contains);
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+#[ignore = "the C library signs each small set of SLH-DSA in one to two seconds, so the 156 SLH-DSA schemes take an hour, and parity run checks them in release builds"]
+fn everyRegisteredSignatureSchemeIsIdenticalToTheCLibrary() {
+    let failures = signatureFailures(|_| true);
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
