@@ -22,6 +22,7 @@ oqs-native-entities = { path = "../Entities", default-features = false }
 oqs-native-falcon = { path = "../Falcon", default-features = false }
 oqs-native-frodokem = { path = "../FrodoKEM", default-features = false }
 oqs-native-hqc = { path = "../HQC", default-features = false }
+oqs-native-mayo = { path = "../MAYO", default-features = false }
 oqs-native-ml-dsa = { path = "../MLDSA", default-features = false }
 oqs-native-ml-kem = { path = "../MLKEM", default-features = false }
 oqs-native-system-random = { path = "../SystemRandom", optional = true }
@@ -36,6 +37,7 @@ std = [
     "oqs-native-falcon/std",
     "oqs-native-frodokem/std",
     "oqs-native-hqc/std",
+    "oqs-native-mayo/std",
     "oqs-native-ml-dsa/std",
     "oqs-native-ml-kem/std",
     "dep:oqs-native-system-random",
