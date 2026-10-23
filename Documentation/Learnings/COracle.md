@@ -30,6 +30,12 @@
 - Finding: `statefulSigningAdvancesTheSecretKeyThatTheCLibraryPersists` showed that liboqs reports 31. The hash-sigs code stores the highest sequence number, `2^h - 1`, as the total.
 - Rule: the port of a stateful scheme takes its counts from the C library, not from the size of the tree.
 
+## A working key of liboqs does not sign on
+
+- Trap: a working key of hash-sigs that the oracle loads once and signs on with gives other signatures than `OQS_SIG_STFL_sign`, and they do not verify.
+- Finding: the signatures count from 0. A working key of `LMS_SHA256_H5_W1` that signed on gave the signatures of the C library up to the end of its first subtree, and from there signatures that did not verify: from signature 4, the fifth, with the memory target of liboqs, 0, and from signature 16 with a target of 64 MiB. A working key of `LMS_SHA256_H5_W8_H5_W8` failed with `hss_error_private_key_expired` at signature 32, the first after its first bottom tree. The cause is the loop at the end of `hss_generate_signature`, in `src/sig_stfl/lms/external/hss_sign.c` of liboqs 0.16.0. Line 597, `for (i = w->levels-1; i>=1; i--, merkle_levels_below += tree->level)`, moves the subtrees of each tree from the bottom level up, but never those of tree 0, the top tree. A key of one level has only tree 0, so its subtrees never move. Line 602, `if ((i-1) == 0)`, takes the end of the bottom tree of a key of two levels for the end of the key, and line 606 sets `w->status = hss_error_private_key_expired`. `OQS_SIG_STFL_sign` loads a new working key for each signature, so it never meets the defect. `aWorkingKeySignsEachSignatureOfTheWholeKeyAsTheCLibraryDoes` failed at signature 16 when the shim did not load again, and `aTwoLevelWorkingKeySignsAcrossItsBottomTreesAsTheCLibraryDoes` failed at signature 32.
+- Rule: the shim verifies each signature of a working key. When a signature fails or does not verify, it sets the private key back, loads the working key again and signs again. A signature that verifies has the one authentication path of its leaf, so it is the signature of `OQS_SIG_STFL_sign`, and the contract tests prove the two paths byte-identical.
+
 ## liboqs accepts a raw LMS public key
 
 - Trap: a harness that checks the length of a public key rejects the public key of an LMS response file, which the C program accepts.

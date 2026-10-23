@@ -2,7 +2,7 @@
 // unsafe code register lists the file with that reason.
 #![allow(unsafe_code)]
 
-use crate::OracleRandomness;
+use crate::{OracleRandomness, OracleWorkingKey};
 use OQSNativeDomain::RandomGenerating;
 use OQSNativeEntities::{
     Encapsulation, KEMDescription, KeyPair, OQSError, SecretBytes, SignatureDescription,
@@ -201,6 +201,26 @@ unsafe extern "C" {
     ) -> c_int;
     fn oracleStatefulSignatureCount(
         name: *const c_char,
+        secretKey: *const u8,
+        secretKeyLength: usize,
+        isTotal: c_int,
+        count: *mut u64,
+    ) -> c_int;
+    fn oracleLMSWorkingKeyLoad(secretKey: *mut u8, secretKeyLength: usize) -> *mut c_void;
+    fn oracleLMSWorkingKeyFree(workingKey: *mut c_void);
+    fn oracleLMSWorkingKeySign(
+        name: *const c_char,
+        workingKey: *mut *mut c_void,
+        secretKey: *mut u8,
+        secretKeyLength: usize,
+        publicKey: *const u8,
+        signature: *mut u8,
+        signatureLength: *mut usize,
+        message: *const u8,
+        messageLength: usize,
+    ) -> c_int;
+    fn oracleLMSWorkingKeySignatureCount(
+        workingKey: *const c_void,
         secretKey: *const u8,
         secretKeyLength: usize,
         isTotal: c_int,
@@ -896,6 +916,113 @@ impl<'random> COracle<'random> {
         self.statefulSignatureCount(name, secretKey, true)
     }
 
+    /// Loads the working key of hash-sigs for a serialized LMS secret key and the public key
+    /// of its key pair, with the aux data that the serialized key carries.
+    ///
+    /// A name that is not an LMS scheme of the C library, or a key that hash-sigs refuses, gives
+    /// `OQSError::operationFailed`. A public key of another length gives the length error.
+    pub fn loadLMSWorkingKey(
+        &mut self,
+        name: &str,
+        publicKey: &[u8],
+        secretKey: &[u8],
+    ) -> Result<OracleWorkingKey, OQSError> {
+        let (cName, description) = self.statefulScheme(name)?;
+        if !name.starts_with("LMS") {
+            return Err(OQSError::operationFailed);
+        }
+        checkedLength(publicKey, description.publicKeyLength)?;
+        let mut secretKey = SecretBytes::new(secretKey.to_vec());
+        let length = secretKey.bytes().len();
+        // The C function reads the serialized key and keeps no pointer to it.
+        let handle =
+            unsafe { oracleLMSWorkingKeyLoad(secretKey.mutableBytes().as_mut_ptr(), length) };
+        if handle.is_null() {
+            return Err(OQSError::operationFailed);
+        }
+        Ok(OracleWorkingKey {
+            name: cName,
+            publicKey: publicKey.to_vec(),
+            secretKey,
+            handle,
+        })
+    }
+
+    /// Signs a message with a working key, as `OQS_SIG_STFL_sign` signs with the serialized key
+    /// of the working key, and advances that key in step.
+    ///
+    /// A key with no signature left gives `OQSError::operationFailed`, as in the C library.
+    pub fn signWithWorkingKey(
+        &mut self,
+        workingKey: &mut OracleWorkingKey,
+        message: &[u8],
+    ) -> Result<Vec<u8>, OQSError> {
+        let name = workingKey
+            .name
+            .to_str()
+            .map_err(|_| OQSError::operationFailed)?;
+        let (_, description) = self.statefulScheme(name)?;
+        let mut signature = vec![0u8; description.signatureLength];
+        let mut signatureLength = 0usize;
+        let length = workingKey.secretKey.bytes().len();
+        // The C function may replace the working key, so it takes the address of the handle. It
+        // writes at most the signature length of the scheme, and it advances the serialized key
+        // in place.
+        let status = unsafe {
+            oracleLMSWorkingKeySign(
+                workingKey.name.as_ptr(),
+                &mut workingKey.handle,
+                workingKey.secretKey.mutableBytes().as_mut_ptr(),
+                length,
+                workingKey.publicKey.as_ptr(),
+                signature.as_mut_ptr(),
+                &mut signatureLength,
+                message.as_ptr(),
+                message.len(),
+            )
+        };
+        checked(status)?;
+        signature.truncate(signatureLength);
+        Ok(signature)
+    }
+
+    fn workingKeySignatureCount(
+        &mut self,
+        workingKey: &OracleWorkingKey,
+        isTotal: bool,
+    ) -> Result<u64, OQSError> {
+        let mut count = 0u64;
+        let secretKey = workingKey.secretKey.bytes();
+        checked(unsafe {
+            oracleLMSWorkingKeySignatureCount(
+                workingKey.handle,
+                secretKey.as_ptr(),
+                secretKey.len(),
+                c_int::from(isTotal),
+                &mut count,
+            )
+        })?;
+        Ok(count)
+    }
+
+    /// The number of signatures that the serialized key of a working key can still make, as
+    /// `OQS_SIG_STFL_sigs_remaining` counts them, without a new load of the working key.
+    pub fn remainingSignatureCountOfWorkingKey(
+        &mut self,
+        workingKey: &OracleWorkingKey,
+    ) -> Result<u64, OQSError> {
+        self.workingKeySignatureCount(workingKey, false)
+    }
+
+    /// The number of signatures that the serialized key of a working key can make over its whole
+    /// life, as `OQS_SIG_STFL_sigs_total` counts them, without a new load of the working key.
+    pub fn totalSignatureCountOfWorkingKey(
+        &mut self,
+        workingKey: &OracleWorkingKey,
+    ) -> Result<u64, OQSError> {
+        self.workingKeySignatureCount(workingKey, true)
+    }
+
     /// The SHA3-256 digest of an input, from `OQS_SHA3_sha3_256`.
     pub fn sha3256(&self, input: &[u8]) -> [u8; 32] {
         let mut output = [0u8; 32];
@@ -1110,6 +1237,14 @@ impl<'random> COracle<'random> {
             )
         };
         output
+    }
+}
+
+impl Drop for OracleWorkingKey {
+    fn drop(&mut self) {
+        // The free touches only the memory of this working key and no global state of the C
+        // library, so it needs no lock. A thread that holds an oracle can drop a working key.
+        unsafe { oracleLMSWorkingKeyFree(self.handle) };
     }
 }
 
