@@ -81,6 +81,7 @@ The first difference stops the check with a `ParityMismatch`, which names the al
 - `HostileInputParity.rs`: keys and ciphertexts of the right length with any bytes, only ones, only zeros or seeded bytes, give the result of the C library for every registered KEM: the same bytes or a failure on both sides. It also covers the HQC keys whose bits above `n` reach the reduction of the C code, see [HQC.md](HQC.md).
 - `MalformedKeyParity.rs`: ML-DSA signs secret keys that no key generation gives, with coefficients out of range or random bytes, as the C library does. The variations sign only with generated keys.
 - `ParityProgram.rs`: the program itself, with `run` over the registered algorithms of `SuiteSample`.
+- `HostileSignatureParity.rs`: public keys and signatures of the right length with only ones, only zeros or seeded bytes, or with the high bit of the last byte set, get the verdict of the C library for every registered signature scheme. That bit is a padding bit of every CROSS public key, which the variations never change.
 
 CI runs the test suite on every pull request, then `known-answers --all` and `snapshot --check`, and `run` with 100 variations in blocks of 10, in four shards of four processes.
 

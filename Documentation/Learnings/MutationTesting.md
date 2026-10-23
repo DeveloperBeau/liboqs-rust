@@ -119,3 +119,9 @@
 - **Trap.** On a loaded machine, a timeout is more likely an equivalent mutant than a mutant that a test kills.
 - **Finding.** `cargo test` stops at the first test binary that fails, so the suite of a caught mutant usually ends after the unit tests. An equivalent mutant runs every test binary. In the first run of `oqs-native-ml-dsa`, at a load average of 15 to 28, nine of the 21 timeouts were equivalent mutants, and each passed every test by hand.
 - **Rule.** Check each timeout by hand with a generous limit before the register counts it as caught. Look first at the timeouts in constant expressions, whose mutants cannot make a loop endless.
+
+## A deliberate defect can be equivalent to the code
+
+- **Trap.** A test that passes against a deliberate defect looks too weak, when the defect changes nothing.
+- **Finding.** The first defect of the 3-bit padding check of CROSS used the mask `(0xFF << (n * 3)) & 0xFF`. For the 3 or 7 values after the last group of 8 in the RSDP sets, the shift is 9 or 21 bits, so this mask is zero as well, and every test passed. The mask `0xFF << (3 n mod 8)` of the real padding bits failed three tests.
+- **Rule.** Before a deliberate defect judges a test, check that the defect changes what the code computes, for example with the values of the changed expression for the inputs of the tests.
