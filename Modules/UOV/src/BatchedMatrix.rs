@@ -208,8 +208,9 @@ mod tests {
     use crate::gf16::GF16;
     use crate::gf256::GF256;
     use crate::parameters::triangleSize;
-    use crate::testInputs::{digest, sequence};
+    use crate::testInputs::sequence;
     use crate::{FieldArithmetic, OilMatrix};
+    use OQSNativeAlgorithmTests::OutputDigest;
 
     /// The digests of the C functions for one shape of the sets, from liboqs 0.16.0.
     struct Answers {
@@ -242,7 +243,7 @@ mod tests {
             &oil,
             entryLength,
         );
-        assert_eq!(digest(&target), answers.triangle, "{label}");
+        assert_eq!(OutputDigest::of(&target), answers.triangle, "{label}");
 
         // `batch_trimatTr_madd` with the sequences 4, 5 and 6.
         let mut target = sequence(rectangleLength, 4);
@@ -254,7 +255,7 @@ mod tests {
             &oil,
             entryLength,
         );
-        assert_eq!(digest(&target), answers.transposed, "{label}");
+        assert_eq!(OutputDigest::of(&target), answers.transposed, "{label}");
 
         // `batch_2trimat_madd` with the sequences 7, 8 and 9.
         let mut target = sequence(rectangleLength, 7);
@@ -266,7 +267,7 @@ mod tests {
             &oil,
             entryLength,
         );
-        assert_eq!(digest(&target), answers.symmetric, "{label}");
+        assert_eq!(OutputDigest::of(&target), answers.symmetric, "{label}");
 
         // `batch_upper_matTr_x_mat` with the oil matrix 11 and the rectangle 12. The C program
         // filled its output with the sequence 10 first, and the function writes every entry.
@@ -278,7 +279,7 @@ mod tests {
             entryLength,
         );
         assert_eq!(folded.len(), entryLength * triangleSize(oilCount));
-        assert_eq!(digest(&folded), answers.folded, "{label}");
+        assert_eq!(OutputDigest::of(&folded), answers.folded, "{label}");
 
         // `batch_quad_trimat_eval` with the triangle 13 at the point 14.
         let value = BatchedMatrix::quadraticForm::<F>(
@@ -287,7 +288,7 @@ mod tests {
             vinegarCount,
             entryLength,
         );
-        assert_eq!(digest(&value), answers.quadratic, "{label}");
+        assert_eq!(OutputDigest::of(&value), answers.quadratic, "{label}");
 
         // `gf*mat_prod` of v columns of o entries with the sequences 15 and 16, and of o columns
         // of v elements with the sequences 17 and 18.
@@ -297,14 +298,18 @@ mod tests {
             &sequence(vinegarLength, 16),
             vinegarCount,
         );
-        assert_eq!(digest(&long), answers.longCombination, "{label}");
+        assert_eq!(OutputDigest::of(&long), answers.longCombination, "{label}");
         let short = BatchedMatrix::linearCombination::<F>(
             &sequence(oilLength, 17),
             vinegarLength,
             &sequence(entryLength, 18),
             oilCount,
         );
-        assert_eq!(digest(&short), answers.shortCombination, "{label}");
+        assert_eq!(
+            OutputDigest::of(&short),
+            answers.shortCombination,
+            "{label}"
+        );
     }
 
     #[test]
