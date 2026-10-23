@@ -50,6 +50,7 @@ impl ModularReduction {
 #[cfg(test)]
 mod tests {
     use super::ModularReduction;
+    use crate::testInputs::sequence;
 
     /// The centered residue of the definition.
     fn centered(value: i64, modulus: i64) -> i64 {
@@ -76,20 +77,44 @@ mod tests {
     }
 
     #[test]
-    fn residueModuloModulusIsCenteredOverTheRangeOfTheProducts() {
-        // The products of Rq_mult_small reach 3 * 761 * 2295 * 2 in absolute value.
-        let bound = 3 * 761 * 2295 * 2;
-        for value in (-bound..=bound)
-            .step_by(997)
-            .chain([-bound, bound, 0, 2295, 2296, -2296])
-        {
+    fn residueModuloModulusIsCenteredForEveryInputOfTheCallers() {
+        // The largest input of the callers is f0 g - g0 f of Rq_recip3, whose four factors are
+        // at most (q - 1) / 2 = 2295 in absolute value. The centered residue of each next value
+        // follows from the last one without a division.
+        let bound = 2 * 2295 * 2295;
+        let mut expected = centered(-i64::from(bound), 4591);
+        for value in -bound..=bound {
             assert_eq!(
                 i64::from(ModularReduction::residueModuloModulus(value, 4591)),
-                centered(i64::from(value), 4591),
+                expected,
                 "{value}"
             );
+            expected = if expected == 2295 {
+                -2295
+            } else {
+                expected + 1
+            };
         }
-        for value in -20_000..20_000 {
+    }
+
+    #[test]
+    fn residueModuloModulusIsCenteredUpToTheLimitOfThe32BitProductOfFqFreeze() {
+        // Fq_freeze of liboqs 0.16.0 computes in 32 bits, and its first product 14 x fits for
+        // |x| up to 2^31 / 14. Fq_freeze gives the centered residue for the inputs at the
+        // limit, and a seeded sample covers the rest of the range.
+        let limit = i32::MAX / 14;
+        let span = 2 * i64::from(limit) + 1;
+        let sample: Vec<i32> = sequence(20_000, 41)
+            .chunks_exact(2)
+            .map(|pair| {
+                let word = (i64::from(pair[0]) << 16) + i64::from(pair[1]);
+                (word % span - i64::from(limit)) as i32
+            })
+            .collect();
+        for value in [limit, -limit, limit - 1, 1 - limit]
+            .into_iter()
+            .chain(sample)
+        {
             assert_eq!(
                 i64::from(ModularReduction::residueModuloModulus(value, 4591)),
                 centered(i64::from(value), 4591),
