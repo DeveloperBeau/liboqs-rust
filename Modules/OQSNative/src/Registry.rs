@@ -14,6 +14,7 @@ use OQSNativeNTRUPrime::NTRUPrime;
 use OQSNativeSLHDSA::SLHDSA;
 use OQSNativeSNOVA::SNOVA;
 use OQSNativeUOV::UOV;
+use OQSNativeXMSS::{XMSS, XMSSMT};
 
 /// Every algorithm of the port, by its liboqs name.
 ///
@@ -143,8 +144,13 @@ const signatureSchemeGroups: &[&[&dyn Signing]] = &[
 const signatureSchemes: &[&dyn Signing] =
     &joined::<_, { countOf(signatureSchemeGroups) }>(signatureSchemeGroups);
 
-/// The stateful signature schemes.
-const statefulSignatureSchemes: &[&dyn StatefulSigning] = &[];
+/// The stateful signature schemes, in groups in the order of the liboqs list: the 21 sets of
+/// `XMSS::schemes`, then the 16 sets of `XMSSMT::schemes`.
+const statefulSignatureSchemeGroups: &[&[&dyn StatefulSigning]] = &[XMSS::schemes, XMSSMT::schemes];
+
+/// The stateful signature schemes, the groups one after another.
+const statefulSignatureSchemes: &[&dyn StatefulSigning] =
+    &joined::<_, { countOf(statefulSignatureSchemeGroups) }>(statefulSignatureSchemeGroups);
 
 /// An algorithm with a liboqs name, so that one lookup serves the three lists.
 trait Named {
@@ -250,7 +256,10 @@ impl Registry {
 
 #[cfg(test)]
 mod tests {
-    use super::{Named, Registry, countOf, joined, named, signatureSchemeGroups};
+    use super::{
+        Named, Registry, countOf, joined, named, signatureSchemeGroups,
+        statefulSignatureSchemeGroups,
+    };
     use OQSNativeSLHDSA::SLHDSA;
 
     /// A test algorithm that is only a name.
@@ -306,6 +315,31 @@ mod tests {
             .collect();
         assert_eq!(slhdsaNames.len(), 156);
         assert_eq!(names[names.len() - slhdsaNames.len()..], slhdsaNames[..]);
+    }
+
+    #[test]
+    fn statefulSignatureSchemesAreTheSchemesOfTheGroupsInOrder() {
+        let names: Vec<&str> = Registry::statefulSignatureSchemes()
+            .iter()
+            .map(|scheme| scheme.description().name)
+            .collect();
+        let groupNames: Vec<&str> = statefulSignatureSchemeGroups
+            .iter()
+            .flat_map(|group| group.iter())
+            .map(|scheme| scheme.description().name)
+            .collect();
+        assert_eq!(names, groupNames);
+        // The 21 sets of XMSS come first and the 16 sets of XMSS^MT after them, as in liboqs.
+        assert_eq!(names.len(), 37);
+        assert_eq!(
+            [names[0], names[20], names[21], names[36]],
+            [
+                "XMSS-SHA2_10_256",
+                "XMSS-SHAKE256_20_256",
+                "XMSSMT-SHA2_20/2_256",
+                "XMSSMT-SHAKE_60/12_256"
+            ]
+        );
     }
 
     #[test]
