@@ -30,6 +30,7 @@ The workspace root `Cargo.toml` lists the member folders `Modules/*` and `Tools/
 | `oqs-native-falcon` | `Modules/Falcon` | `features` |
 | `oqs-native-mayo` | `Modules/MAYO` | `features` |
 | `oqs-native-slh-dsa` | `Modules/SLHDSA` | `features` |
+| `oqs-native-cross` | `Modules/CROSS` | `features` |
 | `oqs-native` | `Modules/OQSNative` | `composition` |
 | `oqs-native-parity` | `Tools/Parity` | `tooling` |
 | `xtask` | `Tools/Xtask` | `tooling` |
