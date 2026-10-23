@@ -1,0 +1,23 @@
+[workspace]
+resolver = "3"
+members = ["Tools/*"]
+
+[workspace.package]
+version = "0.16.0"
+edition = "2024"
+rust-version = "1.97"
+license = "MIT"
+authors = ["Beau Ayres"]
+repository = "https://github.com/DeveloperBeau/liboqs-rust"
+
+# Swift casing in every crate: see standards.md, section "Names and casing".
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "deny"
+non_snake_case = "allow"
+non_upper_case_globals = "allow"
+non_camel_case_types = "allow"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+upper_case_acronyms = "allow"
