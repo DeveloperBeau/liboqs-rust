@@ -34,7 +34,7 @@ impl FieldArithmetic for GF16 {
 mod tests {
     use super::GF16;
     use crate::FieldArithmetic;
-    use crate::testInputs::digest;
+    use OQSNativeAlgorithmTests::OutputDigest;
 
     /// The product of two elements by the definition: the carry-less product of the
     /// polynomials, reduced by x^4 + x + 1.
@@ -67,7 +67,7 @@ mod tests {
         assert_eq!(GF16::product(2, 8), 3);
         // The digest of every `gf16_mul(a, b)` at `a * 16 + b`, from liboqs 0.16.0.
         assert_eq!(
-            digest(&table),
+            OutputDigest::of(&table),
             "0eadebed1b47eb4e333fcf592bd7ffa161d353982b78a9bb0eeece9c07859895"
         );
     }
@@ -103,7 +103,7 @@ mod tests {
             bytes.extend_from_slice(&scaled);
         }
         assert_eq!(
-            digest(&bytes),
+            OutputDigest::of(&bytes),
             "25894d27443dc7a4b25bd9cac34a438a3bf5cda097c5ba736e319b3d08eee3ee"
         );
     }
