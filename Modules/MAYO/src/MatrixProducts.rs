@@ -323,50 +323,50 @@ pub(crate) fn quadraticForms(
 mod tests {
     use super::{oilProducts, upperTriangle, vinegarProducts};
     use crate::parameters::{Parameters, mayo1, mayo2, mayo3, mayo5};
-    use crate::testInputs::{digest, inputNibbles, inputWords};
+    use crate::testInputs::{digest, inputNibbles, inputWords, seed};
 
-    /// The digests that the C functions of the MAYO team give for the inputs of the labels:
+    /// The digests that the C functions of the MAYO team give for the inputs 7 to 12 of each set:
     /// `V L` and `V P1 V^T` of `compute_M_and_VPV`, `P1 O + P2` and P3 of `compute_P3`, and the
     /// upper triangle of P3 of `m_upper`, each built for its set.
     const knownAnswers: [(&Parameters, [&str; 5]); 4] = [
         (
             &mayo1,
             [
-                "c73be40e38c937632f8a1d568393c518c47adaac9b868714225e35215ebea8e8",
-                "9355acbef1b5bf559ed0ac5c05a2931e5998d04a51d8135ba76543591dc5d673",
-                "b6ea5adcc9deae1c7fc1d7517f0287b8634071c84d8ca2a972af573c587c2160",
-                "686bfe465976bfcc5c5e4707ae359be84c384fba1f85b785f2a5e1fcc2264353",
-                "fd11f040917b7191714e3e613b262b5168124b1296aa475cb4495bc3817d1454",
+                "243bf41ecf7be53394ae491ee95fcc96b45b2d68665fad9d61290d7aaa044f70",
+                "e13d9d0f6e887a263e4dd7e8d3727b2538b8a74649687ab877717f6b267cac4d",
+                "863bfae03fb3901b320d38c9f58bf71d17b8cd192bbcf0e1b94df99b281d1874",
+                "23095c7c61761c1bc89c2e70b05e4cd5fd2ef1049d5e1ec4c80071fdbb2ac199",
+                "c8d88b6927a421c0da3d7326fd02ec60b7954f5056df2647c09a03da156984c2",
             ],
         ),
         (
             &mayo2,
             [
-                "d5af1e275addfc149bf3a5f19ea5c10057de9e3f1b509bb478cb5c4563ef4109",
-                "cea98206830c5ecee13f6097cbab087b07245d4c2f70118aed96fbdd066b062c",
-                "05d1fc65afd9585002fd87988e31b5f9f8180961e3bd09e27ecbbb6d3cba5342",
-                "e583561b1ed89c57c9940c2b54bc099afb3fdee24e874116189ed9149222c58d",
-                "0accebbf845c1646533e0cc9af72704f7ea3996e4730351ed8199b8a2eed0e7a",
+                "4a973d720955643ef36db287653687c2e0e5a1cddd53b22a945771156d353413",
+                "41edd70643dfa735f7c1d18758bd67db6cf8162b742f0669be0e5fc7dbbfd772",
+                "cae5eb49a201bb860afd4c91a330b928bdf9529a9606fd07c9bd6f7782ff39b5",
+                "8aa685ad4383d89fdbf019b31efb0348587e80a5ddaca2ee455d1b3f6f5ca372",
+                "48e059fa06f9293633ec122f6224655fe3e6eea093866b68f0c0b4d52f65f1b5",
             ],
         ),
         (
             &mayo3,
             [
-                "7df91d5b19f9b973316d11ce182d7ca0888a0990aae00d69633ff0d1f9c16b28",
-                "ccc9db65c450c33f5dbb82345914f7f74a36118ebc9eaf72426a422478f8c8a3",
-                "59b7efd66dc7bd38b66620450bf9616cbf952002561cf4f62edd9e24d27f9466",
-                "52ffeafe3f29351ba8a1cad31a52289a6a03473b38b39b67267db96d2ba8320e",
-                "9a77ec7861030daf430c88f0c6ad0eff7f430c55b4044352d947edc7b08c7ef7",
+                "eaf89691c699ff7938d5a8654f4128ac970c9aa1983acf3879b3bdb023e99866",
+                "eec036fcd0f04dff29ee0704eeb170f4f29664a68c1ffddabfc0fa0e1927e94d",
+                "d2ad8c05581d7ea302001d0c8faac7688d42e71388d128d363823a38320db269",
+                "75f70b9ece0d277e802b5f6a00daa15a0034f9501a0360dfce5ba8025d80eec3",
+                "4ea965e7b346f446307fe4242b284b25a93d41d40acd187d97a7360e1bc2017a",
             ],
         ),
         (
             &mayo5,
             [
-                "398b45272dd9531626c898522c7717ac755df476567be1dc09c8ebf6e1423d9a",
-                "691307afbecb868b677c0d006ba34aeb44fdc66b410bdecfa43b8a6beb016dc8",
-                "7c99ccc72fb81717691db1efcde54d54d2c0025cd7b59465d9c08eba505b361f",
-                "41ed100b43af342f5bc44d530400ecccdc517739c05dc82ea0e48b52d5fc429f",
-                "e8d4efa8320d4b73f7ce07f6f328d81a09fa2e19e35bb3ffa886b7b706ec1051",
+                "89fded8e9528061d685502f0162a43f9f670f7333fd3e3c120594b84120d762e",
+                "db52f39c15f624ddd1fd2bef8223acca4825e8157e2babc657cfd9bdd5d19cf7",
+                "4f0a417d07f30cc5f7fb7fabb0acaf4b7a59453687826af2f3f92f2c40d8e8c7",
+                "9e5993c344b9cd62b1edbaf78df88cc72a8bfa2c9f76cf79d915e448e74cddee",
+                "597fc4af81f760de8d1765d33356992700f002aea9be1430985483b606c5a648",
             ],
         ),
     ];
@@ -378,27 +378,28 @@ mod tests {
             let limbCount = parameters.limbCount();
             let (vinegarCount, oilCount) = (parameters.vinegarCount(), parameters.oilCount);
             let vectorCount = parameters.vectorCount;
-            let l = inputWords(
-                name,
-                "vinegarProducts l",
-                vinegarCount * oilCount * limbCount,
-            );
-            let p1 = inputWords(name, "vinegarProducts p1", parameters.p1Count() * limbCount);
-            let vinegar = inputNibbles(name, "vinegarProducts v", vectorCount * vinegarCount);
+            let seeds: Vec<u32> = (7..=12).map(|input| seed(parameters, input)).collect();
+            let l = inputWords(seeds[0], vinegarCount * oilCount * limbCount);
+            let p1 = inputWords(seeds[1], parameters.p1Count() * limbCount);
+            let vinegar = inputNibbles(seeds[2], vectorCount * vinegarCount);
             let (vinegarL, vinegarP1Vinegar) = vinegarProducts(parameters, &vinegar, &l, &p1);
-            assert_eq!(digest(&vinegarL), answers[0], "{name}, V L");
-            assert_eq!(digest(&vinegarP1Vinegar), answers[1], "{name}, V P1 V^T");
+            assert_eq!(digest(&vinegarL), answers[0], "{name}, V L, {seeds:?}");
+            assert_eq!(
+                digest(&vinegarP1Vinegar),
+                answers[1],
+                "{name}, V P1 V^T, {seeds:?}"
+            );
 
-            let p1 = inputWords(name, "oilProducts p1", parameters.p1Count() * limbCount);
-            let mut p2 = inputWords(name, "oilProducts p2", parameters.p2Count() * limbCount);
-            let oil = inputNibbles(name, "oilProducts o", vinegarCount * oilCount);
+            let p1 = inputWords(seeds[3], parameters.p1Count() * limbCount);
+            let mut p2 = inputWords(seeds[4], parameters.p2Count() * limbCount);
+            let oil = inputNibbles(seeds[5], vinegarCount * oilCount);
             let p3 = oilProducts(parameters, &p1, &mut p2, &oil);
-            assert_eq!(digest(&p2), answers[2], "{name}, P1 O + P2");
-            assert_eq!(digest(&p3), answers[3], "{name}, P3");
+            assert_eq!(digest(&p2), answers[2], "{name}, P1 O + P2, {seeds:?}");
+            assert_eq!(digest(&p3), answers[3], "{name}, P3, {seeds:?}");
             assert_eq!(
                 digest(&upperTriangle(&p3, oilCount, limbCount)),
                 answers[4],
-                "{name}, upper P3"
+                "{name}, upper P3, {seeds:?}"
             );
         }
     }

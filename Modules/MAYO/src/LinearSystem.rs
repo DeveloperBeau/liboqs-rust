@@ -195,38 +195,38 @@ pub(crate) fn systemMatrix(parameters: &Parameters, vinegarL: &mut [u64]) -> Vec
 mod tests {
     use super::{rightHandSide, systemMatrix, transposeNibbles};
     use crate::parameters::{Parameters, mayo1, mayo2, mayo3, mayo5};
-    use crate::testInputs::{digestOfBytes, inputNibbles, inputWords};
+    use crate::testInputs::{digestOfBytes, inputNibbles, inputWords, seed};
 
-    /// The digests that `compute_rhs` and `compute_A` of the C code of the MAYO team give for
-    /// the inputs of the labels, each built for its set. The digest of `compute_A` covers the m
-    /// rows and the columns before the last.
+    /// The digests that `compute_rhs` of the C code of the MAYO team gives for the inputs 4 and 5
+    /// of each set, and `compute_A` for the input 6, each built for its set. The digest of
+    /// `compute_A` covers the m rows and the columns before the last.
     const knownAnswers: [(&Parameters, [&str; 2]); 4] = [
         (
             &mayo1,
             [
-                "9c89e9dab68d9d0b0c1d1bab0c3639b3a1e1c9c8c1c57a804cefd7f69cf26ace",
-                "cd900c18d57596872ed2e2b6495577c0309b29d8771dc9730bae45fa18499a13",
+                "ec0f92f930a2a0eb7f599f83bfa0e5a61da92f3378319ff1340e2c547df638e5",
+                "f7ad0edeb34bc01420121504ef4ed8eec46cb2efa8da6d301043da51f1ab5766",
             ],
         ),
         (
             &mayo2,
             [
-                "2e4072d5dc42b22fdb12c790844237ca4cceebfeb3206298de4a642fe360bf30",
-                "a78d282a75e022a1828995898c2b6d3373ad0ffcea4d65b42b8a84770ef95601",
+                "f773a9d407da7988c5c5e9405b4137d964ee86e560d1fd8cebcdd65c18ee237f",
+                "fa220b71cadadb4f30d3be945c5b0a769caa835472142fdb3ade94bc95360d53",
             ],
         ),
         (
             &mayo3,
             [
-                "7a016c2cbf06bd60a54c525bd4faa088b04f7306b0f98aa9a0f8c50e38e5e14a",
-                "3f7dde3efd28871787cd23a132f07a6b1b2630a6f8f2685f12ec99dffff8fb57",
+                "873ef700d704d840e963bbbac8fe328eae84c4f161510486a38b22ddc648d1f3",
+                "a6fe15acfa43d3e9efc4428bc44fb9711ffddb16e74a6409b20202de1e5090a6",
             ],
         ),
         (
             &mayo5,
             [
-                "fb76b492e0f3eef2b1e4904dc8e5824f3db96fa1eb1aa54fe51687252da81db3",
-                "e790fcb40258afd65e2e127acc898a61ba3536899425aa93de5296c634df35d4",
+                "6cfe5deef683813dd9321601d018f4f53bdae71379069af05baa7c050df51917",
+                "79e25f9d52b9876913c071148e362a1d093b418d6c8928562291472700bf3b21",
             ],
         ),
     ];
@@ -236,14 +236,12 @@ mod tests {
         for (parameters, answers) in knownAnswers {
             let name = parameters.description.name;
             let vectorCount = parameters.vectorCount;
-            let mut products = inputWords(
-                name,
-                "rightHandSide vPv",
-                vectorCount * vectorCount * parameters.limbCount(),
-            );
-            let target = inputNibbles(name, "rightHandSide t", parameters.equationCount);
+            let seeds = [seed(parameters, 4), seed(parameters, 5)];
+            let mut products =
+                inputWords(seeds[0], vectorCount * vectorCount * parameters.limbCount());
+            let target = inputNibbles(seeds[1], parameters.equationCount);
             let result = rightHandSide(parameters, &mut products, &target);
-            assert_eq!(digestOfBytes(&result), answers[0], "{name}");
+            assert_eq!(digestOfBytes(&result), answers[0], "{name}, {seeds:?}");
         }
     }
 
@@ -252,9 +250,9 @@ mod tests {
         for (parameters, answers) in knownAnswers {
             let name = parameters.description.name;
             let columnCount = parameters.systemColumnCount();
+            let inputSeed = seed(parameters, 6);
             let mut vinegarL = inputWords(
-                name,
-                "linearSystem",
+                inputSeed,
                 parameters.vectorCount * parameters.oilCount * parameters.limbCount(),
             );
             let matrix = systemMatrix(parameters, &mut vinegarL);
@@ -265,12 +263,23 @@ mod tests {
                 .take(parameters.equationCount)
                 .flat_map(|row| row[..columnCount - 1].to_vec())
                 .collect();
-            assert_eq!(digestOfBytes(&region), answers[1], "{name}");
+            assert_eq!(
+                digestOfBytes(&region),
+                answers[1],
+                "{name}, seed {inputSeed}"
+            );
             // The last column and the rows below m are zero.
             for (row, values) in matrix.chunks_exact(columnCount).enumerate() {
-                assert_eq!(values[columnCount - 1], 0, "{name}, row {row}");
+                assert_eq!(
+                    values[columnCount - 1],
+                    0,
+                    "{name}, seed {inputSeed}, row {row}"
+                );
                 if row >= parameters.equationCount {
-                    assert!(values.iter().all(|value| *value == 0), "{name}, row {row}");
+                    assert!(
+                        values.iter().all(|value| *value == 0),
+                        "{name}, seed {inputSeed}, row {row}"
+                    );
                 }
             }
         }
@@ -278,7 +287,8 @@ mod tests {
 
     #[test]
     fn transposeMovesTheNibbleOfEachColumnAndRow() {
-        let words = inputWords("MAYO", "transpose", 16);
+        let sequenceSeed = 16;
+        let words = inputWords(sequenceSeed, 16);
         let mut block = words.clone();
         transposeNibbles(&mut block);
         for (column, word) in words.iter().enumerate() {
@@ -286,7 +296,7 @@ mod tests {
                 assert_eq!(
                     (transposed >> (4 * column)) & 0x0F,
                     (word >> (4 * row)) & 0x0F,
-                    "row {row}, column {column}"
+                    "seed {sequenceSeed}, row {row}, column {column}"
                 );
             }
         }

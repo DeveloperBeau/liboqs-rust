@@ -275,54 +275,55 @@ mod tests {
     use super::{ExpandedPublicKey, InternalAlgorithms};
     use crate::echelonForm::sampledSolution;
     use crate::parameters::{Parameters, mayo1, mayo2, mayo3, mayo5};
-    use crate::testInputs::{digest, digestOfBytes, inputBytes, inputNibbles};
+    use crate::testInputs::{digest, digestOfBytes, inputBytes, inputNibbles, seed};
 
-    /// The digests that the C code of the MAYO team gives for the inputs of the labels, each
-    /// built for its set: P1, L and O of `mayo_expand_sk`, the public map of `mayo_expand_pk`,
-    /// `S P S^T` of `m_calculate_PS_SPS` and the value of `eval_public_map`.
+    /// The digests that the C code of the MAYO team gives for the inputs 1 to 3 of each set, each
+    /// built for its set: P1, L and O of `mayo_expand_sk` for the input 1, the public map of
+    /// `mayo_expand_pk` for the input 2, and `S P S^T` of `m_calculate_PS_SPS` and the value of
+    /// `eval_public_map` for that map and the input 3.
     const knownAnswers: [(&Parameters, [&str; 6]); 4] = [
         (
             &mayo1,
             [
-                "3438adf32d28baf7489681455f0c01642d0df1faad3d955a091b3c6153d9520f",
-                "fbc30a825dae62458adbaf42f1c673e0225f41f280c16a0e00f60faf0d5c5992",
-                "02ea9d72601c6852cbaa71545b75e998097ba355c6dc8ffddeb60666d6982b5f",
-                "7d4f98c18370a0a9f612390a571999907b1cdb9cf96560b757128d929b6b003e",
-                "935c1d9bc02ed301fa170e74afdfbedbd616f2964b9c05614863a2ad7d86aa0e",
-                "de399e3f8c804b07a94d4233e3f3f23ff5e6b1072f935ddd31b9216b6a97e557",
+                "f4ef62a746f9e8ad3b89e6fcd66e8a9039ca2b42cf6f979e5c247684d46e8d8a",
+                "6caef30413ea7c37b0691f81653f683dcc990ba2064692fd1f8d096816a4327f",
+                "d7a12dbca51ebb5fd9a61d562260147fdb73e00e777e260e20c81eb4c1e29197",
+                "124a925a15706cedd8d0d8dcd9e447a381971287d02de07a74919efe8f018a7d",
+                "78c26e5abe6da61da93220d6eec9abee07eb802f74332f5a141ddb5bc9ddb966",
+                "f64810b11a23dea71b13864ac68358bfcfc4e797237305fc787469ef8f2145ce",
             ],
         ),
         (
             &mayo2,
             [
-                "851fcf95bb06f82621d27ee77a0305b10ec87c15abe7c863013e8b102ccbcc29",
-                "4bb1b5a5c487ced01f67e4ec66f99f5120d2f09bcab0ff7a1c58be19fa6614e7",
-                "f72f1d6ec04e79118d60366c0a32917435a564b72a519538499ab27d31d97c12",
-                "7d52270627057c5ef4c665981b21c968ec817fa65b20f5c50335c8d783a89a49",
-                "eb42eedd1a15676dcb23d3a55bc9fe12300c7afe2fc3b029a58532eb53a6baed",
-                "bf8df75cc40eccd44ebe7652f316f6badbda35746f95204a4e22ae5801016399",
+                "140d5be47e46922d589c5eb88e11eb4f7c5a13c433ecf227bb0dda838c46ac59",
+                "0ce39333f5942dae1015a366f85b12507e010c2fba5bc4d35037048334b1eb43",
+                "7e4fc33f2309552712c40704c5cc78f44073aec895e60e808fae8a5062bd2c5c",
+                "2ecb0175ff923c0a466aa16c52b37e44882c1f7eb4baae1f3c0b2e5be6b7b712",
+                "2283cae532a4325491b04caf9f2600c1b8f1e352d656c195af7437fa6339dc26",
+                "3cf8fbb6b42b9e76093302e0112b546521ed75558e9a4634a0708b236c58c31b",
             ],
         ),
         (
             &mayo3,
             [
-                "fe9049489e19e485df6aaf81ea4434ae72e64ee1e11a2096a3a59f87424f33b2",
-                "0daf3f97712af67c95001fd2f992d7807d0b0558ade91a7a99de763c9e7e48c5",
-                "83027a7141c3c7bc1a025c837a7f6ce1e068cf0b677888fa66b344a40d43169f",
-                "b8a5f908921847b454885e62457b9da03e132fca13f5de45562d53d60ce1fa78",
-                "fe142f577da7f11ce43158d474af0f35ad0707e7cd37a9d3f6807c23dfda7b87",
-                "75c01c2785cb54a664d9bebcb0a69bae0c90f47542ef28727e168498b6e04987",
+                "29a93226094a7b7ea3f2ada19598e633e0d0718286909630149dd7bd7bdd1618",
+                "522be9ad68f28b1bf535718535d4dda5be86f670096d53bde5be297b82ce6a7c",
+                "5546e57086f20347248407d9d40ade2bca8587b65c7b70c6cbd347ea94efab7a",
+                "c1871245f210647f3b56517f85f46c55a4e2006584a86e66a5ceeb25ad5e98d4",
+                "59f0aa8e9de032903f452fa57f6a87f139690b7f831efce46aa7af652bd8f9b0",
+                "16b3c6c123f728319323762e83a3e0e60d6860dae7bcdacd2e8d6ce615144e63",
             ],
         ),
         (
             &mayo5,
             [
-                "424ed45d8847f493b3a043a676d20c321ed64b6a540d07863307b7ab252c51f9",
-                "218146f8dbd38a766fbf194aea28c7ada4ee1e626b13daefb252d0fd927f7947",
-                "82dc7f504e6a336b6c87f82e3bae6e8639fac994aa6bb97940d781b60316961e",
-                "75a481f218b6fb6b591cef2191beba335bae01464401e053da23f168db93fdca",
-                "8504eb846fb71fd1848435a8c5a25682a284e3ad5ca32499dedc406ae804caae",
-                "76222e15d5840a7d0a8579add352bff7d4e9f7252db28ae47808272f8183f2ee",
+                "cff98907ab79b1273f40d5996b9d79b724003ed1f5d7f90b8fa9e6b2a00d22cd",
+                "418f95c41512577fdc48b3e8d725f90eb0ec680997bc37308a7e2bce88d90d6e",
+                "48e59ff8106f2b4f7615eca43d829d7bfd486c9ead52c1846347aaab0220d07b",
+                "36d2e425900f29ac5b3b9112f10922594d10d0993d182e68654af81db7649f04",
+                "d1a7da44f09207d0461cca7ae87f704d4825c6053f5ced0dc30021b304bdf82d",
+                "97cbd80ab55675314777a9fef332386a54e5a23524944850777c206d6b16d3e4",
             ],
         ),
     ];
@@ -338,18 +339,23 @@ mod tests {
         for (parameters, answers) in knownAnswers {
             let name = parameters.description.name;
             let algorithms = InternalAlgorithms::new(parameters);
-            let seed = inputBytes(name, "expandedSecretKey", parameters.secretSeedLength);
-            let secretKey = algorithms.expandedSecretKey(&seed);
-            assert_eq!(digest(&secretKey.p1), answers[0], "{name}, P1");
-            assert_eq!(digest(&secretKey.l), answers[1], "{name}, L");
-            assert_eq!(digestOfBytes(&secretKey.oil), answers[2], "{name}, O");
-            let publicKey = inputBytes(
-                name,
-                "expandedPublicKey",
-                parameters.description.publicKeyLength,
+            let seeds = [seed(parameters, 1), seed(parameters, 2)];
+            let secretSeed = inputBytes(seeds[0], parameters.secretSeedLength);
+            let secretKey = algorithms.expandedSecretKey(&secretSeed);
+            assert_eq!(digest(&secretKey.p1), answers[0], "{name}, P1, {seeds:?}");
+            assert_eq!(digest(&secretKey.l), answers[1], "{name}, L, {seeds:?}");
+            assert_eq!(
+                digestOfBytes(&secretKey.oil),
+                answers[2],
+                "{name}, O, {seeds:?}"
             );
+            let publicKey = inputBytes(seeds[1], parameters.description.publicKeyLength);
             let publicMap = algorithms.expandedPublicKey(&publicKey);
-            assert_eq!(digest(&words(&publicMap)), answers[3], "{name}, P");
+            assert_eq!(
+                digest(&words(&publicMap)),
+                answers[3],
+                "{name}, P, {seeds:?}"
+            );
         }
     }
 
@@ -358,25 +364,19 @@ mod tests {
         for (parameters, answers) in knownAnswers {
             let name = parameters.description.name;
             let algorithms = InternalAlgorithms::new(parameters);
-            let publicKey = inputBytes(
-                name,
-                "expandedPublicKey",
-                parameters.description.publicKeyLength,
-            );
+            let seeds = [seed(parameters, 2), seed(parameters, 3)];
+            let publicKey = inputBytes(seeds[0], parameters.description.publicKeyLength);
             let key = algorithms.expandedPublicKey(&publicKey);
-            let elements = inputNibbles(
-                name,
-                "publicMap s",
-                parameters.vectorCount * parameters.variableCount,
-            );
+            let elements =
+                inputNibbles(seeds[1], parameters.vectorCount * parameters.variableCount);
             let forms = crate::matrixProducts::quadraticForms(
                 parameters, &key.p1, &key.p2, &key.p3, &elements,
             );
-            assert_eq!(digest(&forms), answers[4], "{name}, S P S^T");
+            assert_eq!(digest(&forms), answers[4], "{name}, S P S^T, {seeds:?}");
             assert_eq!(
                 digestOfBytes(&algorithms.evaluation(&key, &elements)),
                 answers[5],
-                "{name}, P*(s)"
+                "{name}, P*(s), {seeds:?}"
             );
         }
     }
