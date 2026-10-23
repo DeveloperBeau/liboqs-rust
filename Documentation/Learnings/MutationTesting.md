@@ -173,3 +173,9 @@
 - **Trap.** A formula over the constants of the parameter sets, such as `(8 - (x & 7)) & 7`, gives the same value with `+` in place of `-` when `x & 7` is 0 or 4. These two values are their own negatives modulo 8, so the mutant survives every test.
 - **Finding.** The WOTS+ checksum of SLH-DSA is shifted by `(8 - ((len_2 lg_w) & 7)) & 7`, the formula of FIPS 205 and of `wots_csum` of the C code. `len_2 lg_w` is 12 in every set, so the shift is 4 with either operator, and the mutant of `Hypertree::chainDigits` survived the CI run.
 - **Rule.** Compute the value of each mutant of a formula over the constants of the sets, for every set, before you write a test. When a mutant keeps the value, record it as equivalent with the values on both sides, as for a small change of the dividend of an integer division.
+
+## A deliberate defect can be equivalent to the code
+
+- **Trap.** A test that passes against a deliberate defect looks too weak, when the defect changes nothing.
+- **Finding.** The first defect of the 3-bit padding check of CROSS used the mask `(0xFF << (n * 3)) & 0xFF`. For the 3 or 7 values after the last group of 8 in the RSDP sets, the shift is 9 or 21 bits, so this mask is zero as well, and every test passed. The mask `0xFF << (3 n mod 8)` of the real padding bits failed three tests.
+- **Rule.** Before a deliberate defect judges a test, check that the defect changes what the code computes, for example with the values of the changed expression for the inputs of the tests.
