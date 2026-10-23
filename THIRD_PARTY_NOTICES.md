@@ -213,6 +213,13 @@ limitations under the License.
 - SLH-DSA in liboqs: [slhdsa-c](https://github.com/pq-code-package/slhdsa-c) of the PQ Code Package, commit `a0fc1ff253930060d0246aebca06c2538eb92b88`, with the liboqs patch `internal_api.patch`. Copyright the slhdsa-c project authors, and for `slh_sys.h` also the mlkem-native project authors. License: Apache-2.0 OR ISC OR MIT, as the SPDX header of each file says. The wrappers and templates of each scheme are liboqs code under MIT.
 - Use in this repository: `Modules/SLHDSA` follows FIPS 205 and the structure of slhdsa-c, and gives the bytes of that code. `Modules/SHA2` and `Modules/SHA3` give SHA-224, SHA-512/224, SHA-512/256 and SHA3-224 for its pre-hash forms, written from FIPS 180-4 and FIPS 202. The port is under MIT, and the `license` field of the crate states the combined expression `MIT AND (Apache-2.0 OR ISC OR MIT)`.
 
+## CROSS
+
+- Algorithm: CROSS, the Codes and Restricted Objects Signature Scheme, by Marco Baldi, Alessandro Barenghi, Michele Battagliola, Sebastian Bitzer, Patrick Karl, Felice Manganiello, Alessio Pavoni, Gerardo Pelosi, Federico Pintore, Paolo Santini, Jonas Schupp, Edoardo Signorini, Freeman Slaughter, Antonia Wachter-Zeh and Violetta Weger, with Marco Gianvecchio. See https://www.cross-crypto.com/.
+- CROSS in liboqs: the clean code of [CROSS-lib-oqs](https://github.com/CROSS-signature/CROSS-lib-oqs) of the CROSS team, commit `179d61b8b59e524fba86954f7fa269495650030a`, version 2.2 with the PQClean and OQS patches, in `src/sig/cross`. The reference code is by Alessandro Barenghi, Marco Gianvecchio, Patrick Karl, Gerardo Pelosi and Jonas Schupp.
+- License: CC0-1.0. Each folder `src/sig/cross/upcross_cross-*` holds the text of CC0 1.0 Universal in its `LICENSE` file, the header of each file states that the code is placed in the public domain, and liboqs states `spdx-license-identifier: CC0-1.0` in `docs/algorithms/sig/cross.yml`. The liboqs wrappers `src/sig/cross/sig_cross.h` and `sig_cross_*.c` are MIT, as liboqs is.
+- Use in this repository: `Modules/CROSS` translates the clean code and gives its bytes. The port is under MIT, and the `license` field of the crate states the combined expression `MIT AND CC0-1.0`.
+
 ## Test vectors
 
 - [NIST ACVP-Server](https://github.com/usnistgov/ACVP-Server), tag `v1.1.0.41`: the ML-KEM, ML-DSA and SLH-DSA vectors. Works of the United States government are not subject to copyright in the United States.
