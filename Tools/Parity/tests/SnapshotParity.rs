@@ -3,6 +3,7 @@
 //! from the C library, and the file is byte-identical to the snapshot of the Zig port.
 
 use OQSNative::Registry;
+use OQSNativeAlgorithmTests::SuiteSample;
 use OQSNativeCOracle::{COracle, OracleRandomness};
 use OQSNativeParity::{KEMParity, LargeStack, SignatureParity, Snapshot};
 
@@ -24,12 +25,16 @@ fn snapshotHoldsEveryKEMAndSignatureSchemeOfTheCLibrary() {
     assert_eq!(frozenSnapshot().names(), cNames);
 }
 
-#[test]
-fn eachRegisteredAlgorithmReproducesItsSnapshotLine() {
+/// Checks that each registered algorithm whose name passes a filter gives the digest of its
+/// frozen line.
+fn checkSnapshotLines(isSelected: fn(&str) -> bool) {
     let snapshot = frozenSnapshot();
     LargeStack::run(|| {
         for mechanism in Registry::mechanisms() {
             let name = mechanism.description().name;
+            if !isSelected(name) {
+                continue;
+            }
             let fields = KEMParity::new(*mechanism, 0)
                 .rustBaseCase()
                 .unwrap_or_else(|error| panic!("{name}: {error}"));
@@ -41,6 +46,9 @@ fn eachRegisteredAlgorithmReproducesItsSnapshotLine() {
         }
         for scheme in Registry::signatureSchemes() {
             let name = scheme.description().name;
+            if !isSelected(name) {
+                continue;
+            }
             let fields = SignatureParity::new(*scheme, 0)
                 .rustBaseCase()
                 .unwrap_or_else(|error| panic!("{name}: {error}"));
@@ -51,6 +59,17 @@ fn eachRegisteredAlgorithmReproducesItsSnapshotLine() {
             );
         }
     });
+}
+
+#[test]
+fn eachAlgorithmOfTheSuiteSampleReproducesItsSnapshotLine() {
+    checkSnapshotLines(SuiteSample::contains);
+}
+
+#[test]
+#[ignore = "the small sets of SLH-DSA sign in about a second each in a debug build, so the 156 SLH-DSA schemes take minutes"]
+fn eachRegisteredAlgorithmReproducesItsSnapshotLine() {
+    checkSnapshotLines(|_| true);
 }
 
 #[test]

@@ -1,5 +1,6 @@
 //! Runs the built `parity` program, the composition root of the gate, the way a person runs it.
 
+use OQSNativeAlgorithmTests::SuiteSample;
 use std::process::{Command, Output, Stdio};
 use std::sync::mpsc;
 use std::time::Duration;
@@ -151,15 +152,39 @@ fn runInBlocksReportsEachBlockOfAnAlgorithm() {
 }
 
 #[test]
-fn runOverTheRegistryReportsItsSize() {
-    let output = runProgram(&["run", "--cases", "2", "--seed", "5"]);
+fn runOverTheSuiteSampleOfTheRegistryReportsItsSizeAndEachAlgorithm() {
+    // A run over the whole registry takes an hour since SLH-DSA, so the program runs the
+    // registered algorithms of the suite sample.
+    let names: Vec<&str> = OQSNative::Registry::mechanisms()
+        .iter()
+        .map(|mechanism| mechanism.description().name)
+        .chain(
+            OQSNative::Registry::signatureSchemes()
+                .iter()
+                .map(|scheme| scheme.description().name),
+        )
+        .filter(|name| SuiteSample::contains(name))
+        .collect();
+    let mut arguments = vec!["run", "--cases", "2", "--seed", "5"];
+    for name in &names {
+        arguments.extend(["--only", name]);
+    }
+    let output = runProgram(&arguments);
     assert_eq!(output.status.code(), Some(0));
     let text = standardOutput(&output);
     assert!(
         text.starts_with(&format!(
             "parity of {} algorithms, 2 variations each, seed 0x5\n",
-            OQSNative::Registry::mechanisms().len() + OQSNative::Registry::signatureSchemes().len()
+            names.len()
         )),
         "{text}"
     );
+    for name in &names {
+        assert!(
+            text.contains(&format!(
+                "ok    {name} (base case and 2 variations identical, "
+            )),
+            "{text}"
+        );
+    }
 }
