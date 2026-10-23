@@ -118,7 +118,7 @@ You are solely responsible for determining the appropriateness of using and dist
 
 - Algorithm: CRYSTALS-Dilithium, by Vadim Lyubashevsky, with Shi Bai, Léo Ducas, Eike Kiltz, Tancrède Lepoint, Peter Schwabe, Gregor Seiler and Damien Stehlé. ML-DSA is its standard form, NIST FIPS 204. See https://pq-crystals.org/dilithium/ and https://csrc.nist.gov/pubs/fips/204/final.
 - ML-DSA in liboqs: [mldsa-native](https://github.com/pq-code-package/mldsa-native) of the PQ Code Package, commit `9b0ee84f4cf399043eca59eca4e5f8531ca1d61b`. Copyright the mldsa-native project authors. Some files, such as `poly.c` and `ct.c`, also name the mlkem-native project authors. License: Apache-2.0 OR ISC OR MIT.
-- Use in this repository: `Modules/MLDSA` follows FIPS 204 and the arithmetic of mldsa-native, and gives the bytes of that code. The port is under MIT, which the upstream license allows.
+- Use in this repository: `Modules/MLDSA` follows FIPS 204 and the arithmetic of mldsa-native, and gives the bytes of that code. The port is under MIT, and the `license` field of the crate states the combined expression `MIT AND (Apache-2.0 OR ISC OR MIT)`.
 
 ## Test vectors
 
