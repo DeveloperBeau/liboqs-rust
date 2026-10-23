@@ -19,6 +19,7 @@ The port is in progress. The repository holds the workspace, the standards, the 
 | HQC | `HQC-1`, `HQC-3`, `HQC-5` | Ported, identical to the C library |
 | BIKE | `BIKE-L1`, `BIKE-L3`, `BIKE-L5` | Ported, identical to the C library |
 | ML-DSA | `ML-DSA-44`, `ML-DSA-65`, `ML-DSA-87` | Ported, identical to the C library |
+| Falcon | `Falcon-512`, `Falcon-1024`, `Falcon-padded-512`, `Falcon-padded-1024` | Ported, identical to the C library |
 
 `Tools/Parity/NotYetPorted.txt` lists each algorithm of liboqs that the port does not have yet.
 
