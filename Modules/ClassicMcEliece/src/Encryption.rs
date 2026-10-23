@@ -123,8 +123,7 @@ mod tests {
     use crate::parameters::{
         allParameters, classicMcEliece348864, classicMcEliece6960119, classicMcEliece8192128,
     };
-    use crate::testSupport::digest;
-    use OQSNativeAlgorithmTests::FuzzRandom;
+    use OQSNativeAlgorithmTests::{FuzzRandom, OutputDigest};
 
     /// The bytes of 16-bit values, little-endian.
     fn valueBytes(values: &[u16]) -> Vec<u8> {
@@ -267,16 +266,16 @@ mod tests {
 
     #[test]
     fn syndromesGiveTheKnownAnswersOfTheCFunction() {
-        // The SHA3-256 of the syndromes of `encrypt` of liboqs 0.16.0, with a public key of
-        // SplitMix64 bytes of the seed 51 and the error vectors of `gen_e` from SplitMix64
+        // The `OutputDigest` of the syndromes of `encrypt` of liboqs 0.16.0, with a public key
+        // of SplitMix64 bytes of the seed 51 and the error vectors of `gen_e` from SplitMix64
         // bytes of the seed 52, 4 vectors for each base set. Each vector and its syndrome
         // follow each other in the hashed bytes.
         let expected = [
-            "4ceb57276b371f372894c2081604b7b4d19f02d666d924eaff65b2fd1a3b69f2",
-            "bad583feedeea9e3a9dec264fbd464321c58519533e62e2a582a81663fc70be8",
-            "45c8ec674208d87d0a1fa6636a941ced81c733bc41398ac68b8587b1099f9a19",
-            "a75cf3bf98c463ab83e3f86670114d6d80fd332f415724a9c3427c6ad8002d5d",
-            "dff9b6caf871013dc542ae402f2f6e58d219ff9bf306591963f711586e1841fe",
+            "eb77d12a45ced228aa406b9c6b3826e6b245ce892c10a568dc3168630096fade",
+            "eadfea377fed941c955ffed69c69ce0d963ea791fe6bbb6b2e17a84001aea1cf",
+            "2ce0ee5f88c95d52c13cffe9a853fadbe4407d576357e125d6951b27136288c5",
+            "8cad782c998a352b9258b2bcbd9ce39cd0b5d0e7a1ed9fd3b435c89c52582918",
+            "32e1a50494f5879befe09c827d9347b862638d0ac727c995066c2f16de48ff71",
         ];
         for (parameters, syndromeDigest) in allParameters.iter().step_by(2).zip(expected) {
             let encryption = Encryption::new(parameters);
@@ -292,7 +291,7 @@ mod tests {
                 output.extend(encryption.syndrome(&publicKey, &error));
             }
             assert_eq!(
-                digest(&output),
+                OutputDigest::of(&output),
                 syndromeDigest,
                 "{}",
                 parameters.description.name

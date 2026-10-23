@@ -296,8 +296,7 @@ mod tests {
         classicMcEliece348864, classicMcEliece348864f, classicMcEliece460896,
         classicMcEliece6960119, classicMcEliece6960119f,
     };
-    use crate::testSupport::digest;
-    use OQSNativeAlgorithmTests::FuzzRandom;
+    use OQSNativeAlgorithmTests::{FuzzRandom, OutputDigest};
 
     /// A matrix of a set with seeded rows. The bits from column `n` up are zero, as in a matrix
     /// of the C code.
@@ -483,16 +482,17 @@ mod tests {
         // The rule changes the result: in many rows the or differs from the clean swap.
         assert!(movedFirstBits > 100, "{movedFirstBits}");
         // `mov_columns` of `pqclean_mceliece6960119f_clean` in liboqs 0.16.0, copied into a
-        // test program, on the same matrix: the SHA3-256 of the rows of 870 bytes, of the
-        // permutation as little-endian 16-bit values and of the pivots as 8 little-endian bytes.
+        // test program, on the same matrix: the `OutputDigest` of the rows of 870 bytes, of
+        // the permutation as little-endian 16-bit values and of the pivots as 8 little-endian
+        // bytes.
         let mut output = matrixBytes(&matrix);
         for value in &permutation {
             output.extend(value.to_le_bytes());
         }
         output.extend(pivots.to_le_bytes());
         assert_eq!(
-            digest(&output),
-            "816867803e4c18735478abc4831dd3be9d411c722967144427b15e36f672669e"
+            OutputDigest::of(&output),
+            "26c293e09a7598bdf9fbcba3acfc7e1b0b6265ade6f7935fce1ad904f9f05499"
         );
     }
 
@@ -500,34 +500,34 @@ mod tests {
     fn generatedKeysGiveTheKnownAnswersOfTheCFunction() {
         // `pk_gen` of liboqs 0.16.0 with the Goppa polynomial of `genpoly_gen` of the element
         // of the seed 100, and the 32-bit values of the seeds 200, 201 and so on: the seeds
-        // before the given one give no key, and the given one gives a key with the SHA3-256 of
-        // the public key, of the permutation as little-endian 16-bit values and of the pivots
-        // as 8 little-endian bytes.
+        // before the given one give no key, and the given one gives a key with the
+        // `OutputDigest` of the public key, of the permutation as little-endian 16-bit values
+        // and of the pivots as 8 little-endian bytes.
         let expected = [
             (
                 &classicMcEliece348864,
                 201,
-                "f70e2a2e5ac075defb96c7e091247994b81460ab771c5c5ea682af241dcff43f",
+                "75eb64a7f697e62a261d9e3e4acbe4b0aa61aa483366ef9fa35e84d2b5c0edad",
             ),
             (
                 &classicMcEliece348864f,
                 200,
-                "5283591f202a03f24a9b84748b682e90ce0bef2df29a0beaaaf4be8e96a29af2",
+                "1e71858799c4910e143d313582d8f0472b91d6ee941bde76189d455a82319053",
             ),
             (
                 &classicMcEliece460896,
                 200,
-                "36d4a1793c1cc4d2dccad56f153906622196c312f00f4a35b743cd14ea19e09d",
+                "795c574559977cd881fd83deedffae23d2bb43fd11a6b6c6952ae145b4b37bb4",
             ),
             (
                 &classicMcEliece6960119,
                 205,
-                "22a13a16c2b6945492337227daf1c68af91e3c643e0861f0f4608dc5107e7b41",
+                "4f2a8e18755356984baa8d6e34683f27e76f706d231b5e1ed93a5159d7c4aed0",
             ),
             (
                 &classicMcEliece6960119f,
                 200,
-                "5e35b4e41777151bd9dbfa9e359eea4418442fe829db31a93df5506a5e3b5d8d",
+                "71d83fb94909584f8f907ac3c9e6c04461e14e983065483869326e9a5c99a800",
             ),
         ];
         for (parameters, keySeed, keyDigest) in expected {
@@ -559,7 +559,7 @@ mod tests {
                 output.extend(value.to_le_bytes());
             }
             output.extend(key.pivots.to_le_bytes());
-            assert_eq!(digest(&output), keyDigest, "{name}");
+            assert_eq!(OutputDigest::of(&output), keyDigest, "{name}");
         }
     }
 }
