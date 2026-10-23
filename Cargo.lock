@@ -68,6 +68,7 @@ dependencies = [
  "oqs-native-entities",
  "oqs-native-kat-random",
  "oqs-native-sha3",
+ "oqs-native-sorting-network",
 ]
 
 [[package]]
