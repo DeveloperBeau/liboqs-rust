@@ -28,6 +28,7 @@ The port is in progress. The repository holds the workspace, the standards, the 
 | CROSS | `cross-rsdp-128-balanced`, `cross-rsdp-128-fast`, `cross-rsdp-128-small`, `cross-rsdp-192-balanced`, `cross-rsdp-192-fast`, `cross-rsdp-192-small`, `cross-rsdp-256-balanced`, `cross-rsdp-256-fast`, `cross-rsdp-256-small`, `cross-rsdpg-128-balanced`, `cross-rsdpg-128-fast`, `cross-rsdpg-128-small`, `cross-rsdpg-192-balanced`, `cross-rsdpg-192-fast`, `cross-rsdpg-192-small`, `cross-rsdpg-256-balanced`, `cross-rsdpg-256-fast`, `cross-rsdpg-256-small` | Ported, identical to the C library |
 | UOV | `OV-Is`, `OV-Ip`, `OV-III`, `OV-V`, `OV-Is-pkc`, `OV-Ip-pkc`, `OV-III-pkc`, `OV-V-pkc`, `OV-Is-pkc-skc`, `OV-Ip-pkc-skc`, `OV-III-pkc-skc`, `OV-V-pkc-skc` | Ported, identical to the C library |
 | SNOVA | `SNOVA_24_5_4`, `SNOVA_24_5_4_SHAKE`, `SNOVA_24_5_4_esk`, `SNOVA_24_5_4_SHAKE_esk`, `SNOVA_37_17_2`, `SNOVA_25_8_3`, `SNOVA_56_25_2`, `SNOVA_49_11_3`, `SNOVA_37_8_4`, `SNOVA_24_5_5`, `SNOVA_60_10_4`, `SNOVA_29_6_5` | Ported, identical to the C library |
+| MQOM | `mqom2_cat1_gf16_fast_r3`, `mqom2_cat1_gf16_fast_r5`, `mqom2_cat1_gf16_short_r3`, `mqom2_cat1_gf16_short_r5`, `mqom2_cat3_gf16_fast_r3`, `mqom2_cat3_gf16_fast_r5`, `mqom2_cat3_gf16_short_r3`, `mqom2_cat3_gf16_short_r5`, `mqom2_cat5_gf16_fast_r3`, `mqom2_cat5_gf16_fast_r5`, `mqom2_cat5_gf16_short_r3`, `mqom2_cat5_gf16_short_r5` | Ported, identical to the C library |
 
 `Tools/Parity/NotYetPorted.txt` lists each algorithm of liboqs that the port does not have yet.
 

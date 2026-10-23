@@ -8,6 +8,7 @@ use OQSNativeHQC::HQC;
 use OQSNativeMAYO::MAYO;
 use OQSNativeMLDSA::MLDSA;
 use OQSNativeMLKEM::{Kyber, MLKEM};
+use OQSNativeMQOM::MQOM;
 use OQSNativeNTRU::NTRU;
 use OQSNativeNTRUPrime::NTRUPrime;
 use OQSNativeSLHDSA::SLHDSA;
@@ -122,6 +123,18 @@ const signatureSchemeGroups: &[&[&dyn Signing]] = &[
         &SNOVA::snova24x5x5,
         &SNOVA::snova60x10x4,
         &SNOVA::snova29x6x5,
+        &MQOM::mqom2Cat1GF16FastR3,
+        &MQOM::mqom2Cat1GF16FastR5,
+        &MQOM::mqom2Cat1GF16ShortR3,
+        &MQOM::mqom2Cat1GF16ShortR5,
+        &MQOM::mqom2Cat3GF16FastR3,
+        &MQOM::mqom2Cat3GF16FastR5,
+        &MQOM::mqom2Cat3GF16ShortR3,
+        &MQOM::mqom2Cat3GF16ShortR5,
+        &MQOM::mqom2Cat5GF16FastR3,
+        &MQOM::mqom2Cat5GF16FastR5,
+        &MQOM::mqom2Cat5GF16ShortR3,
+        &MQOM::mqom2Cat5GF16ShortR5,
     ],
     SLHDSA::schemes,
 ];
