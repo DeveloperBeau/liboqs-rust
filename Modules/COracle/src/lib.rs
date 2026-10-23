@@ -7,7 +7,8 @@
 //! `COracle` holds the lock of the C library for the time of its use, because the C library
 //! has one global random source. `OracleMechanism`, `OracleSignatureScheme` and
 //! `OracleStatefulScheme` give the C algorithms the capability interfaces of the Rust
-//! algorithms, so a test can run the parity harness against the C code itself.
+//! algorithms, so a test can run the parity harness against the C code itself. An
+//! `OracleWorkingKey` signs many messages with one LMS key at the cost of one load of the key.
 //!
 //! Without the `std` feature the crate is empty, because the oracle is a test tool of a hosted
 //! build.
@@ -29,6 +30,9 @@ mod oracleSignatureScheme;
 #[cfg(feature = "std")]
 #[path = "OracleStatefulScheme.rs"]
 mod oracleStatefulScheme;
+#[cfg(feature = "std")]
+#[path = "OracleWorkingKey.rs"]
+mod oracleWorkingKey;
 
 #[cfg(feature = "std")]
 pub use cOracle::COracle;
@@ -40,3 +44,5 @@ pub use oracleRandomness::OracleRandomness;
 pub use oracleSignatureScheme::OracleSignatureScheme;
 #[cfg(feature = "std")]
 pub use oracleStatefulScheme::OracleStatefulScheme;
+#[cfg(feature = "std")]
+pub use oracleWorkingKey::OracleWorkingKey;
