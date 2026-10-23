@@ -150,7 +150,8 @@ mod tests {
     use crate::parameters::{
         allSets, crossRSDP128Balanced, crossRSDP128Fast, crossRSDPG128Balanced,
     };
-    use crate::testInputs::{SeededSequence, shortDigest};
+    use crate::testInputs::SeededSequence;
+    use OQSNativeAlgorithmTests::OutputDigest;
     use OQSNativeSHA3::SHAKE128;
 
     /// A buffer of packed values of some bits, with zeros after them to fill a length.
@@ -236,30 +237,30 @@ mod tests {
         // `expand_digest_to_fixed_weight` of each set of the oracle library, on the digest of
         // the bytes of seed 3, as SHAKE128 of the t challenge bytes.
         let expected = [
-            "c171585171ba3b4d840af037fb4e7507",
-            "6da4282348cbe296ac96eeeb1e2c0b00",
-            "3e125198583763e369fd727dc29fea8e",
-            "fb286f0ddb7b59459a70cc6f9a26cc89",
-            "22e5a75fb3d770617da3b5f54608541c",
-            "56b059e865e97e0b35aaaf20bd12a2ce",
-            "753a1c73f8847564d1aa7d924703c0d8",
-            "62b3cd69c12317babdc3a5f02378e60a",
-            "345580197bd62d3cf926c4605c76800d",
-            "a9018cf304c78690afe82da288c5b860",
-            "5ec3ec809936a9d6f9f9f41ee86d9f1a",
-            "def02dc75ab3fd2ef71681091e761252",
-            "84681191bdbcb9a9a7e7a2d133f32325",
-            "98b3b86d87ac70a462e69a7e49b9bed8",
-            "24bcdc9d5539dfe670a013dd034de50e",
-            "1c9a03eccf79aca5e31edb99bff7fd12",
-            "d7ba34cdf655ff6b468982a9098dcac3",
-            "ee9bdf098bf637d38faca88060d32fac",
+            "c171585171ba3b4d840af037fb4e7507f8152f7cd524424ec82f69f2e21ef895",
+            "6da4282348cbe296ac96eeeb1e2c0b002a4d5bd8b02e8e40a1e1a2ad79995008",
+            "3e125198583763e369fd727dc29fea8e5e60b2899a5d6c8be00f3fe76a289835",
+            "fb286f0ddb7b59459a70cc6f9a26cc8979ebf8c709bd638126333fa84d6fac9a",
+            "22e5a75fb3d770617da3b5f54608541ce379cc199fe01ed04007c163fef00b3b",
+            "56b059e865e97e0b35aaaf20bd12a2cef395dfb7f1b298e2ddbd54adbb1d802f",
+            "753a1c73f8847564d1aa7d924703c0d84e0b1910dfce5b9d1822ba3cd0221686",
+            "62b3cd69c12317babdc3a5f02378e60ae4f15d8af5239bc50cd8ffa942a16fa6",
+            "345580197bd62d3cf926c4605c76800d07f5b62ae793550f35d77f87b61b1fcc",
+            "a9018cf304c78690afe82da288c5b86003e44def0a98bc380bdfde3231aa02ea",
+            "5ec3ec809936a9d6f9f9f41ee86d9f1a84e6ab51416b1af6f68497ed47369112",
+            "def02dc75ab3fd2ef71681091e761252320b1045f7eebd8340c1a578bc0dd2a4",
+            "84681191bdbcb9a9a7e7a2d133f323256c66bbc9a35f71945f79e0b8fc44d60c",
+            "98b3b86d87ac70a462e69a7e49b9bed8f30767eb3a963ff53200dba24d5ab4d9",
+            "24bcdc9d5539dfe670a013dd034de50e0a3c6424846c60710e3e844662c7b164",
+            "1c9a03eccf79aca5e31edb99bff7fd1260247091677f0940f7988af4eb6ff92b",
+            "d7ba34cdf655ff6b468982a9098dcac382831be78d5f9939be7ff9d7e7072c18",
+            "ee9bdf098bf637d38faca88060d32fac4ea6cc6519eb0655da308509e699edd9",
         ];
         for (parameters, digest) in allSets.iter().zip(expected) {
             let challengeDigest = SeededSequence::new(3).bytes(parameters.digestLength());
             let challenge = Sampler::new(parameters).secondChallenge(&challengeDigest);
             assert_eq!(
-                shortDigest(&challenge),
+                OutputDigest::of(&challenge),
                 digest,
                 "{}",
                 parameters.description.name

@@ -72,7 +72,8 @@ impl Packing {
 mod tests {
     use super::Packing;
     use crate::parameters::allSets;
-    use crate::testInputs::{SeededSequence, shortDigest, wordsDigest};
+    use crate::testInputs::{SeededSequence, wordsDigest};
+    use OQSNativeAlgorithmTests::OutputDigest;
 
     /// The known answers of one code: the digests of the three packed vectors, then the digest
     /// and the padding flag of each of the three unpacked vectors.
@@ -117,69 +118,69 @@ mod tests {
         // the three unpacked vectors.
         let expected: [CodeAnswers; 6] = [
             (
-                "a2656fc3efb3fc285b9e48c159fd33b0",
-                "982a1bf5e092dd2148f77e57f239564e",
-                "5c30d43d04b8b312a51cbf3df6590615",
-                "07857efb2753dd794800bbe010454c72",
+                "a2656fc3efb3fc285b9e48c159fd33b05f8c48792c0d940d4fc5dbe44a9597f6",
+                "982a1bf5e092dd2148f77e57f239564e689c0e1cc30af17a90ed6237c12d9bc5",
+                "5c30d43d04b8b312a51cbf3df65906152cde9002a6b47ed5e9ebab679392257c",
+                "07857efb2753dd794800bbe010454c7286086fcdf09c30b92c43a98ca58cccf5",
                 false,
-                "92a8088ee5defb47ed8ef084a295ffa3",
+                "92a8088ee5defb47ed8ef084a295ffa3e929d88d75681dc96f2c53d8c4c546b6",
                 false,
-                "6e1b84e65c4a3fc5d1c7aebec15b42bc",
+                "6e1b84e65c4a3fc5d1c7aebec15b42bc9a4ea5053af633adc94a273d0c46962a",
                 true,
             ),
             (
-                "e8823556549e02369241640f025dc16e",
-                "9ab188a3734862dad599893a9509db69",
-                "ac41def69e3c714dfa61d19d43b8b3dc",
-                "363301e5424ba811c29124076c7e01f9",
+                "e8823556549e02369241640f025dc16e9c79c7699036b04b351e49ca005c516d",
+                "9ab188a3734862dad599893a9509db694c7be7ce7729871570dd4a928c3fa8d4",
+                "ac41def69e3c714dfa61d19d43b8b3dc6f26a769c14587b84ec196475bee932d",
+                "363301e5424ba811c29124076c7e01f9a4310997418b4a9048738c182e5bb59a",
                 false,
-                "03f7b5f5553fe9061713dc2914694635",
+                "03f7b5f5553fe9061713dc2914694635197bfe575bbb6b353953ed49b62e68ea",
                 false,
-                "529ed725828a4176c30e0493db20ad1c",
+                "529ed725828a4176c30e0493db20ad1c99fb373411593fa2aa98eb1d2e653c62",
                 true,
             ),
             (
-                "6ac72945ca069fee9f261f5f576d2103",
-                "a5a791540c8af38af20c1ed6fceece67",
-                "1546f4826e7466ddbaa6fb7993a6cb45",
-                "fb2ac26f54124a33d40b415632fbdaa7",
+                "6ac72945ca069fee9f261f5f576d2103ff9248b7a634b514e6acf232278f2667",
+                "a5a791540c8af38af20c1ed6fceece6718283edc1a72b63a39047d226b710e19",
+                "1546f4826e7466ddbaa6fb7993a6cb45ca78bdcbd7723cf0ae0d15899e244874",
+                "fb2ac26f54124a33d40b415632fbdaa7ecd629887acc0e8fb5f49ccad4cd0411",
                 false,
-                "29f886e229a6184b446fdb68f7f64c67",
+                "29f886e229a6184b446fdb68f7f64c672d0afdee9f7f44ab5a46b0c980aa3ee1",
                 false,
-                "6873460c93e880ed8dca05a59212806b",
+                "6873460c93e880ed8dca05a59212806be80f389d2d5bffd426ab9d17829e8fc2",
                 true,
             ),
             (
-                "ca03f8376b7c22e38479a04d7f9cef60",
-                "2f9520ab109b66cfa792e556ec554521",
-                "53b07783ec4411e7d922ea16487927d8",
-                "a552990829d3686e9edf54725d552417",
+                "ca03f8376b7c22e38479a04d7f9cef6026303e7bae029285556ae09fbcd44af6",
+                "2f9520ab109b66cfa792e556ec554521633a9c91353de5e6993d398c78e5b9a0",
+                "53b07783ec4411e7d922ea16487927d8bce5ce15fc452291d80a7091635443f3",
+                "a552990829d3686e9edf54725d552417733ddf1445fa64731ed44e39692ca04d",
                 true,
-                "e3848926b4a90b643d1e7b9f3b5b92bf",
+                "e3848926b4a90b643d1e7b9f3b5b92bf7f45beb5ec2e856aaef7afc4d4847c74",
                 false,
-                "d50d822b42259f8de5464d8c9d2d0bdc",
+                "d50d822b42259f8de5464d8c9d2d0bdc36dda03504943b4b8fdaf47bed72c835",
                 false,
             ),
             (
-                "4fd69d8e5aa349dae9a61483f88a6d61",
-                "1fe0e1b5fa2890d6d61f3ddbca2c6914",
-                "80bb2a5a547c1ae1bd778789e140a47e",
-                "1e009f4b47b42213907b9ab241b4760c",
+                "4fd69d8e5aa349dae9a61483f88a6d61fa7c3993dcc7673bb371cd4ef2dbae46",
+                "1fe0e1b5fa2890d6d61f3ddbca2c69148d6f3979af64f910140e6df03d2cd261",
+                "80bb2a5a547c1ae1bd778789e140a47eb171b675689604e90f3b2b81f5583892",
+                "1e009f4b47b42213907b9ab241b4760c0f23a1517aea70d12810d36a4f04f711",
                 false,
-                "7890198ddcbccd9620e3df76c9f38095",
+                "7890198ddcbccd9620e3df76c9f38095f9fafe286ab9cc6c2b58977ea087f380",
                 false,
-                "567ba90407bcbc61d45bd4fc351d27c9",
+                "567ba90407bcbc61d45bd4fc351d27c9a7e386fd9f0f519637db9a3de2b52dd8",
                 true,
             ),
             (
-                "e93bcb35a7f561ed7725d7e91261360b",
-                "f80c125850b0eb6cd661064870f60208",
-                "c64b248fefce1f356d83e216f8492199",
-                "e3b80e2ae96a41ec08c4e98a46fae1c3",
+                "e93bcb35a7f561ed7725d7e91261360bb41342c5ad341df6d364acbbaa3d5619",
+                "f80c125850b0eb6cd661064870f60208ac8d7e1c592dffdd924b655506c0a049",
+                "c64b248fefce1f356d83e216f84921996904327045491b06bac94a707e011075",
+                "e3b80e2ae96a41ec08c4e98a46fae1c34488302920cfff8bd3c1d07e4cbe8c43",
                 false,
-                "632bf5c700f710df0e075159d6c5706a",
+                "632bf5c700f710df0e075159d6c5706a291d0bca4a9d76684915ba65f3b32b33",
                 false,
-                "4aecc334dc04580a6fff040e431a61c5",
+                "4aecc334dc04580a6fff040e431a61c541c88608f93ad7caede356e4eed2fe10",
                 true,
             ),
         ];
@@ -205,17 +206,17 @@ mod tests {
             let syndrome = sequence.values(syndromeCount, 1 << fieldBits);
             let restricted = sequence.values(restrictedCount, 1 << restrictedBits);
             assert_eq!(
-                shortDigest(&packed(&vector, fieldBits, lengths[0])),
+                OutputDigest::of(&packed(&vector, fieldBits, lengths[0])),
                 row.0,
                 "{name}"
             );
             assert_eq!(
-                shortDigest(&packed(&syndrome, fieldBits, lengths[1])),
+                OutputDigest::of(&packed(&syndrome, fieldBits, lengths[1])),
                 row.1,
                 "{name}"
             );
             assert_eq!(
-                shortDigest(&packed(&restricted, restrictedBits, lengths[2])),
+                OutputDigest::of(&packed(&restricted, restrictedBits, lengths[2])),
                 row.2,
                 "{name}"
             );
