@@ -5,8 +5,13 @@
 //! every check. False negative validation: each kind of defect in a mechanism or a scheme is
 //! reported at its own step.
 
-use OQSNativeAlgorithmTests::{KEMKnownAnswerTest, KnownAnswerDigests, SignatureKnownAnswerTest};
-use OQSNativeCOracle::{OracleMechanism, OracleSignatureScheme, OracleStatefulScheme};
+use OQSNativeAlgorithmTests::{
+    KEMKnownAnswerTest, KnownAnswerDigests, SignatureKnownAnswerTest, StatefulTreeHeight,
+    SuiteSample,
+};
+use OQSNativeCOracle::{
+    COracle, OracleMechanism, OracleRandomness, OracleSignatureScheme, OracleStatefulScheme,
+};
 use OQSNativeDomain::{
     KeyEncapsulating, KeyStatePersisting, RandomGenerating, Signing, StatefulSigning,
 };
@@ -993,6 +998,90 @@ fn aStatefulSchemeIsOneJobInARunInBlocks() {
         summary,
         Ok("base case and 5 variations identical".to_string())
     );
+}
+
+#[test]
+fn aRunSkipsTheStatefulSetsOfLargeTreesUnlessTheOptionIncludesThem() {
+    // The jobs are built and not run, because a key generation of a large tree takes minutes.
+    let small = statefulScheme("LMS_SHA256_H5_W1");
+    let medium = statefulScheme("XMSS-SHA2_16_256");
+    let large = statefulScheme("XMSS-SHA2_20_256");
+    let largest = statefulScheme("LMS_SHA256_H25_W8");
+    let statefulSchemes: [&dyn StatefulSigning; 4] = [&small, &medium, &large, &largest];
+    let words =
+        |text: &str| -> Vec<String> { text.split_whitespace().map(str::to_string).collect() };
+    let run = |arguments: &str| {
+        let options = ParityOptions::parse(&words(arguments)).expect("valid");
+        let names: Vec<&str> = ParityJob::parityJobs(&[], &[], &statefulSchemes, &options)
+            .iter()
+            .map(|job| job.name)
+            .collect();
+        (names, ParityJob::skippedLines(&statefulSchemes, &options))
+    };
+    let skipLine = |name: &str, height: u32| {
+        format!("skip  {name} (a tree of height {height}, which --large-trees includes)")
+    };
+    assert_eq!(
+        run(""),
+        (
+            vec!["LMS_SHA256_H5_W1", "XMSS-SHA2_16_256"],
+            vec![
+                skipLine("XMSS-SHA2_20_256", 20),
+                skipLine("LMS_SHA256_H25_W8", 25)
+            ]
+        )
+    );
+    assert_eq!(
+        run("--large-trees"),
+        (
+            vec![
+                "LMS_SHA256_H5_W1",
+                "XMSS-SHA2_16_256",
+                "XMSS-SHA2_20_256",
+                "LMS_SHA256_H25_W8"
+            ],
+            Vec::new()
+        )
+    );
+    assert_eq!(
+        run("--only XMSS-SHA2_20_256"),
+        (Vec::new(), vec![skipLine("XMSS-SHA2_20_256", 20)])
+    );
+    assert_eq!(
+        run("--only XMSS-SHA2_20_256 --large-trees"),
+        (vec!["XMSS-SHA2_20_256"], Vec::new())
+    );
+    // Every shard skips the same sets, so only the first shard names them.
+    assert_eq!(run("--shard 0/2").1.len(), 2);
+    assert!(run("--shard 1/2").1.is_empty());
+}
+
+#[test]
+fn everyStatefulSetOfTheCLibraryHasTheTreeHeightOfItsName() {
+    let names = COracle::new(OracleRandomness::nist([0; 48])).statefulSignatureNames();
+    let heights: Vec<u32> = names
+        .iter()
+        .map(|name| {
+            StatefulTreeHeight::largest(name).unwrap_or_else(|| panic!("{name} has no height"))
+        })
+        .collect();
+    let count =
+        |isCounted: fn(u32) -> bool| heights.iter().filter(|height| isCounted(**height)).count();
+    // Of the 70 sets, the default suite takes the 33 of trees of height 10 or less, and a run
+    // skips the 23 of a tree of height 20 or more.
+    assert_eq!(names.len(), 70);
+    assert_eq!(
+        count(|height| height <= SuiteSample::largestStatefulTreeHeight),
+        33
+    );
+    assert_eq!(
+        names
+            .iter()
+            .filter(|name| SuiteSample::contains(name))
+            .count(),
+        33
+    );
+    assert_eq!(count(|height| height >= ParityJob::largeTreeHeight), 23);
 }
 
 #[test]

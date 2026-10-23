@@ -13,6 +13,8 @@ pub struct ParityOptions {
     pub isCheck: bool,
     /// The count of `--processes`, or `None` to run in this process.
     pub processCount: Option<u64>,
+    /// True with `--large-trees`: the run also checks the stateful sets of large trees.
+    pub includesLargeTrees: bool,
 }
 
 impl ParityOptions {
@@ -24,6 +26,7 @@ impl ParityOptions {
             isAll: false,
             isCheck: false,
             processCount: None,
+            includesLargeTrees: false,
         };
         let mut remaining = arguments.iter();
         while let Some(argument) = remaining.next() {
@@ -64,6 +67,7 @@ impl ParityOptions {
                 "--only" => options.names.push(value()?),
                 "--all" => options.isAll = true,
                 "--check" => options.isCheck = true,
+                "--large-trees" => options.includesLargeTrees = true,
                 "--processes" => {
                     let count = value()?;
                     options.processCount = Some(
@@ -135,7 +139,7 @@ mod tests {
         let options = ParityOptions::parse(&[]).expect("valid");
         assert_eq!(options.settings, ParitySettings::new(1000));
         assert!(options.names.is_empty());
-        assert!(!options.isAll && !options.isCheck);
+        assert!(!options.isAll && !options.isCheck && !options.includesLargeTrees);
         assert_eq!(options.processCount, None);
         assert!(options.isSelected(5, "ML-KEM-768"));
     }
@@ -143,7 +147,7 @@ mod tests {
     #[test]
     fn eachOptionSetsItsValue() {
         let options = ParityOptions::parse(&words(
-            "--cases 7 --seed 0x10 --shard 1/3 --block-size 3 --only A --only B --all --check --processes 2",
+            "--cases 7 --seed 0x10 --shard 1/3 --block-size 3 --only A --only B --all --check --processes 2 --large-trees",
         ))
         .expect("valid");
         assert_eq!(options.settings.caseCount, 7);
@@ -154,7 +158,7 @@ mod tests {
             (1, 3)
         );
         assert_eq!(options.names, vec!["A", "B"]);
-        assert!(options.isAll && options.isCheck);
+        assert!(options.isAll && options.isCheck && options.includesLargeTrees);
         assert_eq!(options.processCount, Some(2));
     }
 

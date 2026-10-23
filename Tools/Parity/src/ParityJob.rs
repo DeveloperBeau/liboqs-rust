@@ -3,7 +3,7 @@ use crate::{
 };
 use OQSNativeAlgorithmTests::{
     KEMKnownAnswerTest, KnownAnswerDigests, SignatureKnownAnswerTest, StatefulKnownAnswerDigests,
-    StatefulKnownAnswerTest, TestVectorFiles,
+    StatefulKnownAnswerTest, StatefulTreeHeight, TestVectorFiles,
 };
 use OQSNativeCOracle::{
     COracle, OracleMechanism, OracleRandomness, OracleSignatureScheme, OracleStatefulScheme,
@@ -24,6 +24,11 @@ pub struct ParityJob<'check> {
 }
 
 impl<'check> ParityJob<'check> {
+    /// The tree height from which a run skips a stateful set unless `--large-trees` includes
+    /// it. The C library generates a key of a tree of height 20 in four minutes to an hour, and
+    /// of height 25 in up to a day, and the Rust side generates the same key.
+    pub const largeTreeHeight: u32 = 20;
+
     /// The jobs of the parity gate for the selected mechanisms, signature schemes and stateful
     /// schemes, in that order.
     ///
@@ -31,8 +36,10 @@ impl<'check> ParityJob<'check> {
     /// first block also checks the base case. The variations of a stateful scheme are the
     /// signatures of one key, and each needs the key of the one before it, so a stateful scheme
     /// is one job. Its job signs at most the remaining count of the key, and its summary says
-    /// so. The positions of the shard count over the blocks and the stateful jobs of the three
-    /// lists, so the blocks of one algorithm go to different shards.
+    /// so. A stateful set of a tree of height `largeTreeHeight` or more has no job unless the
+    /// options include large trees, see `skippedLines`. The positions of the shard count over
+    /// the blocks and the stateful jobs of the three lists, so the blocks of one algorithm go to
+    /// different shards.
     pub fn parityJobs(
         mechanisms: &'check [&'check dyn KeyEncapsulating],
         schemes: &'check [&'check dyn Signing],
@@ -82,15 +89,20 @@ impl<'check> ParityJob<'check> {
                 }
             })
         });
-        let statefulJobs = statefulSchemes.iter().map(move |scheme| ParityJob {
-            name: scheme.description().name,
-            check: Box::new(move || {
-                StatefulParity::new(*scheme, settings.seed)
-                    .checkEveryCase(settings.caseCount)
-                    .map(|variationCount| Self::statefulSummary(variationCount, settings.caseCount))
-                    .map_err(|mismatch| mismatch.to_string())
-            }),
-        });
+        let statefulJobs = statefulSchemes
+            .iter()
+            .filter(|scheme| Self::skippedHeight(scheme.description().name, options).is_none())
+            .map(move |scheme| ParityJob {
+                name: scheme.description().name,
+                check: Box::new(move || {
+                    StatefulParity::new(*scheme, settings.seed)
+                        .checkEveryCase(settings.caseCount)
+                        .map(|variationCount| {
+                            Self::statefulSummary(variationCount, settings.caseCount)
+                        })
+                        .map_err(|mismatch| mismatch.to_string())
+                }),
+            });
         mechanismJobs
             .chain(schemeJobs)
             .chain(statefulJobs)
@@ -114,6 +126,42 @@ impl<'check> ParityJob<'check> {
             .clone()
             .try_for_each(case)
             .map_err(|mismatch| mismatch.to_string())
+    }
+
+    /// The height of the largest tree of a stateful set that a run skips, or `None` when the run
+    /// checks the set: its trees are lower than `largeTreeHeight`, or the options include large
+    /// trees.
+    fn skippedHeight(name: &str, options: &ParityOptions) -> Option<u32> {
+        StatefulTreeHeight::largest(name)
+            .filter(|height| *height >= Self::largeTreeHeight && !options.includesLargeTrees)
+    }
+
+    /// The lines that name the stateful sets that a run skips: each set that `--only` selects,
+    /// or every set without `--only`, whose largest tree has a height of `largeTreeHeight` or
+    /// more. With `--large-trees` the run skips none. Every shard of a run skips the same sets,
+    /// so only the first shard gives the lines, and a run in shards or processes names each
+    /// skipped set once.
+    pub fn skippedLines(
+        statefulSchemes: &[&dyn StatefulSigning],
+        options: &ParityOptions,
+    ) -> Vec<String> {
+        if options.settings.shardIndex != 0 {
+            return Vec::new();
+        }
+        statefulSchemes
+            .iter()
+            .map(|scheme| scheme.description().name)
+            .filter(|name| {
+                options.names.is_empty() || options.names.iter().any(|selected| selected == name)
+            })
+            .filter_map(|name| {
+                Self::skippedHeight(name, options).map(|height| {
+                    format!(
+                        "skip  {name} (a tree of height {height}, which --large-trees includes)"
+                    )
+                })
+            })
+            .collect()
     }
 
     /// The summary of a passed stateful job: the variations that it signed, and the remaining
