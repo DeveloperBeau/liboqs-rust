@@ -53,6 +53,7 @@ The C verification of a stateful signature reads the public key from a buffer of
 - A thread that holds an oracle and makes a second one would wait for itself. `COracle::new` panics at once with the reason.
 - An unknown name, or a name with a zero byte, gives `OQSError::operationFailed`, or `None` for a description.
 - An empty context reaches the C library as the null pointer, as `tests/test_sig.c` passes it. The liboqs wrapper of a scheme without context support refuses every other pointer, and the pointer of an empty Rust slice is not null.
+- The CROSS code verifies the whole signature of its scheme before liboqs refuses a length other than its own. A verification gives the C code a copy of a shorter signature with zeros after it, up to the signature length of the scheme, and the length of the signature itself. The other schemes read only the bytes of that length, so the zeros change nothing for them.
 - Some C algorithms keep several megabytes on the stack. The callers run each check on a thread with a large stack. See `LargeStack` in [Parity.md](Parity.md).
 
 ## Tests
@@ -63,4 +64,5 @@ The C verification of a stateful signature reads the public key from a buffer of
 - `knownAnswerRandomIsSHAKE256ForHQCAndTheNISTDRBGForOthers`: the HQC generator against the C SHAKE256 of the seed and the domain byte.
 - `sourceRandomFeedsTheCCodeInItsOwnRequests`: ML-KEM asks for 64 bytes for a key pair and 32 for an encapsulation.
 - `anEmptyContextIsTheNullContextOfTheCLibrary`: `Falcon-512` and `ML-DSA-44` sign and verify with the empty context, and `Falcon-512` refuses a context of one byte.
+- `aShortSignatureReachesTheCVerificationWithItsWholeLength`: `cross-rsdp-128-balanced` refuses copies of 0, 1 and all but one byte of a valid signature, in both forms. Without the copy, the empty signature stopped the test with a memory fault.
 - Round trips and changed inputs of a KEM, a signature scheme and a stateful scheme, the seeded forms, wrong lengths, unknown names, the second oracle on one thread, and the standard answers of the primitives.
