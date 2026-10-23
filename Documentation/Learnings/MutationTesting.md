@@ -83,3 +83,15 @@
 - **Trap.** Each mutant of a family crate builds the crate and its test programs again and runs the whole suite of the crate. On the shared development machine, other builds share the four processors.
 - **Finding.** `oqs-native-falcon` has 2486 mutants. With three jobs at a load average of about 30, each mutant took 150 to 190 seconds to build and up to 126 seconds to test, so the run would have taken about 70 hours.
 - **Rule.** Run a crate with more than a few hundred mutants in the `Mutants` workflow, whose ten shards run on runners of their own.
+
+## A coverage test reads the list that the program reads
+
+- **Trap.** A test that looks up each name of the C library with `Registry::signatureScheme` proves that the lookup finds the scheme. The parity program checks the schemes of `Registry::signatureSchemes`, which is another function.
+- **Finding.** With `signatureSchemes` replaced by an empty list, the parity program checked no signature scheme, and every test passed. The facade run of ML-DSA missed the mutant. `cNamesOutsideTheRegistry` of `AlgorithmCoverage.rs` now reads the three lists, so with the empty list the names of ML-DSA are outside the registry and the test fails.
+- **Rule.** A coverage test reads the same list as the program whose coverage it proves.
+
+## A function that only the tests call needs a test that sees it fail
+
+- **Trap.** When the program stops calling a function, the tests that still call it can all expect success. A mutant that returns success then survives.
+- **Finding.** Since the parity jobs check blocks with `checkCase`, only the harness tests call `SignatureParity::checkEveryCase`, and for a signature scheme each of them expected `Ok(())`. The mutant that returns `Ok(())` survived the ML-DSA run of `SignatureParity.rs`. `aSignatureDefectInTheBaseCaseNamesTheSnapshotField` now runs it on a broken scheme, as `aKEMDefectInTheBaseCaseNamesTheSnapshotField` does for a mechanism.
+- **Rule.** When a change moves the program off a function, check that a test still sees the function fail, or remove the function.
