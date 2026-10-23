@@ -165,12 +165,13 @@ pub(crate) fn sampledSolution(
 mod tests {
     use super::{differenceMask, echelonForm, greaterMask, nonZeroMask, sampledSolution};
     use crate::parameters::{Parameters, mayo1, mayo2, mayo3, mayo5};
-    use crate::testInputs::{digestOfBytes, inputNibbles};
+    use crate::testInputs::{digestOfBytes, inputNibbles, seed};
 
-    /// The cases of the C program: seeded matrices, and matrices with a zero column, five zero
-    /// columns, a first column that is zero in the 40 first rows, a lower half that repeats the
-    /// upper half, all zeros, three zero rows at the end, and a first column whose first entry
-    /// that is not zero is at the last row of the pivot search, row 32, or just after it.
+    /// The cases of the C program, numbered from 1: seeded matrices, and matrices with a zero
+    /// column, five zero columns, a first column that is zero in the 40 first rows, a lower half
+    /// that repeats the upper half, all zeros, three zero rows at the end, and a first column
+    /// whose first entry that is not zero is at the last row of the pivot search, row 32, or just
+    /// after it.
     const cases: [&str; 9] = [
         "random",
         "zeroColumn",
@@ -183,11 +184,18 @@ mod tests {
         "pivotPastSearch",
     ];
 
+    /// The seed of an input of a case: the input 1 is the matrix, 2 the target and 3 the
+    /// randomizer.
+    fn caseSeed(parameters: &Parameters, caseIndex: usize, input: u32) -> u32 {
+        let caseNumber = u32::try_from(caseIndex + 1).expect("a small case number");
+        seed(parameters, 100 * caseNumber + input)
+    }
+
     /// The matrix of a case, with zero rows up to a multiple of 8.
-    fn craftedMatrix(parameters: &Parameters, case: &str) -> Vec<u8> {
-        let name = parameters.description.name;
+    fn craftedMatrix(parameters: &Parameters, caseIndex: usize) -> Vec<u8> {
         let (rows, columns) = (parameters.equationCount, parameters.systemColumnCount());
-        let mut matrix = inputNibbles(name, &format!("matrix {case}"), rows * columns);
+        let case = cases[caseIndex];
+        let mut matrix = inputNibbles(caseSeed(parameters, caseIndex, 1), rows * columns);
         matrix.resize(rows.div_ceil(8) * 8 * columns, 0);
         match case {
             "zeroColumn" => (0..rows).for_each(|row| matrix[row * columns + 2] = 0),
@@ -231,58 +239,58 @@ mod tests {
             &mayo1,
             [
                 (
-                    "e5e4a167237b564bf9383be2c2dd63c6f1828e0db31c83b6514fd3c208bdc9bf",
+                    "7b6c85bac3d754c43497eb0dac83f3f241d24cab958f4332ab67e9718c2f4d69",
                     true,
-                    "be5816926d82f7b8da56ca9d5efc3825db77513476008cc3db56a0865ea0f969",
-                    "d62acfed52d892b89388f10da799be9a43ba58c38188107aa0878eddd411f038",
+                    "675f75c425544329de7e01c3ac18b2b97e99d9fd54c06cbed3bf85d064a8a8d0",
+                    "d6961d730e71f6e5fb770e1f1db9d42b372e8c8a451a18f6b00aaa3eaf621161",
                 ),
                 (
-                    "5ad02e0c1378b9c9f7d140f9f0c54f180ba2a0d07e8a333a9e08be6d0baa906a",
+                    "b2a28adf76447886250c50937a94172adacdace1ca4e8dba8bd5c97bfa041b2b",
                     true,
-                    "c7613e11ca08143cd9229925d4a6149e6c8040c26920f8eec466bb088db85f3a",
-                    "873b96e24fa273082ee7b9c53453a2c405905fa4bfb14d200928442f9a76977f",
+                    "3f93d450a35bd80a0e1b3e511cb1460993be38c2fb7bc516a01d6230228036f9",
+                    "a926013ddf5becde8358ea31ab3c06d989dfbf0c366888be2b67253a2830d1e8",
                 ),
                 (
-                    "dd0292337f868f6752b8fb9a2642249b2d633b6828c01e373480a8e15ff4a7b7",
+                    "843ec4c870a0ff38b121e198c5f7a41d63133cd78cce5bca975d96ff25b41cef",
                     false,
-                    "6025d88f775c7b8b29e92fb1e9dd440a0b66612d7a7c7af588140bd4938bc03f",
-                    "0c1ecd88c09a6956fb2e6582124f073e51da4885a83db39860aed7f9b60d2a9d",
+                    "e90baca5afb039667604b65f7c51017fa3053ffbd4cc9188e1c4a5edd1904d4e",
+                    "b7919e6d4b6cf09531eaf1459a51157244193b5d079056d8c0fbcd82bbaa4282",
                 ),
                 (
-                    "bdc1d526ae8f23a9185a6ac41f78de709317f4b05bd96dd5029a6c6a23de2954",
+                    "0fba3ec7aa8eeb051c3992d9fb69aa006a69275f1ea2356be6928548658f9c3a",
                     true,
-                    "5fcc2d0e7c4c3c8185711f79a681764c834f312107576f93b9345b585238d3d1",
-                    "e4795837a335c2ee3b302e248ccdbf288f05752d53eb315dd95a745d1319e429",
+                    "7e44450eaf43ee31dc2a7c9e7997cc087840c308729f0428b791e9ed54dc79b5",
+                    "c2fcb07eb3fd023189ae9a7dfc8144d98caa5dffd3d966bd3f4766d658de16d6",
                 ),
                 (
-                    "8a0d5d484a161ee692e3099c9f84d2a02578ff44fa8408c47d93058852e17c5d",
+                    "46ab6f4521159c51cdcd08f4ba4dee1b01c605e74ba65af265066454181303d5",
                     false,
-                    "cbf0479e976595e0b572ae52e2598c77cbca21a5eec1cabf7c8f787f02d88f18",
-                    "8f27cf714ca1c4e40486c2306238b999837ceff830a847dab44f8d9c3e6df018",
+                    "be43e1a5b093995ab09f15484d5c1a08b1c4df90621f5a8b197e46e1aa1273f8",
+                    "8462cabe81f774420265753918e7775b4623f4e249ff14b6832a6db313da7be7",
                 ),
                 (
-                    "b7f64835cd0d969d818a1b4a6e46de704092360d77914cb5edc36a94439df357",
+                    "a9ad0432d0c0af74d67e511f6139bbe9dcc344807c555ccc944195c5ecb47008",
                     false,
-                    "7248f89f8431db1fb9bc85748e7228084fd2161d2f023ba92d3d8426d3afc354",
-                    "79c2091cc044a5a7bcfea2ce5916d68b0f2f2ed9c36eec8d30ca0001f42d9a99",
+                    "d20b4915ef016de86f9b6ce1e43e5e1218b35da93686218ec44845ed9c19919b",
+                    "d7984ed0b5853884c594c2c4e89d4f4995986ec8df7c64bf79245cb6ab7ddac0",
                 ),
                 (
-                    "68c96c5d7dfcba52e0f5092f10626402a4c0fe4ec44ce63be3f85facf72cfebd",
+                    "4c9ec94ecead9e21cbc0bc1779d726076525e96a1d7e103317c157a1be2e24aa",
                     false,
-                    "58e8fafec0b507f1c187dc25d08438450adbe93c9355ab180865dcf7afff2ae4",
-                    "41591c6a4bbed89afac73d095086ba45d98f6bb670ff86f226c05975d0ce87cd",
+                    "f8febd831b4d30be6c1fa791d102c9d1cdcc07404f3ae4638bbc0c2c481ab019",
+                    "9c4b04755b8bc196365ac9f098c4aca0881342a80180ebd8fec306e1a28ad49f",
                 ),
                 (
-                    "97f85e1ec470259a61f0d03a9246824588b2a9af174c7b89890f02213ddb7ed1",
+                    "f735454a4358262bc9bf288d5bccdcf12778e981c024c1d5df7ba2692ae2cd5e",
                     true,
-                    "56e42c3888fa5f52f7f14aa92209b1f783578209bc1e90e947d2e10a1dfd27dd",
-                    "6b9d7f69dbb35308cb245aabffc8867e7a0b2df596ab6c25a2fdfa8fc776c23f",
+                    "dfe7eccc37e592dadb3b433ed8da09b6888df33f180c792277c230247fb2f721",
+                    "edc00ec87564933285404689f1e9b23a014a0b332dceba6896e58728f0188ed6",
                 ),
                 (
-                    "aae4c885771ef9e48af56e704e2b5fe6b9aeed4bba1155ed62b6b00f2c035589",
+                    "325ed574193d7a516e12a98ba7df4bf726ba0d3ee8b54de706034c458e02e854",
                     true,
-                    "1ecd06658d7dedf329841e14df0cfa80100b1f40df1bd0a40697a86d5fa3c74a",
-                    "96c18949f3510bfb79037c681cd605eb520e6f974a963694665806ebd8296841",
+                    "3062ecc351f1168f97cf797bc6198745616ebf1904e08de2d6cc71f51235986f",
+                    "204f43ffb9195a81c3ec1cd37a872c829c394f37c4e36bc3b0c2a7c2951f5cbe",
                 ),
             ],
         ),
@@ -290,58 +298,58 @@ mod tests {
             &mayo2,
             [
                 (
-                    "ba6e7877a7f509f358e92b7ebe328f17d6af50904c97fd9a28c43ad090d797ca",
+                    "97a0dc1b133fb6a055ba0b6d2707a37341a7976da3e554616bfb91b62ed65d03",
                     true,
-                    "8cee330083a557ae656c0148395524fa0fbc10f05fa4353f2c74c65ebf590902",
-                    "2f789263c4e8b013e1a17f6c5ee953052e95632091a3fe10ce36a414d3f4a299",
+                    "7e2e2852239a3be20ccdae95c8bcdd9a0b28ef88b45f53344cf1358441ed97c9",
+                    "c965b7b1aba37eebe26925d82360a3d7eea244e0d8ad0fe54033fa26af3a80ca",
                 ),
                 (
-                    "5a2de714eb7c9ad49ddec80f20370892234674de3a991ffa8cc58516b1ae72eb",
+                    "76c908c82f525748be9257d23b2df70757f21545212700c392d91cb113eeb373",
                     true,
-                    "29dadc2168dc5067d91084ed09338debc7329630082a8845d8b644eb81af4224",
-                    "1571f2ae732f258dca7abdb69a88de96f88282070fa5f201852c6743de4dad20",
+                    "174cf43e414cc7800a7d8e635a76f52347f9e8d946861e70b652379c319086d0",
+                    "7cc0b786bdbfa923793e250e9f994d27237d9c4c845c450af7022f3aac7d40c9",
                 ),
                 (
-                    "5e664348803aca2db5a759f1ced8011798b272b76f66d5a9e60cc784559794da",
+                    "19e2899b4b8126c7ba589bf1e7c4c2c6ebc4dbc0ea25da7c53adde5f550fcf8a",
                     false,
-                    "dbba005ac791b9d780d39aed89907d32013f88e31ce31332b1641a9b68a125f4",
-                    "e579779895e58911453d8ebc98ab2296efd4a9f245a24f161283a986f24487d7",
+                    "e5a35dc63419249d2724fe3c61b11a43ac0d87c7f94cdbf0d7103c124c05bdd4",
+                    "5ecea89fe4ae25dbf54c50ee02432f904ee8b62cede1f5b2493228031de9c468",
                 ),
                 (
-                    "f6e81255db47273e508ea8cfafa629b0da85e7399ff1cde34805530bdfbf361d",
+                    "910c6dc60b6598dc93f355a8a90400d588737e9dadf245c25869c4f79077ebec",
                     true,
-                    "0fe16b39db6b0a9d9f518a6359d00d6b46552c04462ae1d1e3efed44f018ba86",
-                    "05799a151031fef84a51bf7908f0edf937c453493e4c39a1380297888ba2d013",
+                    "2e2204a7f1e93418d5dd773e7bcdafbd268e92264d07ad6349e75784d5014767",
+                    "02112b8bae9c4cc54c3457780aae907ffa6bd0b30b251244e5e043c4bff01240",
                 ),
                 (
-                    "acc6e2a2d411fb2ff69be783905833cbe31e55c0b2d324fe02117da636730c43",
+                    "2ec33bb7d64b7310f0d6732d0187a7961f2162d0e16dc3b9e8a08d22721aee6b",
                     false,
-                    "8a1f5eef4764406cf4b8a70e288330f9bc07d4fe76dcfd7dc67f7be628485c0a",
-                    "091cdacaa6ecd06f099e7e7659016d18ac905c63c99f89bd0a52465147decbba",
+                    "3e3295c76eb02258bf0bb9fb1c69c2e25d2f57879bcf91f7221e1ccc598bb1ea",
+                    "be3a5a879db3ec7fbfb26c9a9b8b00e52cb89f8f128a87578301e64dca7ff949",
                 ),
                 (
-                    "85a1b228efb67e33968d00c50c423b07787140de5382a1b1ca19375c4e6d3ce5",
+                    "f6569a151e4060126aac0b8f40aaa8bfba863cbd5798c3b85edf26bd740d4ce5",
                     false,
-                    "9ddccf1cebc705bbc4169428670bdcbc8748764877c0a70c2f60b70d292032a1",
-                    "d2506b45efc0e34a964e6c526f1777b5f2179350a864f39ed92244e0a7f2815e",
+                    "b7c61258bd8654e50df62cb3de2eda7319b85def34956988ce5a4f297552611b",
+                    "3334fc7b020c147880401b0a30b7b378a1f6b1a98b8fa41f1a7d116af8fe713d",
                 ),
                 (
-                    "29eece11c9edc8be3564058755ecfcbee2871fac5caef8a6c4153b4c2951fa86",
+                    "64f14d4925ce1b93078222df5f1fa87b6de7d1207c9318a36e4301f9e83ded8b",
                     false,
-                    "382e803243859474d8ee21e82cc5184c913a447c9206b8881f090d697a9d48a3",
-                    "ce6777a5f7b6a594f0f2d069a4fa538bb6d67045b81e27682b55758eb32e9244",
+                    "fb0c30a2dcd13850390e5d07e872faece80c428c4cd155f5da1a985d21e15b2a",
+                    "8f4b7e86fdcd62b93da960624a3ac1d26f1ecf985207c6f4ed9785a5aa9a6b77",
                 ),
                 (
-                    "9429fa53c30fd6f2e7c974cab59d7b732c6de1d44431a4e5bb171a7d2b109341",
+                    "6824f14d00b3403719f2fb474452028ddf9809f548b1daf283b108249f20a260",
                     true,
-                    "3f6e8ebf2e47e6a32402f7dd4956c88ea1ddfdf142c7e768e938676811a2f251",
-                    "d30e630d9ff4ad3b98f02539261c956fe8e5b4463aca5561525a16d1d8b43a10",
+                    "c69749ef3fd645c4b4b14eda4fafd86e54466a73bc7de6711cb23bdc36a1babd",
+                    "df0449400b5d02d5306c4e6eaa4867a610e7e5f42b78538d84281d97ebd8f234",
                 ),
                 (
-                    "a4a5a37fa79cd27625e0730977eb90e35c0bfc5f7e9bba29e9027ca554c048c4",
+                    "1e9bd04715fd28933d667fa1054e2880828f951080deb41ee5e21c2661726cf3",
                     true,
-                    "823ce6b14ca059c31383f332218d8d91b1563103a1aadb1149b638b920908310",
-                    "bcd1c92be30c82102f9f9de48f7e893404c8f6ab0795311b540f63a9ad7b0ea3",
+                    "46c495f5b987c1e7317fa9687ed849139e2224afd8791a89f58cecec32c19112",
+                    "69a8967fda040e52d88c68db9408ee705e4e45132f1533b5294b1b1956bdec90",
                 ),
             ],
         ),
@@ -349,58 +357,58 @@ mod tests {
             &mayo3,
             [
                 (
-                    "a347f31b706852433b0e81192057a3048836585d9fde1d78bca143c362a67bbc",
+                    "d381f8e12fdd3aa335ac4066839d6195178a6dc6607cb5617dfee0dafbe14fe2",
                     true,
-                    "c7e9268d8c46d33a33cd993dfdb6988ed439e32b55d28b98043212095440ce16",
-                    "3902cd8797e4c3f32a2ac1e34d37738e1588719ab7ac03f7d3a1e6aa8be9ffd2",
+                    "e2aad92d2a0bfff88f6226705f16db96b6d26cf72951141292e071c033fdfbbb",
+                    "95d9b7180ef5a9730769d67b2e5da2e39703cddb06070a2dc74ff5e04ebcccce",
                 ),
                 (
-                    "660aa933753e20f52a30cd06dea309442f7f09a56340e960bd30e7dbda1b052d",
+                    "bdeeb87fd30c3522967c0bb0ac9ad9bc4553ae85afe412561b4a2c0937b7732e",
                     true,
-                    "8706b0dca78b75e93e5b7b9a2adc6d743aa09b00893eb554385e42106a9b913b",
-                    "db7f71cd2ac66cdacbd2db99ffede2496846fbbbc1b78d600584699d543d8691",
+                    "c1fad91b4e77452d82651d96fe097d453186e43912dc1e5f88aea31aa7e856f1",
+                    "c4de0dd2cd398cb43e8b2229bd599fe870a1d456dffb42904e306fb382b90cde",
                 ),
                 (
-                    "4e5d8290f897c9985bc559001a6afb19d0edc9e71beb77de1c363aed245c0055",
+                    "487a3ee990e06d47b155eee4ce5f2e4fe71998acec86abaf8ae7e23e09f1acf2",
                     false,
-                    "34045b06ab35567c62f10a30a4ca6a49356d967e93c0a73f1033f21fb30fecad",
-                    "910b1124a7b540d20fb9d7b5489fa28986ecc32b8f527b7887dc8c557484dc0e",
+                    "51f3c302efc82ae4883f54826ffca4f9fb94aa9729c88c6bd5b5e6c6212408ef",
+                    "c5ff02924a7d60dd98aaea5a78da433f88d50d3b63021ef21c9cdf8f71673bf2",
                 ),
                 (
-                    "235a52038cf8b815ef5088198543e5f3518adb63e150e5b77533635093c43145",
+                    "a6f4e0b1b875267f127817e7dc88ff65a1ae88138eba3f47b4b3f545b6e3b4ad",
                     true,
-                    "d3411ac0b4c1bb5895f039a4529763d0e950a458c32a01e2ff6b774ff28926bc",
-                    "4f428137189e2d652a2d955420b259a846401b3eeea49a5e6f4fada379675808",
+                    "2cc064d0f5c09c1f2d7bac4c90c782f96cd2d8be5dbece78370fdc77c8bd8fbd",
+                    "3d5ca06b3aaada2e78df310730b8fe1ab18d84a289737c48d3e4ede935f0884c",
                 ),
                 (
-                    "b80fb8150aa3293d4f15402f855a751954acc919523c63c953bbd2a58877372f",
+                    "6e6a84eac3f6b382cdd0ecb37017e85450af021feb27910d2a3d5e33279f78a6",
                     false,
-                    "2e33b5191718c5dc8ff12988dc2b2cfa174b13dc145690c09c440c7d77aa21de",
-                    "247e1bdd6321e1a406399321c242f51016d68a07910759bfaf07cb4784d94d10",
+                    "761abbd61b40de1c47ebac2a696da6cf90a0ce9a0fb9c633f34ef9845760eac3",
+                    "4d6c4d1ea731c838d565cce6a08691dedc8f89b01e87da14127762283831ba52",
                 ),
                 (
-                    "28e891812fd86cd379007ff5de73825db680b29b7dcca6a27c5f2e2e96b983ce",
+                    "bf8aefeae2c787c40dc17b0732af49a54d9cfccec5477a2602c531f53629a1cd",
                     false,
-                    "e26c86c15d87b2ef8853088a8cf2c4805c4b5d2254b745fa0ba57691d6bf607a",
-                    "42e741af6a6b2f613af657448f30f1e1a783fd0e5cc85861ccbac8f44dbf2242",
+                    "bf06af7b5ef9918ea855b7b8551bc0595bf0e70d0f06888fe0ae765f29bae56b",
+                    "b1bf38357dfdcd4d3855769aafa02646c81e8044514355be4a5387a30ec6433e",
                 ),
                 (
-                    "11a293c940f7f4e21ca63ded8e669728c41fa3d339cc5942908a7c28594715d2",
+                    "41deed4179b4ad79563f80a53d40e0321a3e3e8a50a129de591db1ed70d161f0",
                     false,
-                    "c865fe8ac9774a9467f2d6e8233d217c26aeec8f248b55b8925725ba0f949833",
-                    "75d25c34251919705694a801d90161378b3c0bf89460197e713a003323c29409",
+                    "620bb719f502d2dd18584573f9145bab0882d37bd8995e0b93620d262f8dc6c3",
+                    "d20d1fad9edb7a6f2f8f5333635d4076428749a7b11f6b8348e4d818c8e272fd",
                 ),
                 (
-                    "3d2dd8ce6a8032d74f2228f9bdc9a26989f6a0cda05b5de01b0902bef331ab45",
+                    "f993129c73b916956a9451e2543a8648a767e10a1f8f898be63a9b1fe1d9cbdd",
                     true,
-                    "bbdd36eb5d1843169ab87cb4a818bdd9bfbef4d39b19358e720254c3476ac4e8",
-                    "4c82cdb2fd908d2f9669bb63bc268e13b131795df0633e8e1d71def833aec20d",
+                    "d439d12a47e2fc8db4db2809eeb53b57c940d4848b1f55baefa439e35397642c",
+                    "a607e5d329f53d8ab53742a0c1d3487a485ba50347365f35c67cec1903f3e390",
                 ),
                 (
-                    "83641f0a7b396ab58d1e459c6c4d19839137ed754da400aba9397b0c71d0a67e",
+                    "707084d314deec56253626146d42d5db3efe31ca6d4d8eb21d4657923ffbf88f",
                     true,
-                    "4af209095d29406eb3319bcc1ecd8c1cc15968dbb95a2101266bc0336bdb5795",
-                    "592cf095b6f74bf8134d66c1d00a103459e5aff5241b5402cdedf1c31d13cea2",
+                    "d5d1457dad7f0144c444c8a44919efae54d2402ec1679adbeaa0b310fc733e29",
+                    "8a6378e3a9c758acb2c42a774915b4c79bd00d7d0a8f99a11deda3d9824f6788",
                 ),
             ],
         ),
@@ -408,58 +416,58 @@ mod tests {
             &mayo5,
             [
                 (
-                    "305806a087ff6b7688b689738d251962cb795e51d286260a6f31136eaad15188",
+                    "1ce86dbe9775eef4c887aa8c8b9446171284594561df4392898b59494bfc221d",
                     true,
-                    "c61739e8f692edbcb7d34945436e6c1e100086dff21a6f6811effc2bbad3299f",
-                    "5c3bd8d7d7e7b87e1e6a913db9ffb65caaab4586f177c1ce0181298fbb265dc7",
+                    "1777c6e90db83e3837bfb26069325b5fd9d871590ba1e8ac313f43e000cb9eb6",
+                    "9851df24f12e27fc904d68c790419ee9e33c4f415c41ddf914c2d0376e25a51b",
                 ),
                 (
-                    "306685edfc28676df5524cb6ec8112566e404992caf6964dcacfb5efa8f0f2c4",
+                    "f60907620b657dd9bec305ca7a6c7f89d93dddab5e9e7aeb3eb31431b0493e26",
                     true,
-                    "02a47b7ae93480f155beb2d715e035f5244328417521061893e1c441a8c1e99d",
-                    "9844f5e4e6ac4e4b4deed543ff8a082974182f86e2688e0cad60301b8a48764f",
+                    "bed4a2052968c73cd69df0ec98c05b549284e605f7020474f1d97acc0a4b4f89",
+                    "3c44ca5e47673163b23ffb3d02ad58a9d9548db47e809f3a8d218cf546bba264",
                 ),
                 (
-                    "c1cd7dc9c10121a6c972f131d2f5b748275b2d8a22beec872b8390d0753758c5",
+                    "f77d975183bd4cc67c84fda5de31ae20564f648b754a63b579570126b7e7a583",
                     false,
-                    "0d658ac5b8960ecf4336d07d372d7e025f805cd9c6d59d0e77d5b38c9e8f12e2",
-                    "5442e89e92825b00dc363cbae2a0c67f4647703f268910c6545177a8d81b4d4d",
+                    "ba586825849042e7cc58b6455899d38d90deb9483203377ef66486cce6d935c8",
+                    "a3114e60b8496579827c5333df9f18870facfaa7c9a424ce84cd4978a3741c49",
                 ),
                 (
-                    "b1742dbbb8123c465cd0e42d1ab647f9e8431d9430ed1ff5050c9c30627a4f56",
+                    "0aad9cf1942053c6a82fcc6b3d579a23664b231c6e12c1ba6b6a922641c6ba8a",
                     true,
-                    "fd0f862143bbf505d36f60df055fd3301bdd86f2c23b8dab230875af3a23cf3a",
-                    "5afd7135877834756c04be27ee29ae5f9bfbdd972ce07e3260e5545d1b954ad7",
+                    "39924df15feb45238d88bd872a24ed483f9985ef88dba4dc08c79567caa65763",
+                    "c1f405a88fc31de12db6c830673f89dde39279e7c79b3702fb32288689cf71f2",
                 ),
                 (
-                    "0abed12800f10d628fa5990e47ac2f4b8503d4b098f18d48852d3ac5d613619d",
+                    "5b61a83603985d2a47fb6ea26d72d32a7b136fc44fd41b0ba32623291c9fe055",
                     false,
-                    "e7d535dddbd1b2d3ee36a850ae53f68d50b81b7af74326a35b1d2d96a4485f45",
-                    "e33fa5a123530e5fa50afbcc948ac973ddc74a52cf1bcea888d0d7fe7097c866",
+                    "74ac3dfe9b09952144715faf8e41ccd29bae49793a24536bd25cf0dd87fa91ae",
+                    "c09a7733c41abd2a6a628670bdbf862a82e728b219b38ec0e1982ef35791635a",
                 ),
                 (
-                    "0d66a6e8c57aaa2907c642adfc56597fcea0ee3a8db9817af19651af59d863a9",
+                    "876abb60441fa9a318b4bbd1964365ae99ec7234b301fefa4294e7a1a03b6d9e",
                     false,
-                    "05f04c88ef2eca23a7ebd3fe9eabec0a2752d67612d3020b4bd55530e6829797",
-                    "dd2a709f2aea81925c2ed09ae1f2aa9c949f9716e2fd6bb7a808a23fe4469e19",
+                    "2d8b1eca89c450a0a81ca74b1d7e03ea92a050025390ee880efd3374b5ac3ed7",
+                    "eb9d03ca6a4d33374b645a8d90b6898906b77d635cb02cd096e8cc6c0d395adb",
                 ),
                 (
-                    "372fdd93c805dec33bb4a25f5c6c38d3742a036911da5b009db5e3a6a8b064dd",
+                    "896552a30f5652158450de5095ae349cfd9fa536f27c16b99594f14ce8a5965d",
                     false,
-                    "1e119a7c0d32f63ee3b844c3e33a5ca6f849e50c070b1e08a4ae4d849e4b72e3",
-                    "f2eeebcee5dce7909b0828150b7287eadb15a1810835cec73ba4c5209f4a504d",
+                    "41bee50a216cd885af04cb203c0723bea75735b23b414aa9f57bdf20d9ead233",
+                    "8818ece5109bcf3f5023f9ce14f04b56af77c2f3653d57f4ee081ef82534277b",
                 ),
                 (
-                    "63875a3049bb2b90a1e1d55c21fcc44f2e13f1c28a8662224b430e3b86ff4701",
+                    "1766ce9d5da91b0a3435ca394c8bbf1de060ae27f1508387371dfa31661e6c99",
                     true,
-                    "8132056e0c6abfae9b0d431e60481a56b717e25aa6a43ca87237c11009dfd1ef",
-                    "ca635d2e66b6c861b97eb24c8b992ec1175339f6f3c548b07664b3027a7a70c0",
+                    "1fc194bc58c57ef1c570661913c22eb294aee0a64216caba2f48e18f1f473bdc",
+                    "a0b4ca3d32019c139feab743339f9d37260314b9239998d87c12507877a6a416",
                 ),
                 (
-                    "8b91f6c270c72213bc782c31fc8d0a03c3fc3d91091dd3811271abbaa4ef42ee",
+                    "17a696ad8a9afc94731e45cfad01a9641cc39d8bbb51eb6929aece4f99b6db5c",
                     true,
-                    "39b6ec55e1d5d52586b5a4324fe9d6af85fb5b22e4a27703dea56253be3c14b1",
-                    "0419d3f62c10b984ce76430b59fc49570299c343268ccb800042cf5d362bec83",
+                    "1195a4f0f9868a5a8bdb815d940d23f7e730f970d6d0936c6d3313be8f2adcf9",
+                    "26c6fcd34aa3eba6a183dbd934a05c6393d2fa69da8a11c2e6ab310813d58442",
                 ),
             ],
         ),
@@ -470,13 +478,14 @@ mod tests {
         for (parameters, answers) in knownAnswers {
             let name = parameters.description.name;
             let (rows, columns) = (parameters.equationCount, parameters.systemColumnCount());
-            for (case, answer) in cases.iter().zip(answers) {
-                let mut matrix = craftedMatrix(parameters, case);
+            for (caseIndex, (case, answer)) in cases.iter().zip(answers).enumerate() {
+                let mut matrix = craftedMatrix(parameters, caseIndex);
                 echelonForm(&mut matrix[..rows * columns], rows, columns);
                 assert_eq!(
                     digestOfBytes(&matrix[..rows * columns]),
                     answer.0,
-                    "{name}, {case}"
+                    "{name}, {case}, seed {}",
+                    caseSeed(parameters, caseIndex, 1)
                 );
             }
         }
@@ -487,15 +496,11 @@ mod tests {
         for (parameters, answers) in knownAnswers {
             let name = parameters.description.name;
             let unknownCount = parameters.vectorCount * parameters.oilCount;
-            for (case, answer) in cases.iter().zip(answers) {
-                let mut matrix = craftedMatrix(parameters, case);
-                let target = inputNibbles(
-                    name,
-                    &format!("solution y {case}"),
-                    parameters.equationCount,
-                );
-                let mut randomizer =
-                    inputNibbles(name, &format!("solution r {case}"), unknownCount);
+            for (caseIndex, (case, answer)) in cases.iter().zip(answers).enumerate() {
+                let seeds = [1, 2, 3].map(|input| caseSeed(parameters, caseIndex, input));
+                let mut matrix = craftedMatrix(parameters, caseIndex);
+                let target = inputNibbles(seeds[1], parameters.equationCount);
+                let mut randomizer = inputNibbles(seeds[2], unknownCount);
                 randomizer.push(0);
                 let solution = sampledSolution(
                     &mut matrix,
@@ -504,11 +509,19 @@ mod tests {
                     unknownCount,
                     parameters.equationCount,
                 );
-                assert_eq!(solution.is_some(), answer.1, "{name}, {case}");
+                assert_eq!(solution.is_some(), answer.1, "{name}, {case}, {seeds:?}");
                 // The C program prints the randomizer as the solution when none is found.
                 let solution = solution.unwrap_or(randomizer);
-                assert_eq!(digestOfBytes(&solution), answer.2, "{name}, {case}");
-                assert_eq!(digestOfBytes(&matrix), answer.3, "{name}, {case}");
+                assert_eq!(
+                    digestOfBytes(&solution),
+                    answer.2,
+                    "{name}, {case}, {seeds:?}"
+                );
+                assert_eq!(
+                    digestOfBytes(&matrix),
+                    answer.3,
+                    "{name}, {case}, {seeds:?}"
+                );
             }
         }
     }
