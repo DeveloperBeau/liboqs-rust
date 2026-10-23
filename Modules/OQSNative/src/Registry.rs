@@ -1,5 +1,6 @@
 use OQSNativeBIKE::BIKE;
 use OQSNativeCROSS::CROSS;
+use OQSNativeClassicMcEliece::ClassicMcEliece;
 use OQSNativeDomain::{KeyEncapsulating, Signing, StatefulSigning};
 use OQSNativeFalcon::Falcon;
 use OQSNativeFrodoKEM::FrodoKEM;
@@ -24,6 +25,16 @@ const mechanisms: &[&dyn KeyEncapsulating] = &[
     &BIKE::bikeL1,
     &BIKE::bikeL3,
     &BIKE::bikeL5,
+    &ClassicMcEliece::classicMcEliece348864,
+    &ClassicMcEliece::classicMcEliece348864f,
+    &ClassicMcEliece::classicMcEliece460896,
+    &ClassicMcEliece::classicMcEliece460896f,
+    &ClassicMcEliece::classicMcEliece6688128,
+    &ClassicMcEliece::classicMcEliece6688128f,
+    &ClassicMcEliece::classicMcEliece6960119,
+    &ClassicMcEliece::classicMcEliece6960119f,
+    &ClassicMcEliece::classicMcEliece8192128,
+    &ClassicMcEliece::classicMcEliece8192128f,
     &HQC::hqc1,
     &HQC::hqc3,
     &HQC::hqc5,

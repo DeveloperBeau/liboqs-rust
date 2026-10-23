@@ -19,6 +19,7 @@ Each page describes one subsystem as the code is today: its purpose, its crates,
 | [BIKE.md](BIKE.md) | BIKE | Yes |
 | [NTRU.md](NTRU.md) | NTRU-HPS and NTRU-HRSS | Yes |
 | [NTRUPrime.md](NTRUPrime.md) | Streamlined NTRU Prime, sntrup761 | Yes |
+| [ClassicMcEliece.md](ClassicMcEliece.md) | Classic McEliece | Yes |
 | [MLDSA.md](MLDSA.md) | ML-DSA | Yes |
 | [Falcon.md](Falcon.md) | Falcon | Yes |
 | [MAYO.md](MAYO.md) | MAYO | Yes |

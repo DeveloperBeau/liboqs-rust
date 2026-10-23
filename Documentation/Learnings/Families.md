@@ -106,7 +106,7 @@
 
 - Trap: the correctness test of a lattice signature takes minutes in the `dev` profile, although the code of the family is fast.
 - Finding: `SignatureCorrectnessTest` took 93 seconds on one thread for the three ML-DSA sets at the optimization level 1. A probe found the time in SHA-3: the SHAKE128 sampling of one matrix polynomial took 27 microseconds, and one NTT 2 microseconds. At the level 3, SHAKE was seven to nine times faster, and the NTT changed little. A signature of SLH-DSA-SHAKE-128s, which calls the permutation about two million times, took 13 seconds at the level 1, 1.3 seconds with `oqs-native-sha3` at the level 3, and 1.0 seconds in a release build.
-- Rule: the `dev` profile builds `oqs-native-sha3` with `opt-level = 3` and every other crate with level 1. The override changes only the optimization, so the overflow checks and the debug assertions stay on. The same test now takes 18.5 seconds on one thread. Measure a new family in both profiles before you plan its tests.
+- Rule: the `dev` profile builds `oqs-native-sha3` with `opt-level = 3`, and the other crates with level 1 unless the workspace manifest names them. The override changes only the optimization, so the overflow checks and the debug assertions stay on. The same test now takes 18.5 seconds on one thread. Measure a new family in both profiles before you plan its tests.
 
 ## A refused case that breaks two rules cannot see the loss of one
 
@@ -329,3 +329,33 @@
 - Trap: a check of a test against deliberately wrong code copies a source file, changes it, runs the tests and moves the copy back. Cargo can keep the test binary of the wrong code, so a later run of the package fails on code that is right, or passes on code that is no longer there.
 - Finding: the copy of `PublicMap.rs` kept the time at which it was made, 0.3 seconds before cargo started the build of the wrong offset. After the copy moved back, the file was older than that build, so cargo kept the unit test binary of the wrong offset. `cargo test -p oqs-native-snova` then failed two known answers of `SNOVA_37_17_2` on the restored code, while `cargo test --workspace`, which builds another binary with the features of the workspace, passed.
 - Rule: give a restored file a new modification time, for example with `touch`, and run the tests of the package again after each check against wrong code.
+
+## A store of the C code can keep the old bits of a promoted byte
+
+- Trap: a port of the pivot search of Classic McEliece that writes the moved window back as 64 clean bits differs from the C library for some keys of 6960119f.
+- Finding: `mov_columns` of 6960119f writes the first byte of the window as `(tmp[0] << tail) | mat[i][block_idx] << (8 - tail) >> (8 - tail)`. C promotes the byte to `int`, so the two shifts keep the whole old byte, and the first five bits of the window become the or of the old and the moved bits. A key takes this path only when a pivot of the window leaves the diagonal in its first five columns, about once in `2^27` keys, so the known answers and the parity variations never see it. The C function, copied into a test program, gave the digest of the port on a matrix with two zero columns at the start of the window, and a port with a clean store failed the test.
+- Rule: read each shift of the C code with the promotion rules of C, also where the intent of the code looks clear. A path that random inputs do not reach takes its known answer from the C function, copied into a test program when the function is `static`.
+
+## A sampler that retries never ends with constant random bytes
+
+- Trap: the fuzz case 0 of `KEMFuzzTest` gives only the bytes 0x00 and the case 1 only the bytes 0xFF, and the encapsulation of Classic McEliece never ends with them.
+- Finding: the bytes 0x00 give `t` equal positions, and the bytes 0xFF give values of all ones, which lie at or above `n` or repeat, so every attempt of `gen_e` fails, also in the C code. A counting source repeats its bytes every 256 bytes, and the first test of the random requests of the encapsulation hung for the same reason.
+- Rule: a family whose sampler retries until its random bytes are valid runs `KEMFuzzTest::runCases` from case 2, and its tests of the random requests draw seeded bytes.
+
+## A rejection test with a valid key cannot choose the check that refuses it
+
+- Trap: the decoder of Classic McEliece refuses a changed ciphertext of a valid key pair, but the test cannot tell which check refused it, so it cannot see the loss of one check or an exclusive or in the fold of the checks.
+- Finding: a secret key with control bits of zero has the support `L_i = bitrev(i)`, with the element 0 at place 0, and the Goppa polynomial `y^t + 1` sees every place below `m t`. With `w` errors below `t`, the locator is `x^(t - w)` times the locator of the errors, so the decoder adds the place 0. Then `t - 1` errors with place 0 fail the weight check alone, `t - 1` errors without it fail the syndrome check alone, and `t - 2` errors without it under `y^t + c` with `1 / c^2 = (t - 1) xor t` fail both with the same bits. Each of three defects, no weight, no syndrome and an exclusive or in the fold, failed its own test, and the C library gave each decision.
+- Rule: the rejection tests of a decoder build their inputs from a key whose decoding is known by hand, so that each test breaks one check. The two changes of the fold test change the same bits of two values of the fold, here the weight difference and one 16-bit value of the double syndrome.
+
+## A file restored from an older copy keeps the build of the defect
+
+- Trap: a run of deliberately wrong code that moves a copy of the file back leaves the file with the time of the copy, which is older than the last build, so Cargo keeps the build of the defect.
+- Finding: after the defect runs of the decapsulation of Classic McEliece, the fuzz test refused a ciphertext that the C library accepted. The library still held the last defect, a swapped mask of the shared secret. The tests passed again after the files were touched.
+- Rule: a defect run restores the file with a new time, by writing its bytes or by touching it, and the tests run again on a clean build after the last defect.
+
+## The key pairs of a code-based family dominate the dev profile
+
+- Trap: the tests of Classic McEliece and the parity tests make dozens of key pairs, and each takes seconds at the first optimization level.
+- Finding: one key pair, encapsulation and decapsulation of each of the ten sets took 20 seconds in the dev profile at level 1 and 10.5 seconds at level 3, with the same seeds. A key pair spends its time in the Gaussian elimination over a matrix of up to 1.7 MB and in the sorting networks of the control bits. The decapsulation computed the factors `1 / g(L_i)^2` once for each of its two double syndromes, and computing them once halved its time.
+- Rule: the dev profile builds `oqs-native-classic-mceliece` at the third level, as it builds `oqs-native-sha3`. The override changes only the optimization, so the overflow checks and the debug assertions stay on.

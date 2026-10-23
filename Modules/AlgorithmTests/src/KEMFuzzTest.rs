@@ -4,6 +4,7 @@ use OQSNativeEntities::OQSError;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec;
+use core::ops::Range;
 
 /// The fuzz program of liboqs for KEMs, `tests/fuzz_test_kem.c`, on a Rust mechanism, with
 /// seeded cases in place of the inputs of the fuzzer, and with hostile inputs.
@@ -24,12 +25,14 @@ impl KEMFuzzTest {
     /// Runs a range of cases from a seed. Returns the first failure, with the case and the
     /// seed.
     ///
-    /// A mechanism whose key pair of the constant bytes of the cases 0 and 1 cannot
-    /// decapsulate, as in its C code, runs the seeded cases from 2 up.
+    /// A mechanism that cannot run the constant bytes 0x00 of case 0 and 0xFF of case 1, as in
+    /// its C code, runs the seeded cases from 2 up. The key pair of NTRU then cannot
+    /// decapsulate, and the encapsulation of Classic McEliece, which draws random bytes until
+    /// they give a valid value, never ends.
     pub fn runCases(
         mechanism: &dyn KeyEncapsulating,
         seed: u64,
-        cases: core::ops::Range<u64>,
+        cases: Range<u64>,
     ) -> Result<(), String> {
         let description = mechanism.description();
         let name = description.name;

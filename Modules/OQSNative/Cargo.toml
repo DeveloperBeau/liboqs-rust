@@ -18,6 +18,7 @@ path = "src/lib.rs"
 [dependencies]
 oqs-native-bike = { path = "../BIKE", default-features = false }
 oqs-native-cross = { path = "../CROSS", default-features = false }
+oqs-native-classic-mceliece = { path = "../ClassicMcEliece", default-features = false }
 oqs-native-domain = { path = "../Domain", default-features = false }
 oqs-native-entities = { path = "../Entities", default-features = false }
 oqs-native-falcon = { path = "../Falcon", default-features = false }
@@ -39,6 +40,7 @@ default = ["std"]
 std = [
     "oqs-native-bike/std",
     "oqs-native-cross/std",
+    "oqs-native-classic-mceliece/std",
     "oqs-native-domain/std",
     "oqs-native-entities/std",
     "oqs-native-falcon/std",
