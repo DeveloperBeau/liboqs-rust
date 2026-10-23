@@ -4,26 +4,27 @@
 //! of liboqs 0.16.0, such as `PQCLEAN_CROSSRSDP128BALANCED_CLEAN_tree_proof`, with the same
 //! inputs. The program is not part of the repository.
 
-use OQSNativeSHA3::SHAKE128;
+use OQSNativeAlgorithmTests::{LinearCongruentialSequence, OutputDigest};
 use alloc::string::String;
 use alloc::vec::Vec;
 
-/// The seeded sequence of the C program: the state takes `state * 1103515245 + 12345` modulo
-/// `2^32`, and each value is the high 16 bits of the state modulo a bound.
+/// The values of the seeded sequence of the C program: each value is the high 16 bits of the
+/// next state modulo a bound.
 pub(crate) struct SeededSequence {
-    state: u32,
+    sequence: LinearCongruentialSequence,
 }
 
 impl SeededSequence {
     /// Makes the sequence of a seed.
     pub(crate) fn new(seed: u32) -> Self {
-        SeededSequence { state: seed }
+        SeededSequence {
+            sequence: LinearCongruentialSequence::new(seed),
+        }
     }
 
     /// The next value below a bound.
     pub(crate) fn next(&mut self, bound: u32) -> u32 {
-        self.state = self.state.wrapping_mul(1_103_515_245).wrapping_add(12_345);
-        (self.state >> 16) % bound
+        (self.sequence.nextState() >> 16) % bound
     }
 
     /// The next values below a bound.
@@ -37,24 +38,16 @@ impl SeededSequence {
     }
 }
 
-/// The first 16 bytes of the SHAKE128 of some bytes in lower-case hexadecimal, the digest that
-/// the C program printed.
-pub(crate) fn shortDigest(bytes: &[u8]) -> String {
-    let mut digest = [0u8; 16];
-    SHAKE128::hash(bytes, &mut digest);
-    hexadecimal(&digest)
-}
-
 /// The digest of values as 16-bit words, low byte first, as the C program printed unpacked
 /// vectors.
 pub(crate) fn wordsDigest(values: impl Iterator<Item = u32>) -> String {
     let bytes: Vec<u8> = values
         .flat_map(|value| (value as u16).to_le_bytes())
         .collect();
-    shortDigest(&bytes)
+    OutputDigest::of(&bytes)
 }
 
-/// Bytes in lower-case hexadecimal.
+/// Bytes in lower-case hexadecimal, as the C program printed a Merkle root.
 pub(crate) fn hexadecimal(bytes: &[u8]) -> String {
     bytes
         .iter()
