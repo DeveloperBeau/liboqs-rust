@@ -291,6 +291,43 @@ SOFTWARE.
 - Copyright (c) 2024 SandboxAQ. License: CC0-1.0 AND (Apache-2.0 OR MIT), in the `LICENSE` file of `src/sig_stfl/xmss` and in the `SPDX-License-Identifier: (Apache-2.0 OR MIT) AND CC0-1.0` line of each file, the liboqs wrappers included. The reference implementation of Hülsing and Rijneveld is under the CC0 1.0 Universal Public Domain Dedication.
 - Use in this repository: `Modules/XMSS` translates that code and the wrappers into Rust, and gives their bytes. The port is under MIT, and the `license` field of the crate states the combined expression `MIT AND (Apache-2.0 OR MIT) AND CC0-1.0`.
 
+## LMS
+
+- Algorithm: LMS, the Leighton-Micali hash-based signatures, and HSS, its hierarchical signature system, by David McGrew, Michael Curcio and Scott Fluhrer, RFC 8554. NIST SP 800-208 approves both. See https://www.rfc-editor.org/info/rfc8554.
+- LMS in liboqs: the hash-sigs code of Cisco, [cisco/hash-sigs](https://github.com/cisco/hash-sigs), in `src/sig_stfl/lms/external`, with the liboqs patches. liboqs names Scott Fluhrer as its principal submitter, and C Martin and Maurice Hieronymus as its auxiliary submitters. liboqs names no commit. The liboqs wrappers `src/sig_stfl/lms/sig_stfl_lms.c` and `sig_stfl_lms_functions.c` are MIT, as liboqs is.
+- Copyright (c) 2017 Cisco Systems, Inc. License: the BSD 3-clause license in `license.txt` of that folder, which follows. liboqs adds the line `SPDX-License-Identifier: MIT` to each file of the folder, and `docs/algorithms/sig_stfl/lms.yml` names MIT. The license file of the copyright holder gives the BSD 3-clause terms, so the crate states both licenses.
+- Use in this repository: `Modules/LMS` translates the C code and gives its bytes. The port is under MIT, and the `license` field of the crate states the combined expression `MIT AND BSD-3-Clause`.
+
+```text
+Copyright (c) 2017 Cisco Systems, Inc.  All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+Redistributions of source code must retain the above copyright
+  notice, this list of conditions and the following disclaimer.
+Redistributions in binary form must reproduce the above
+  copyright notice, this list of conditions and the following
+  disclaimer in the documentation and/or other materials provided
+  with the distribution.
+Neither the name of the Cisco Systems, Inc. nor the names of its
+  contributors may be used to endorse or promote products derived
+  from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
 ## Test vectors
 
 - [NIST ACVP-Server](https://github.com/usnistgov/ACVP-Server), tag `v1.1.0.41`: the ML-KEM, ML-DSA and SLH-DSA vectors. Works of the United States government are not subject to copyright in the United States.

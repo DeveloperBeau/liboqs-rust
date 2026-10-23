@@ -431,3 +431,21 @@
 - Trap: a forged state that should make the merges of `bds_state_update` reach a given height cannot keep its stack levels in the levels array. The new leaf and the merged nodes overwrite them.
 - Finding: a merge at the height h of the tree needs h + 1 levels below the new leaf, so the leaf goes to slot h + 1 of a stack of h + 1 nodes. That slot is the stack offset and the stack levels of the key, so the leaf replaces the levels before the merges read them. The CI run of `oqs-native-xmss` missed the mutant of the refusal of such a merge.
 - Rule: give the forged state a stack offset so far past the stack that the levels that the merges read are bytes of the authentication path, and the slots of the leaf and of the merged nodes come after them. The test names both ranges. In the state of the next tree of the lowest layer of XMSSMT-SHA2_20/4_256 the offset 13 reads the levels at bytes 203 to 209 of the state and writes from byte 256 on.
+
+## hash-sigs reads the parameter set from the key
+
+- Trap: a port that signs and verifies with the parameter set of the scheme differs from the C library for a key or a public key of another set.
+- Finding: the C library signed a fresh key of `LMS_SHA256_H5_W8` under the names `LMS_SHA256_H5_W1` and `LMS_SHA256_H5_W8_H5_W8` with the same signature of 1296 bytes as under its own name. Its verification under `LMS_SHA256_H5_W1` accepted a signature of `LMS_SHA256_H5_W8_H5_W8`.
+- Rule: the port reads the levels of a key from its private key, and the levels of a verification from the public key and the signature. The name of the scheme decides only the key pair, the description and the largest signature that fits the C buffer.
+
+## A guard against a value that fails anyway needs the value that breaks the arithmetic
+
+- Trap: the check of the leaf index of an LMS signature against `2^h` had no test that failed without it.
+- Finding: a wrong index gives a wrong root, so the verdict is false with or without the check. With the check removed, every test passed until a test gave the index `2^32 - 1`, whose node number overflows `u32`, so the test build panicked.
+- Rule: the test of a guard that only protects the arithmetic takes the extreme values, so that the overflow checks of the test build see a missing guard.
+
+## A hash that copies each byte on its own is slower than the C code
+
+- Trap: LMS hashes millions of inputs of 55 bytes for one tree, so the port of a key pair was slower than the C code with the shared SHA-256.
+- Finding: 10 million hashes of 55 bytes took 5.3 to 5.8 s with the byte loop of `SHA256::absorb`, 4.0 to 4.2 s with copies of whole pieces, and 4.0 to 5.2 s in the C code, on the same busy machine.
+- Rule: a shared hash function copies whole pieces of its input. A family that hashes short inputs measures the shared function on its own input size against the C code.

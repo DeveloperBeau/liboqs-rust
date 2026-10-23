@@ -23,6 +23,7 @@ pub use OQSNativeEntities::{
 pub use OQSNativeFalcon::Falcon;
 pub use OQSNativeFrodoKEM::FrodoKEM;
 pub use OQSNativeHQC::HQC;
+pub use OQSNativeLMS::{LMS, LMSWorkingKey};
 pub use OQSNativeMAYO::MAYO;
 pub use OQSNativeMLDSA::{MLDSA, PreHashAlgorithm};
 pub use OQSNativeMLKEM::{Kyber, MLKEM};
