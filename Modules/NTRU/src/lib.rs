@@ -30,8 +30,6 @@ mod polynomialRing;
 mod publicKeyEncryption;
 #[path = "Sampler.rs"]
 mod sampler;
-#[path = "SortingNetwork.rs"]
-mod sortingNetwork;
 #[path = "Variant.rs"]
 mod variant;
 
@@ -44,7 +42,6 @@ use polynomialMultiplication::PolynomialMultiplication;
 use polynomialRing::PolynomialRing;
 use publicKeyEncryption::PublicKeyEncryption;
 use sampler::Sampler;
-use sortingNetwork::SortingNetwork;
 use variant::Variant;
 
 #[cfg(test)]

@@ -1,6 +1,7 @@
-use crate::{Parameters, SortingNetwork};
+use crate::Parameters;
 use OQSNativeDomain::RandomGenerating;
 use OQSNativeEntities::SecretBytes;
+use OQSNativeSortingNetwork::SortingNetwork;
 use alloc::vec::Vec;
 
 /// The random small polynomials of `sntrup761.c`: `Small_random`, `Short_random` and
@@ -69,7 +70,7 @@ impl<'parameters> Sampler<'parameters> {
                 }
             })
             .collect();
-        SortingNetwork::sort(&mut marked);
+        SortingNetwork::sortUnsigned(&mut marked);
         marked.iter().map(|word| (word & 3) as i8 - 1).collect()
     }
 }

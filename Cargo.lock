@@ -152,6 +152,7 @@ dependencies = [
  "oqs-native-entities",
  "oqs-native-kat-random",
  "oqs-native-sha3",
+ "oqs-native-sorting-network",
 ]
 
 [[package]]
@@ -163,6 +164,7 @@ dependencies = [
  "oqs-native-entities",
  "oqs-native-kat-random",
  "oqs-native-sha2",
+ "oqs-native-sorting-network",
 ]
 
 [[package]]
@@ -186,6 +188,10 @@ version = "0.16.0"
 
 [[package]]
 name = "oqs-native-sha3"
+version = "0.16.0"
+
+[[package]]
+name = "oqs-native-sorting-network"
 version = "0.16.0"
 
 [[package]]
