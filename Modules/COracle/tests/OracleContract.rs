@@ -560,6 +560,21 @@ fn primitivesGiveTheirStandardAnswers() {
         oracle.aes256ECB(&key256, &plaintext),
         hex("8ea2b7ca516745bfeafc49904b496089")
     );
+    // The vector of block length 256 and key length 256 of the Rijndael vector set of Brian
+    // Gladman, twice, so the loop of the shim reaches its second block.
+    let rijndaelKey: [u8; 32] =
+        hex("2b7e151628aed2a6abf7158809cf4f3c762e7160f38b4da56a784d9045190cfe")
+            .try_into()
+            .expect("32 bytes");
+    let rijndaelBlock = hex("3243f6a8885a308d313198a2e03707344a4093822299f31d0082efa98ec4e6c8");
+    let rijndaelEncrypted = hex("a49406115dfb30a40418aafa4869b7c6a886ff31602a7dd19c889dc64f7e4e7a");
+    assert_eq!(
+        oracle.rijndael256ECB(
+            &rijndaelKey,
+            &[rijndaelBlock.clone(), rijndaelBlock].concat()
+        ),
+        [rijndaelEncrypted.clone(), rijndaelEncrypted].concat()
+    );
     // NIST SP 800-38A, F.5.1 and F.5.5: the first block of CTR-AES128 and CTR-AES256.
     let counterBlock = hex("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff");
     let block = hex("6bc1bee22e409f96e93d7e117393172a");
