@@ -29,6 +29,7 @@ oqs-native-ml-kem = { path = "../MLKEM", default-features = false }
 oqs-native-ntru = { path = "../NTRU", default-features = false }
 oqs-native-ntru-prime = { path = "../NTRUPrime", default-features = false }
 oqs-native-slh-dsa = { path = "../SLHDSA", default-features = false }
+oqs-native-snova = { path = "../SNOVA", default-features = false }
 oqs-native-system-random = { path = "../SystemRandom", optional = true }
 oqs-native-uov = { path = "../UOV", default-features = false }
 
@@ -50,6 +51,7 @@ std = [
     "oqs-native-ntru-prime/std",
     "oqs-native-slh-dsa/std",
     "oqs-native-uov/std",
+    "oqs-native-snova/std",
     "dep:oqs-native-system-random",
 ]
 

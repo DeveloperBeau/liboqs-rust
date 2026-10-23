@@ -269,3 +269,39 @@
 - Trap: a test of the UOV sets with a compressed public key spends its time in the expansion of P1 and P2, and an override of the optimization level of AES looks like the fix.
 - Finding: the 102 verifications of `SignatureCorrectnessTest` for OV-V-pkc expand 2.4 MB with AES each. They took 2.5 seconds of processor time in the dev profile, and 2.1 seconds with `opt-level = 3` for `oqs-native-aes`. The bitsliced AES is straight-line code, which the first level already compiles well.
 - Rule: measure an override of the optimization level before you add it. The workspace keeps AES at the level of the dev profile.
+
+## The parameters of a family can live in the build system
+
+- Trap: a port that takes the numbers of each set from the headers of its folder ports one set twelve times.
+- Finding: the twelve folders `src/sig/snova/snova_SNOVA_<set>_opt` of liboqs are the same byte for byte. Their `params.h` holds the defaults v = 24, o = 5 and l = 4, and the sets differ only in the compile definitions of `src/sig/snova/CMakeLists.txt`, such as `-Dv_SNOVA=37 -Do_SNOVA=17 -Dl_SNOVA=2 -Dsk_is_seed=1 -DPK_EXPAND_SHAKE=0`. `compile_commands.json` of the oracle build shows the definitions that the C compiler got, among them `OPTIMISATION=1`, which picks the portable code.
+- Rule: compare the folders of a family before porting them one by one, and take the parameters of each set from the compile definitions of the oracle build.
+
+## An overflow check keeps a loop of the test build from vectorizing
+
+- Trap: a higher optimization level for the slow crate of a family does not make its tests faster.
+- Finding: the verification of `SNOVA_60_10_4` took about 52 ms of processor time in the test build, at the optimization level 1 and at level 3 alike. The dev profile checks each product of two `u32` values for overflow, and the check stops the loop vectorizer. With both factors stored in 16 bits and widened to 32 bits, the product cannot overflow, so the compiler drops the check: the verification took about 30 ms at level 1 and 18 ms at level 3. The products are the same, so the bytes are the same.
+- Rule: in a hot loop, give the factors types whose product cannot overflow the type of the result, such as two `u16` values widened to `u32`, as `FieldArithmetic::spreadProduct` does. Do not use a wrapping operation where the C code does not wrap. Measure a change of the optimization level of the dev profile before making it.
+
+## A shared machine makes wall-clock times wrong
+
+- Trap: a family that seems too slow for the test suite is fast enough, or the other way around, because other builds share the processors.
+- Finding: with a load average of about 30 on four processors, the wall-clock times of the SNOVA operations were up to seven times their processor times.
+- Rule: measure the processor time of a test, such as the user time of the process, before a decision on the speed of a family.
+
+## A read that looks wrong in the C code is the behavior to port
+
+- Trap: a port that reads the coefficients of the fixed matrices Q1 and Q2 of SNOVA from the place that the layout suggests gives other keys for the ranks 2 and 3.
+- Finding: `gen_ABQ` of `snova.c` reads them from the byte `alpha l^2` of the output of SHAKE256, inside the bytes of the matrices A, and not from the byte `m alpha l^2` after the matrices A and B. With the second offset, the known answers of `expand_public_pack` and the `single` digests of `SNOVA_37_17_2`, `SNOVA_25_8_3`, `SNOVA_56_25_2` and `SNOVA_49_11_3` failed, and the eight other sets passed.
+- Rule: port each offset of the C code as it is, and take a known answer of the internal function for each set, as `keysAndExpandedKeysAreTheKeysOfTheCFunctions` does. A test of one set cannot see a rule of another rank.
+
+## The last byte of an odd count of elements has an unread half
+
+- Trap: a test that expects every bit change of a signature to be refused fails for three SNOVA sets, and a verification that refuses the change differs from the C library.
+- Finding: `convert_bytes_to_GF16s` reads an odd last element from the low half of the last byte only. The signatures of `SNOVA_24_5_5`, `SNOVA_25_8_3` and `SNOVA_29_6_5` and the public keys of `SNOVA_24_5_5` and `SNOVA_49_11_3` have an odd count, and the C library accepts each of them with the high half of that byte changed. `UnreadBitParity.rs` shows it on both sides.
+- Rule: take the reading rule of each packing from the C code, and test both halves of the last byte of each set with an odd count, as `theHighHalfOfTheLastByteOfAnOddCountOfVariablesIsNotRead` does. The claim SUF-CMA of a description says whether the bit flips of `test_sig.c` change the signature too.
+
+## A length of type int in a C helper limits the inputs
+
+- Trap: a port that hashes the whole message seems to match the C library for every message.
+- Finding: `oqs_snova.c` hashes the message with `shake256(message, message_len, ...)`, whose length is an `int`. The object code of the oracle build sign-extends the low 32 bits of `message_len` (`movslq`), so for a message of `2^31` bytes or more the C code reads past the message or hashes only a part of it. No test reaches that length.
+- Rule: check the type of each length that a C helper takes. When the C code is undefined or wrong for some inputs, the port keeps the correct result, and the architecture page of the family names the difference.
