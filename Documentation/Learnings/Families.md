@@ -125,3 +125,21 @@
 - Trap: a port of the pre-hash vector tests cannot hash the message of every vector with the hash API of liboqs.
 - Finding: `calc_hash` of `tests/test_acvp_vectors.py` hashes the message of a pre-hash vector with Python `hashlib`, with twelve hash functions. The hash API of liboqs has eight of them. SHA-224, SHA-512/224, SHA-512/256 and SHA3-224 are missing, and the C code of SLH-DSA has its own copies.
 - Rule: a test that needs a hash function that the hash API of liboqs lacks takes it from the shared crate of its hash family, written from the standard, with known answers from the standard and from `hashlib`. The pre-hash parameter sets of SLH-DSA name the same four functions.
+
+## A retry loop hides a wrong refusal
+
+- Trap: a key generator that refuses a candidate and draws the next one gives keys that pass every known-answer test when a refusal rule is wrong at its boundary, because no stream of the tests has a candidate at the boundary.
+- Finding: the coefficient range of the Falcon key generator with `-limit..limit` in place of `-limit + 1..limit`, and its norm bound with `<=` in place of `<`, passed the known answers of the keys of every degree, the decisions of ten streams of the C loop and the `all` digests of `KATSig.rs`. The C loop refuses a coefficient of `-limit` and a norm of exactly the bound.
+- Rule: each refusal of a retry loop is a function with a test of both sides of its boundary, such as `theNormOfThePairIsBelowTheBoundUpTo16822`. The loop reports the reason of each refusal, and a test compares the sequence of reasons with the decisions of the C loop, such as `eachCandidateIsRefusedOrAcceptedAsTheCCodeDecides`.
+
+## Two forms of a scheme can accept the signatures of each other
+
+- Trap: a verification that refuses every signature whose length is not the length of its set refuses signatures that the C code accepts.
+- Finding: `do_verify` of both forms of Falcon accepts a compressed value that fills the signature, and a value of the padded length whose remaining bytes are zero. So `Falcon-512` accepts a padded signature of 666 bytes, and `Falcon-padded-512` accepts a compressed signature of any length. `bothFormsOfADegreeShareTheirKeysAndVerifyTheSignaturesOfTheOther` proves it.
+- Rule: take each length rule of a verification from the C code, not from the description lengths, and test the lengths on both sides of each rule.
+
+## A hostile key can make a signer run forever
+
+- Trap: a fuzz test of signing with hostile keys hangs when a key passes every check of the C code and reaches a loop that never ends.
+- Finding: a `Falcon-512` secret key with `F = 0` decodes, and its `G` is 0, so it passes the checks of `do_sign`. The C library did not return in 120 seconds, and the port did not return in 300 seconds. In the fuzz tests, every random secret key fails the checks, because it has a forbidden value or a `G` out of range.
+- Rule: the fuzz tests of a scheme with a retry loop use hostile inputs that the checks refuse, and the architecture page of the family names the inputs that reach the loop. A guard that the C code does not have is a decision for the owner.

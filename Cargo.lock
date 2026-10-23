@@ -9,6 +9,7 @@ dependencies = [
  "oqs-native-bike",
  "oqs-native-domain",
  "oqs-native-entities",
+ "oqs-native-falcon",
  "oqs-native-frodokem",
  "oqs-native-hqc",
  "oqs-native-ml-dsa",
@@ -60,6 +61,17 @@ dependencies = [
 [[package]]
 name = "oqs-native-entities"
 version = "0.16.0"
+
+[[package]]
+name = "oqs-native-falcon"
+version = "0.16.0"
+dependencies = [
+ "oqs-native-algorithm-tests",
+ "oqs-native-domain",
+ "oqs-native-entities",
+ "oqs-native-kat-random",
+ "oqs-native-sha3",
+]
 
 [[package]]
 name = "oqs-native-frodokem"

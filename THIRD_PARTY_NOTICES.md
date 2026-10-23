@@ -120,6 +120,49 @@ You are solely responsible for determining the appropriateness of using and dist
 - ML-DSA in liboqs: [mldsa-native](https://github.com/pq-code-package/mldsa-native) of the PQ Code Package, commit `9b0ee84f4cf399043eca59eca4e5f8531ca1d61b`. Copyright the mldsa-native project authors. Some files, such as `poly.c` and `ct.c`, also name the mlkem-native project authors. License: Apache-2.0 OR ISC OR MIT.
 - Use in this repository: `Modules/MLDSA` follows FIPS 204 and the arithmetic of mldsa-native, and gives the bytes of that code. The port is under MIT, and the `license` field of the crate states the combined expression `MIT AND (Apache-2.0 OR ISC OR MIT)`.
 
+## Falcon
+
+- Algorithm: Falcon, by Pierre-Alain Fouque, Jeffrey Hoffstein, Paul Kirchner, Vadim Lyubashevsky, Thomas Pornin, Thomas Prest, Thomas Ricosset, Gregor Seiler, William Whyte and Zhenfei Zhang. See https://falcon-sign.info.
+- Falcon in liboqs: the clean code of [PQClean](https://github.com/PQClean/PQClean), commit `1eacfdafc15ddc5d5759d0b85b4cef26627df181`, written by Thomas Pornin. License: MIT.
+- Use in this repository: `Modules/Falcon` translates that code and gives its bytes. The port is under MIT, the license of the upstream code.
+
+```text
+This code is provided under the MIT license:
+
+Copyright (c) 2017-2019  Falcon Project
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+It was written by Thomas Pornin <thomas.pornin@nccgroup.com>.
+
+It has been reported that patent US7308097B2 may be applicable to parts
+of Falcon. William Whyte, one of the designers of Falcon and also
+representative of OnBoard Security (current owner of the said patent),
+has pledged, as part of the IP statements submitted to the NIST for the
+PQC project, that in the event of Falcon being selected for
+standardization, a worldwide non-exclusive license to the patent will be
+granted for the purpose of implementing the standard "without
+compensation and under reasonable terms and conditions that are
+demonstrably free of any unfair discrimination".
+```
+
 ## Test vectors
 
 - [NIST ACVP-Server](https://github.com/usnistgov/ACVP-Server), tag `v1.1.0.41`: the ML-KEM and ML-DSA vectors. Works of the United States government are not subject to copyright in the United States.
