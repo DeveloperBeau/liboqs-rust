@@ -173,15 +173,16 @@ impl ControlBits {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::ControlBits;
-    use crate::testSupport::{SeededWords, digest};
+    use crate::testSupport::digest;
+    use OQSNativeAlgorithmTests::FuzzRandom;
 
     /// The permutation of `2^w` elements of a seed, by the method of Fisher and Yates.
     pub(crate) fn seededPermutation(seed: u64, logarithm: u32) -> Vec<i16> {
         let count = 1usize << logarithm;
         let mut permutation: Vec<i16> = (0..count).map(|value| value as i16).collect();
-        let mut words = SeededWords::new(seed);
+        let mut words = FuzzRandom::seeded(seed);
         for index in (1..count).rev() {
-            let other = (words.next() % (index as u64 + 1)) as usize;
+            let other = (words.nextWord() % (index as u64 + 1)) as usize;
             permutation.swap(index, other);
         }
         permutation

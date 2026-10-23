@@ -237,7 +237,8 @@ impl GaloisField {
 #[cfg(test)]
 mod tests {
     use super::GaloisField;
-    use crate::testSupport::{SeededWords, digest};
+    use crate::testSupport::digest;
+    use OQSNativeAlgorithmTests::FuzzRandom;
 
     const field12: GaloisField = GaloisField::new(12);
     const field13: GaloisField = GaloisField::new(13);
@@ -267,11 +268,11 @@ mod tests {
 
     #[test]
     fn productsAreTheSchoolbookProductsOfTheField() {
-        let mut words = SeededWords::new(0x6766_6D75_6C00);
+        let mut words = FuzzRandom::seeded(0x6766_6D75_6C00);
         for field in [field12, field13] {
             let bits = field.bits;
             let mut factors: Vec<u16> = vec![0, 1, 2, field.mask(), field.mask() - 1];
-            factors.extend((0..64).map(|_| words.next() as u16 & field.mask()));
+            factors.extend((0..64).map(|_| words.nextWord() as u16 & field.mask()));
             for left in 0..=field.mask() {
                 for right in &factors {
                     assert_eq!(
@@ -303,10 +304,10 @@ mod tests {
                     "{bits} bits: {value}"
                 );
             }
-            let mut words = SeededWords::new(u64::from(bits));
+            let mut words = FuzzRandom::seeded(u64::from(bits));
             for _ in 0..2000 {
-                let numerator = words.next() as u16 & field.mask();
-                let denominator = (words.next() as u16 & field.mask()).max(1);
+                let numerator = words.nextWord() as u16 & field.mask();
+                let denominator = (words.nextWord() as u16 & field.mask()).max(1);
                 let quotient = field.quotient(numerator, denominator);
                 assert_eq!(field.product(quotient, denominator), numerator);
             }
@@ -335,11 +336,11 @@ mod tests {
             ),
         ];
         for (field, productDigest, inverseDigest, quotientDigest) in expected {
-            let mut words = SeededWords::new(1);
+            let mut words = FuzzRandom::seeded(1);
             let mut products = Vec::new();
             let mut quotients = Vec::new();
             for _ in 0..20_000 {
-                let word = words.next();
+                let word = words.nextWord();
                 let (left, right) = (word as u16, (word >> 16) as u16);
                 products.extend(field.product(left, right).to_le_bytes());
                 quotients.extend(field.quotient(right, left).to_le_bytes());
@@ -382,8 +383,8 @@ mod tests {
         // 3 + 2 x + x^2 at x = 5 in GF(2^12): 3 + 10 + 17 = 3 ^ 10 ^ 17.
         assert_eq!(field12.evaluation(&[3, 2, 1], 5), 3 ^ 10 ^ 17);
         assert_eq!(field13.evaluation(&[7], 0x1ABC), 7);
-        let mut words = SeededWords::new(9);
-        let polynomial: Vec<u16> = (0..20).map(|_| words.next() as u16 & 0x1FFF).collect();
+        let mut words = FuzzRandom::seeded(9);
+        let polynomial: Vec<u16> = (0..20).map(|_| words.nextWord() as u16 & 0x1FFF).collect();
         for point in [0u16, 1, 0x1FFF, 0x1234] {
             let mut expected = 0u16;
             let mut power = 1u16;
