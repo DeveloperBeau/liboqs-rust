@@ -133,3 +133,63 @@ fn hqcKeysWithTheBitsAboveNGiveTheBytesOfTheReductionOfTheCCode() {
         }
     });
 }
+
+/// The field bits `m`, the code length `n` and the error weight `t` of a Classic McEliece set.
+fn mcElieceFacts(name: &str) -> (usize, usize, usize) {
+    match name["Classic-McEliece-".len()..].trim_end_matches('f') {
+        "348864" => (12, 3488, 64),
+        "460896" => (13, 4608, 96),
+        "6688128" => (13, 6688, 128),
+        "6960119" => (13, 6960, 119),
+        _ => (13, 8192, 128),
+    }
+}
+
+#[test]
+fn classicMcElieceKeysOfTheIdentityNetworkGiveTheDecisionsOfTheCLibrary() {
+    // A secret key with control bits of zero has the support bitrev(i), with the element 0 at
+    // place 0, and the Goppa polynomial y^t + 1 sees every place of a ciphertext. The errors at
+    // the places 1 to t are accepted. t - 1 errors with place 0 fail the weight check alone,
+    // and t - 1 errors without it fail the syndrome check alone, because the decoder adds the
+    // root 0. t - 2 errors without place 0 fail both, and for the 6960119 sets the weight
+    // difference 118 xor 119 has the bits of the syndrome difference 1, so only an or of the
+    // two refuses them.
+    LargeStack::run(|| {
+        for mechanism in Registry::mechanisms() {
+            let description = mechanism.description();
+            let name = description.name;
+            if !name.starts_with("Classic-McEliece-") || name.ends_with('f') {
+                continue;
+            }
+            let (bits, length, weight) = mcElieceFacts(name);
+            let mut secretKey = vec![0u8; 40];
+            secretKey.extend(1u16.to_le_bytes());
+            secretKey.resize(40 + 2 * weight + ((2 * bits - 1) << (bits - 4)), 0);
+            secretKey.extend((0..length / 8).map(|index| (index * 37 + 11) as u8));
+            assert_eq!(secretKey.len(), description.secretKeyLength);
+            let cases: [Vec<usize>; 4] = [
+                (1..=weight).collect(),
+                (0..weight - 1).collect(),
+                (1..weight).collect(),
+                (1..weight - 1).collect(),
+            ];
+            for (index, positions) in cases.iter().enumerate() {
+                let mut ciphertext = vec![0u8; description.ciphertextLength];
+                for position in positions {
+                    ciphertext[position / 8] |= 1 << (position % 8);
+                }
+                let cResult = COracle::new(OracleRandomness::nist([0; 48])).decapsulate(
+                    name,
+                    &ciphertext,
+                    &secretKey,
+                );
+                let rustResult = mechanism.decapsulate(&ciphertext, &secretKey);
+                assert!(cResult.is_ok());
+                assert!(
+                    isAgreeingSecret(&cResult, &rustResult),
+                    "{name}, case {index}: C {cResult:?}, Rust {rustResult:?}"
+                );
+            }
+        }
+    });
+}

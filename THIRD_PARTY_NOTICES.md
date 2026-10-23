@@ -245,6 +245,14 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
+## Classic McEliece
+
+- Algorithm: Classic McEliece, by Daniel J. Bernstein, Tung Chou, Tanja Lange, Ingo von Maurich, Rafael Misoczki, Ruben Niederhagen, Edoardo Persichetti, Christiane Peters, Peter Schwabe, Nicolas Sendrier, Jakub Szefer and Wen Wang. It is the Niederreiter form of the McEliece scheme with binary Goppa codes. See https://classic.mceliece.org.
+- Classic McEliece in liboqs: the `clean` code of the Classic McEliece team in [PQClean](https://github.com/PQClean/PQClean), commit `1eacfdafc15ddc5d5759d0b85b4cef26627df181` with the liboqs patch `classic_mceliece_memset.patch`, for the version SUPERCOP-20221025, in the folders `src/kem/classic_mceliece/pqclean_mceliece<set>_clean`.
+- License: public domain. The `LICENSE` file of each folder reads "The official Classic McEliece software is in the public domain." and names https://classic.mceliece.org/impl.html, and liboqs states `spdx-license-identifier: Public domain` in `docs/algorithms/kem/classic_mceliece.yml`. The liboqs wrappers `src/kem/classic_mceliece/kem_classic_mceliece.h` and `kem_classic_mceliece_<set>.c` are MIT, as liboqs is.
+- The C code cites David Nassimi and Sartaj Sahni, "Parallel algorithms to set up the Benes permutation network", and https://cr.yp.to/papers/controlbits-20200923.pdf for the control bits, ePrint 2017/793 for the implementation of the Benes network, and http://crypto.stanford.edu/~mironov/cs359/massey.pdf for the Berlekamp-Massey algorithm.
+- Use in this repository: `Modules/ClassicMcEliece` translates the `clean` code and gives its bytes. The port is under MIT, which a public domain upstream allows, so the crate keeps the license of the workspace.
+
 ## Test vectors
 
 - [NIST ACVP-Server](https://github.com/usnistgov/ACVP-Server), tag `v1.1.0.41`: the ML-KEM, ML-DSA and SLH-DSA vectors. Works of the United States government are not subject to copyright in the United States.
