@@ -8,13 +8,6 @@ Classic-McEliece-6960119
 Classic-McEliece-6960119f
 Classic-McEliece-8192128
 Classic-McEliece-8192128f
-NTRU-HPS-2048-509
-NTRU-HPS-2048-677
-NTRU-HPS-4096-821
-NTRU-HPS-4096-1229
-NTRU-HRSS-701
-NTRU-HRSS-1373
-sntrup761
 cross-rsdp-128-balanced
 cross-rsdp-128-fast
 cross-rsdp-128-small

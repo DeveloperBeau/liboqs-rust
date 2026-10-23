@@ -18,9 +18,22 @@ impl KEMFuzzTest {
     /// Runs the cases `0..caseCount` from a seed. Returns the first failure, with the case
     /// and the seed.
     pub fn run(mechanism: &dyn KeyEncapsulating, seed: u64, caseCount: u64) -> Result<(), String> {
+        Self::runCases(mechanism, seed, 0..caseCount)
+    }
+
+    /// Runs a range of cases from a seed. Returns the first failure, with the case and the
+    /// seed.
+    ///
+    /// A mechanism whose key pair of the constant bytes of the cases 0 and 1 cannot
+    /// decapsulate, as in its C code, runs the seeded cases from 2 up.
+    pub fn runCases(
+        mechanism: &dyn KeyEncapsulating,
+        seed: u64,
+        cases: core::ops::Range<u64>,
+    ) -> Result<(), String> {
         let description = mechanism.description();
         let name = description.name;
-        for case in 0..caseCount {
+        for case in cases {
             let failure =
                 |text: String| format!("{name}, fuzz case {case} of seed {seed:#x}: {text}");
             let mut random = FuzzRandom::forCase(seed, case);

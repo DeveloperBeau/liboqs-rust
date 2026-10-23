@@ -18,6 +18,8 @@ The port is in progress. The repository holds the workspace, the standards, the 
 | eFrodoKEM | `eFrodoKEM-640-AES`, `eFrodoKEM-640-SHAKE`, `eFrodoKEM-976-AES`, `eFrodoKEM-976-SHAKE`, `eFrodoKEM-1344-AES`, `eFrodoKEM-1344-SHAKE` | Ported, identical to the C library |
 | HQC | `HQC-1`, `HQC-3`, `HQC-5` | Ported, identical to the C library |
 | BIKE | `BIKE-L1`, `BIKE-L3`, `BIKE-L5` | Ported, identical to the C library |
+| NTRU | `NTRU-HPS-2048-509`, `NTRU-HPS-2048-677`, `NTRU-HPS-4096-821`, `NTRU-HPS-4096-1229`, `NTRU-HRSS-701`, `NTRU-HRSS-1373` | Ported, identical to the C library |
+| NTRU Prime | `sntrup761` | Ported, identical to the C library |
 | ML-DSA | `ML-DSA-44`, `ML-DSA-65`, `ML-DSA-87` | Ported, identical to the C library |
 | Falcon | `Falcon-512`, `Falcon-1024`, `Falcon-padded-512`, `Falcon-padded-1024` | Ported, identical to the C library |
 | MAYO | `MAYO-1`, `MAYO-2`, `MAYO-3`, `MAYO-5` | Ported, identical to the C library |
