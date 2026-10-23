@@ -298,6 +298,58 @@ mod tests {
     }
 
     #[test]
+    fn eachPaddingCheckGivesTheFlagsOfItsCFunctionForEveryRemainder() {
+        // The C functions take any count, although the scheme unpacks only its own counts.
+        // `generic_unpack_3_bit`, `generic_unpack_7_bit` and `generic_unpack_9_bit` are static,
+        // so the C program builds `pack_unpack.c` of cross-rsdp-128-fast and of
+        // cross-rsdpg-128-fast with another namespace, and each copy gives the answers of
+        // `unpack_fz_vec` or `unpack_fp_vec` of the oracle library. For the counts 1 to 16, each
+        // row gives the flags for bytes of all ones, the flags for the bytes of the sequence of
+        // seed 11, and the digest of the values of those bytes. The 3-bit check accepts every
+        // input, and the 7-bit and 9-bit checks refuse a padding bit for each remainder.
+        let expected = [
+            (
+                3,
+                "1111111111111111",
+                "1111111111111111",
+                "b222a1a45ce2342d5780991158e369792f06da039812cae3f017848678c527ce",
+            ),
+            (
+                7,
+                "0000000100000001",
+                "0000000110000001",
+                "ea486946df17db2d11732940fb27f8e351c79145210c632660a970e755a07a47",
+            ),
+            (
+                9,
+                "0000000100000001",
+                "0001001100000001",
+                "a918c79192732386dca2770ad9a3af769ec1f855d7eef462b2463682bfbc905f",
+            ),
+        ];
+        let flag = |isAccepted: bool| if isAccepted { '1' } else { '0' };
+        for (bits, onesFlags, seededFlags, digest) in expected {
+            let mut sequence = SeededSequence::new(11);
+            let mut ones = String::new();
+            let mut seeded = String::new();
+            let mut values = Vec::new();
+            for count in 1..=16usize {
+                let length = (count * bits as usize).div_ceil(8);
+                let (maximal, isAccepted) = Packing::unpacked(&vec![0xFF; length], count, bits);
+                assert!(maximal.iter().all(|value| *value == (1 << bits) - 1));
+                ones.push(flag(isAccepted));
+                let (unpacked, isAccepted) =
+                    Packing::unpacked(&sequence.bytes(length), count, bits);
+                seeded.push(flag(isAccepted));
+                values.extend(unpacked);
+            }
+            assert_eq!(ones, onesFlags, "{bits} bits");
+            assert_eq!(seeded, seededFlags, "{bits} bits");
+            assert_eq!(wordsDigest(values.into_iter()), digest, "{bits} bits");
+        }
+    }
+
+    #[test]
     fn aWholeNumberOfGroupsHasNoPaddingToCheck() {
         for (count, bits) in [(40, 7), (48, 7), (8, 9), (16, 3)] {
             let length = count * bits as usize / 8;
