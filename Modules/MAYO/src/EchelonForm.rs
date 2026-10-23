@@ -63,7 +63,8 @@ pub(crate) fn echelonForm(matrix: &mut [u8], rowCount: usize, columnCount: usize
         for row in lowerBound..=(rowCount - 1).min(upperBound + 32) {
             let isPivotRow = !differenceMask(row, pivotRowIndex);
             let isBelowPivotRow = greaterMask(row, pivotRowIndex);
-            let mask = isPivotRow | (isBelowPivotRow & pivotIsZero);
+            // A row is never the pivot row and below it at once, so `+` joins the two masks.
+            let mask = isPivotRow + (isBelowPivotRow & pivotIsZero);
             for (word, rowWord) in pivotRow
                 .iter_mut()
                 .zip(&packed[row * rowLength..(row + 1) * rowLength])
@@ -148,11 +149,9 @@ pub(crate) fn sampledSolution(
             solution[column] ^= value;
             // The rows above, eight at a time: the elements of the column, one to a byte.
             for first in (0..row).step_by(8) {
-                let mut columnBytes = 0u64;
-                for offset in 0..8 {
-                    columnBytes ^=
-                        u64::from(matrix[(first + offset) * columnCount + column]) << (8 * offset);
-                }
+                let columnBytes = u64::from_le_bytes(core::array::from_fn(|offset| {
+                    matrix[(first + offset) * columnCount + column]
+                }));
                 let products = field::productsInBytes(value, columnBytes);
                 for offset in 0..8 {
                     matrix[(first + offset) * columnCount + unknownCount] ^=
