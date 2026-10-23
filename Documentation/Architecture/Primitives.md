@@ -2,13 +2,13 @@
 
 ## Purpose
 
-Four crates of the `sharedComponents` ring give the primitives that more than one algorithm family uses. Three give the symmetric primitives, and each follows the API of liboqs `src/common`, so a translated family calls a primitive in the same order and with the same amounts as the C code. The fourth gives the constant-time sorting network of NTRU, NTRU Prime and Classic McEliece.
+Four crates of the `sharedComponents` ring give the primitives that more than one algorithm family uses. Three give the symmetric primitives, and each follows the API of liboqs `src/common`, so a translated family calls a primitive in the same order and with the same amounts as the C code. The fourth gives the constant-time sorting network of NTRU, NTRU Prime and Classic McEliece. `Rijndael256` is the one symmetric primitive that is not in `src/common`. liboqs has it only in the MQOM code, so it follows `rijndael_ct64.h` of that code.
 
 | Crate | Folder | Library | Gives |
 |---|---|---|---|
 | `oqs-native-sha3` | `Modules/SHA3` | `OQSNativeSHA3` | `SHA3224`, `SHA3256`, `SHA3384`, `SHA3512`, `SHAKE128`, `SHAKE256`, `SHAKEReader`, `KeccakF1600` |
 | `oqs-native-sha2` | `Modules/SHA2` | `OQSNativeSHA2` | `SHA224`, `SHA256`, `SHA384`, `SHA512`, `SHA512224`, `SHA512256` |
-| `oqs-native-aes` | `Modules/AES` | `OQSNativeAES` | `AES128`, `AES256` |
+| `oqs-native-aes` | `Modules/AES` | `OQSNativeAES` | `AES128`, `AES256`, `Rijndael256` |
 | `oqs-native-sorting-network` | `Modules/SortingNetwork` | `OQSNativeSortingNetwork` | `SortingNetwork` |
 
 Each crate builds without the standard library.
@@ -39,6 +39,13 @@ The four-way forms of liboqs (`shake128_x4`) are a speed form. The port computes
 
 The counter is the last four bytes of the counter block as a big-endian 32-bit number. It wraps from `ffffffff` to `00000000`, and the first twelve bytes do not change.
 
+`Rijndael256` is Rijndael with a 256-bit block and a 256-bit key. MQOM encrypts its seeds of the levels 3 and 5 with it. It translates `rijndael_ct64_enc.h` of the MQOM code, which extends `aes_ct64` of BearSSL to the wider block.
+
+- The bitsliced form holds two blocks of eight columns in the eight words of `encryptFourBlocks`. Bit `16 r + 2 c + b` of word `k` is bit `k` of the byte in row `r` and column `c` of block `b`. Each row stays in its own 16-bit lane, so the substitution and `mixColumns` of AES apply unchanged.
+- ShiftRows turns the rows left by 0, 1, 3 and 4 columns, the offsets of the Rijndael proposal for eight columns. A column is two bits of a lane.
+- The key schedule is the one of the Rijndael proposal for eight key words and eight block words: 15 round keys of eight words, with the round constants up to `0x4D`.
+- `encryptBlocks` is ECB mode of whole 32-byte blocks, two at a time. A partial block is a panic, as for AES.
+
 ## Sorting network
 
 `SortingNetwork` is the constant-time sort of djbsort, which liboqs ships three times. `crypto_sort_int32.c` of the NTRU-HPS folders of PQClean is based on `crypto_sort/int32/x86` of SUPERCOP 20190110. `sntrup761.c` holds `crypto_sort_int32` from `crypto_sort/int32/portable4` of SUPERCOP 20240808, and `crypto_sort_uint32` on top of it. The Classic McEliece folders of PQClean hold `int32_sort.h` and `uint64_sort.h`, with the same loops in an older form that tests `i & p` in place of stepping over the blocks. Every form has the same network of comparisons, in the same order, so one crate serves the three families.
@@ -56,5 +63,6 @@ The network depends only on the number of values, and each comparison exchanges 
 - `Modules/SHA2/tests/KnownAnswers.rs` checks the FIPS 180-4 examples, with one million `a` bytes, and every split of every input length up to three blocks, across each padding edge. SHA-224, SHA-512/224 and SHA-512/256 also match Python `hashlib` at each padding edge.
 - `Modules/SHA3/tests/HashlibKnownAnswers.rs` checks SHA3-224 against the SHA-3 examples and Python `hashlib`, at the edges of its rate of 144 bytes and in pieces.
 - `Modules/AES/tests/KnownAnswers.rs` replicates `tests/test_aes.c` (FIPS 197 blocks, RFC 3686 counter vectors) and proves the counter rules with counter blocks built by hand, the wrap at 32 bits, the continuation of `fillCounterBlocks` and each misuse panic.
+- `Modules/AES/tests/KnownAnswers.rs` also checks `Rijndael256` against the vector of block length 256 and key length 256 of the Rijndael vector set of Brian Gladman. The unit tests of `Rijndael256.rs` compare it on 40 seeded keys and blocks with an encryption written byte by byte from the Rijndael proposal, whose S-box comes from the inverse in GF(2^8) and the affine map. The unit tests of `Bitsliced.rs` check the place of each byte in the bitsliced form and the turn of each row.
 - `Modules/SortingNetwork/src/SortingNetwork.rs` compares the three sorts with the sort of the Rust library for every length up to 69 and for the lengths of NTRU, sntrup761 and Classic McEliece, with words below `2^63` for `sortWords`. It checks repeated values and the extremes, and compares the output of `crypto_sort_int32` of two NTRU-HPS sets, of `crypto_sort_int32` and `crypto_sort_uint32` of `sntrup761.c` and of `int32_sort` of Classic McEliece on 24 values with the known answers of the C functions. It also compares the exchange `uint64_MINMAX` on nine pairs and `uint64_sort` on 24 words below and from `2^63` with the known answers of the C code. The known answers of the families, such as `sample_fg`, `Short_fromlist` and the control bits and public keys of Classic McEliece, run the sort on longer lists.
 - The parity tests of the facade crate compare each primitive with the C library.

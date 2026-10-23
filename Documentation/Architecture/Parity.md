@@ -72,7 +72,7 @@ The first difference stops the check with a `ParityMismatch`, which names the al
 
 ## Tests
 
-- `PrimitiveParity.rs`: SHA-3, SHAKE in one piece and in pieces, SHA-2, AES blocks and AES counter mode, 1000 seeded inputs each.
+- `PrimitiveParity.rs`: SHA-3, SHAKE in one piece and in pieces, SHA-2, AES blocks, AES counter mode and Rijndael-256 blocks, 1000 seeded inputs each. The C side of Rijndael-256 is the MQOM code of liboqs.
 - `RandomParity.rs`: the NIST DRBG and the HQC generator against the C generators, 1000 seeded entropy inputs and request patterns each.
 - `HarnessValidation.rs`: the C algorithms behind the Rust interfaces pass every check, and each kind of defect in a mechanism or a scheme fails at its own step.
 - `AlgorithmCoverage.rs`: the registry and `NotYetPorted.txt` against the C library, and the facts of each registered algorithm against the C facts.

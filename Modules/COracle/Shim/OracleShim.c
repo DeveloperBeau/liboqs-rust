@@ -489,6 +489,29 @@ void oracleAES256CounterStream(uint8_t *output, size_t outputLength, const uint8
 	OQS_AES256_free_schedule(schedule);
 }
 
+// The bitsliced Rijndael-256 of MQOM. liboqs has no public API for the cipher, so the shim
+// declares the context of `rijndael_ct64.h` and two functions that the MQOM code exports from
+// `liboqs.a`. Each MQOM set compiles the same `rijndael_ct64.c`, and these are the names of the
+// set `mqom2_cat5_gf16_fast_r3`.
+typedef struct {
+	int type;
+	uint32_t roundCount;
+	uint32_t keyWordCount;
+	uint32_t blockWordCount;
+	uint32_t roundKeys[120];
+} OracleRijndael256Context;
+
+int oqs_sig_private_mqom2_cat5_gf16_fast_r3_default_rijndael256_ct64_setkey_enc(OracleRijndael256Context *context, const uint8_t key[32]);
+int oqs_sig_private_mqom2_cat5_gf16_fast_r3_default_rijndael256_ct64_enc(const OracleRijndael256Context *context, const uint8_t plaintext[32], uint8_t ciphertext[32]);
+
+void oracleRijndael256ECB(uint8_t *ciphertext, const uint8_t *plaintext, size_t length, const uint8_t *key) {
+	OracleRijndael256Context context;
+	oqs_sig_private_mqom2_cat5_gf16_fast_r3_default_rijndael256_ct64_setkey_enc(&context, key);
+	for (size_t offset = 0; offset + 32 <= length; offset += 32) {
+		oqs_sig_private_mqom2_cat5_gf16_fast_r3_default_rijndael256_ct64_enc(&context, plaintext + offset, ciphertext + offset);
+	}
+}
+
 // Streams whole blocks in two calls from one counter, so that the second call continues the
 // counter of the first.
 void oracleAES256CounterBlocksTwice(uint8_t *output, size_t firstBlocks, size_t secondBlocks, const uint8_t *iv, size_t ivLength, const uint8_t *key) {
