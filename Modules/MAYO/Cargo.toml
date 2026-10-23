@@ -1,0 +1,41 @@
+[package]
+name = "oqs-native-mayo"
+description = "MAYO, the oil and vinegar signature scheme, a native port of the MAYO algorithms of liboqs."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# The port is MIT. It translates the portable implementation of the MAYO team, which is
+# Apache-2.0.
+license = "MIT AND Apache-2.0"
+authors.workspace = true
+repository.workspace = true
+
+[package.metadata]
+ring = "features"
+
+[lib]
+name = "OQSNativeMAYO"
+path = "src/lib.rs"
+
+[dependencies]
+oqs-native-aes = { path = "../AES", default-features = false }
+oqs-native-domain = { path = "../Domain", default-features = false }
+oqs-native-entities = { path = "../Entities", default-features = false }
+oqs-native-sha3 = { path = "../SHA3", default-features = false }
+
+[dev-dependencies]
+oqs-native-algorithm-tests = { path = "../AlgorithmTests" }
+oqs-native-kat-random = { path = "../KATRandom" }
+
+[features]
+default = ["std"]
+# Without `std` the crate builds with `core` and `alloc` only.
+std = [
+    "oqs-native-aes/std",
+    "oqs-native-domain/std",
+    "oqs-native-entities/std",
+    "oqs-native-sha3/std",
+]
+
+[lints]
+workspace = true

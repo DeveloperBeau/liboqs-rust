@@ -3,6 +3,7 @@ use OQSNativeDomain::{KeyEncapsulating, Signing, StatefulSigning};
 use OQSNativeFalcon::Falcon;
 use OQSNativeFrodoKEM::FrodoKEM;
 use OQSNativeHQC::HQC;
+use OQSNativeMAYO::MAYO;
 use OQSNativeMLDSA::MLDSA;
 use OQSNativeMLKEM::{Kyber, MLKEM};
 
@@ -49,6 +50,10 @@ const signatureSchemes: &[&dyn Signing] = &[
     &Falcon::falcon1024,
     &Falcon::falconPadded512,
     &Falcon::falconPadded1024,
+    &MAYO::mayo1,
+    &MAYO::mayo2,
+    &MAYO::mayo3,
+    &MAYO::mayo5,
 ];
 
 /// The stateful signature schemes.
