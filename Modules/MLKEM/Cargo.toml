@@ -4,7 +4,9 @@ description = "ML-KEM of FIPS 203, a native port of the ML-KEM algorithms of lib
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license.workspace = true
+# The port is under MIT. mlkem-native is under Apache-2.0 OR ISC OR MIT, and the Kyber reference
+# code of pq-crystals is under CC0-1.0 OR Apache-2.0.
+license = "MIT AND (Apache-2.0 OR ISC OR MIT) AND (CC0-1.0 OR Apache-2.0)"
 authors.workspace = true
 repository.workspace = true
 

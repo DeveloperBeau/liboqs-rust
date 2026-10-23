@@ -4,6 +4,7 @@ description = "FrodoKEM and eFrodoKEM, a native port of the FrodoKEM algorithms 
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+# The upstream code, PQCrypto-LWEKE, is under MIT, so the crate keeps the license of the workspace.
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
