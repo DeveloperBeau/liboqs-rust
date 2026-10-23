@@ -30,6 +30,13 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked
       - name: Build without the standard library
         run: cargo build --workspace --lib --no-default-features --locked
+      - name: Build each crate alone without the standard library
+        # One build unifies the features of its crates, and the tools turn on `std` in every
+        # family, so only a build of one crate shows a crate that needs `std`.
+        run: |
+          for manifest in Modules/*/Cargo.toml; do
+            cargo build --manifest-path "$manifest" --lib --no-default-features --locked
+          done
       - name: Test
         run: cargo test --workspace --locked
       - name: Repository checks

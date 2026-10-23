@@ -51,7 +51,7 @@ Ask these questions in order:
 - Each crate declares every crate that it uses, and builds and tests alone.
 - No hidden global state. The composition root builds objects and passes them in. Write each exception where it is declared, with its reason.
 - Required dependencies are arguments. Do not give them default values.
-- Each crate below the composition ring builds without the standard library. It has a `std` feature, on by default, and its root says `#![cfg_attr(not(feature = "std"), no_std)]`. CI builds the workspace with `--no-default-features`. See `Documentation/Learnings/MutationTesting.md` for why `std` is on by default.
+- Each crate below the composition ring builds without the standard library. It has a `std` feature, on by default, and its root says `#![cfg_attr(not(feature = "std"), no_std)]`. CI builds the workspace and each crate alone with `--no-default-features`. See `Documentation/Learnings/MutationTesting.md` for why `std` is on by default.
 - Randomness, time, the file system and every other outside service are reached only through an interface. Tests use doubles. The one exception is the contract test of an adapter crate, which must call the real service to prove the adapter.
 - When the same decision is written in two places, move it to one owner. Copies that agree today are still a finding.
 - No new third-party dependency without the owner's approval. `Documentation/Registers/ApprovedDependencies.md` lists each approval, and `cargo xtask check-rings` rejects every other crate.

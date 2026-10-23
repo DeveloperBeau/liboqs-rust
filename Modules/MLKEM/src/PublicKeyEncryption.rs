@@ -1,6 +1,7 @@
 use crate::Parameters;
 use crate::polynomial::Polynomial;
 use OQSNativeSHA3::SHA3512;
+use alloc::vec;
 use alloc::vec::Vec;
 
 /// The public-key encryption scheme K-PKE of FIPS 203, Section 5, of one parameter set.
