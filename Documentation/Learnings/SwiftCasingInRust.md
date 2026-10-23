@@ -23,3 +23,9 @@
 - **Trap.** `clippy::enum_variant_names` rejects an enumeration whose cases all start with the same word. Clippy skips the lint for a public type by default (`avoid-breaking-exported-api`).
 - **Finding.** `Command` had the cases `checkAll`, `checkRings` and others. Clippy accepted them while `Command` was public, and rejected them when `Command` became private to the crate.
 - **Rule.** Run `cargo clippy --workspace --all-targets` after each change of visibility. Name each case by its role without the shared word, such as `Command::rings`.
+
+## A constant captures a binding of the same name
+
+- **Trap.** Rust reads a lower-case name in a pattern as a constant when a constant of that name is in scope. With Swift casing, constants and variables share one form, so `const seed` turns a parameter `seed` into a constant pattern.
+- **Finding.** A test module of `Modules/Falcon` had `const seed: u64` and a helper `fn seeded(seed: u64)`. The build failed with E0005, "refutable pattern in function argument", because `seed` was a constant pattern and not a new variable. In a `match` arm, the same collision builds and compares with the constant without a word.
+- **Rule.** Name a constant by its role, with a word that no binding in its scope uses, such as `operandSeed` or `nonceLength`.

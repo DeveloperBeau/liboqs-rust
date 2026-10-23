@@ -19,6 +19,7 @@ path = "src/lib.rs"
 oqs-native-bike = { path = "../BIKE", default-features = false }
 oqs-native-domain = { path = "../Domain", default-features = false }
 oqs-native-entities = { path = "../Entities", default-features = false }
+oqs-native-falcon = { path = "../Falcon", default-features = false }
 oqs-native-frodokem = { path = "../FrodoKEM", default-features = false }
 oqs-native-hqc = { path = "../HQC", default-features = false }
 oqs-native-ml-dsa = { path = "../MLDSA", default-features = false }
@@ -32,6 +33,7 @@ std = [
     "oqs-native-bike/std",
     "oqs-native-domain/std",
     "oqs-native-entities/std",
+    "oqs-native-falcon/std",
     "oqs-native-frodokem/std",
     "oqs-native-hqc/std",
     "oqs-native-ml-dsa/std",

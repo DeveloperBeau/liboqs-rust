@@ -137,3 +137,21 @@
 - Trap: the uniform sampler of ML-DSA keeps a candidate equal to q when `<` becomes `<=`, and every test passes.
 - Finding: a 23-bit candidate is q once in 2^23 candidates, and no stream of the tests held one. A C program searched the seeds of `LinearCongruentialSequence` and found 13544 and 37803 in about a second. Their streams hold q as the 199th and as the 16th candidate. `uniformSamplingSkipsACandidateOfQAndGivesThePolynomialOfTheCFunction` compares the polynomials of the two seeds with `poly_uniform` of mldsa-native.
 - Rule: when the value at the bound of a rejection sampler comes once in a few million candidates, search for seeds whose stream holds it, and assert in the test that the stream holds it. For a rarer value, the loop takes its candidates from a function, as the rule of the HQC rejection loop says.
+
+## A retry loop hides a wrong refusal
+
+- Trap: a key generator that refuses a candidate and draws the next one gives keys that pass every known-answer test when a refusal rule is wrong at its boundary, because no stream of the tests has a candidate at the boundary.
+- Finding: the coefficient range of the Falcon key generator with `-limit..limit` in place of `-limit + 1..limit`, and its norm bound with `<=` in place of `<`, passed the known answers of the keys of every degree, the decisions of ten streams of the C loop and the `all` digests of `KATSig.rs`. The C loop refuses a coefficient of `-limit` and a norm of exactly the bound.
+- Rule: each refusal of a retry loop is a function with a test of both sides of its boundary, such as `theNormOfThePairIsBelowTheBoundUpTo16822`. The loop reports the reason of each refusal, and a test compares the sequence of reasons with the decisions of the C loop, such as `eachCandidateIsRefusedOrAcceptedAsTheCCodeDecides`.
+
+## Two forms of a scheme can accept the signatures of each other
+
+- Trap: a verification that refuses every signature whose length is not the length of its set refuses signatures that the C code accepts.
+- Finding: `do_verify` of both forms of Falcon accepts a compressed value that fills the signature, and a value of the padded length whose remaining bytes are zero. So `Falcon-512` accepts a padded signature of 666 bytes, and `Falcon-padded-512` accepts a compressed signature of any length. `bothFormsOfADegreeShareTheirKeysAndVerifyTheSignaturesOfTheOther` proves it.
+- Rule: take each length rule of a verification from the C code, not from the description lengths, and test the lengths on both sides of each rule.
+
+## A hostile key can make a signer run forever
+
+- Trap: a fuzz test of signing with hostile keys hangs when a key passes every check of the C code and reaches a loop that never ends.
+- Finding: a `Falcon-512` secret key with `F = 0` decodes, and its `G` is 0, so it passes the checks of `do_sign`. The C library did not return in 120 seconds, and the port did not return in 300 seconds. In the fuzz tests, every random secret key fails the checks, because it has a forbidden value or a `G` out of range.
+- Rule: the fuzz tests of a scheme with a retry loop use hostile inputs that the checks refuse, and the architecture page of the family names the inputs that reach the loop. A guard that the C code does not have is a decision for the owner.

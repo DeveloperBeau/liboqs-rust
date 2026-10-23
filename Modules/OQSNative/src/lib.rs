@@ -18,6 +18,7 @@ pub use OQSNativeEntities::{
     Encapsulation, KEMDescription, KeyPair, OQSError, SecretBytes, SignatureDescription,
     StatefulSignatureDescription,
 };
+pub use OQSNativeFalcon::Falcon;
 pub use OQSNativeFrodoKEM::FrodoKEM;
 pub use OQSNativeHQC::HQC;
 pub use OQSNativeMLDSA::{MLDSA, PreHashAlgorithm};
