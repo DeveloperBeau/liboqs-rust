@@ -21,6 +21,7 @@ path = "src/lib.rs"
 oqs-native-domain = { path = "../Domain", default-features = false }
 oqs-native-entities = { path = "../Entities", default-features = false }
 oqs-native-sha3 = { path = "../SHA3", default-features = false }
+oqs-native-sorting-network = { path = "../SortingNetwork", default-features = false }
 
 [dev-dependencies]
 oqs-native-algorithm-tests = { path = "../AlgorithmTests" }
@@ -29,7 +30,12 @@ oqs-native-kat-random = { path = "../KATRandom" }
 [features]
 default = ["std"]
 # Without `std` the crate builds with `core` and `alloc` only.
-std = ["oqs-native-domain/std", "oqs-native-entities/std", "oqs-native-sha3/std"]
+std = [
+    "oqs-native-domain/std",
+    "oqs-native-entities/std",
+    "oqs-native-sha3/std",
+    "oqs-native-sorting-network/std",
+]
 
 [lints]
 workspace = true
