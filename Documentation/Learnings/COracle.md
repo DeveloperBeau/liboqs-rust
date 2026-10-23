@@ -59,3 +59,9 @@
 - Trap: the parity check of a short signature makes the C library read past its input.
 - Finding: the liboqs wrapper of CROSS calls `CROSS_verify` and refuses a length other than its own only after it, and `CROSS_verify` reads the whole `CROSS_sig_t`. The parity check of a signature one byte short read one byte past its copy. `aShortSignatureReachesTheCVerificationWithItsWholeLength` stopped with a memory fault for an empty signature, whose pointer points to no memory.
 - Rule: the oracle gives the C verification a copy of a shorter signature with zeros after it, up to the signature length of the scheme. The C code still receives the length of the signature.
+
+## A primitive of one family has no public API in liboqs
+
+- Trap: the parity test of a shared primitive calls the C primitive through the public API of liboqs, and liboqs has no public API for Rijndael-256.
+- Finding: MQOM encrypts its seeds of the levels 3 and 5 with Rijndael-256, and only `src/sig/mqom/mqom_mqom_common/rijndael_ct64.c` holds it. The headers in `build/include` have no Rijndael. `nm` on `liboqs.a` lists `rijndael256_ct64_setkey_enc` and `rijndael256_ct64_enc` as global symbols of each MQOM set, with the namespace of the set, such as `oqs_sig_private_mqom2_cat5_gf16_fast_r3_default_`.
+- Rule: the shim declares the context of the family header and the functions of one set, and wraps them in a plain function. The contract test checks a standard vector through the wrapper, so a wrong context or a wrong loop of the shim fails there first. `oracleRijndael256ECB` is the template.

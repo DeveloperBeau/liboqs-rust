@@ -233,6 +233,12 @@ unsafe extern "C" {
     fn oracleSHA512(output: *mut u8, input: *const u8, inputLength: usize);
     fn oracleAES128ECB(ciphertext: *mut u8, plaintext: *const u8, length: usize, key: *const u8);
     fn oracleAES256ECB(ciphertext: *mut u8, plaintext: *const u8, length: usize, key: *const u8);
+    fn oracleRijndael256ECB(
+        ciphertext: *mut u8,
+        plaintext: *const u8,
+        length: usize,
+        key: *const u8,
+    );
     fn oracleAES128CounterStream(
         output: *mut u8,
         outputLength: usize,
@@ -1026,6 +1032,22 @@ impl<'random> COracle<'random> {
         let mut ciphertext = vec![0u8; plaintext.len()];
         unsafe {
             oracleAES256ECB(
+                ciphertext.as_mut_ptr(),
+                plaintext.as_ptr(),
+                plaintext.len(),
+                key.as_ptr(),
+            )
+        };
+        ciphertext
+    }
+
+    /// Rijndael-256 encryption of whole 32-byte blocks, from `rijndael256_ct64_enc` of the MQOM
+    /// code, because liboqs has no public API for the cipher.
+    pub fn rijndael256ECB(&self, key: &[u8; 32], plaintext: &[u8]) -> Vec<u8> {
+        assert_eq!(plaintext.len() % 32, 0, "ECB takes whole blocks");
+        let mut ciphertext = vec![0u8; plaintext.len()];
+        unsafe {
+            oracleRijndael256ECB(
                 ciphertext.as_mut_ptr(),
                 plaintext.as_ptr(),
                 plaintext.len(),
