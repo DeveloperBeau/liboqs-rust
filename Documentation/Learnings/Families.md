@@ -251,3 +251,33 @@
 - Trap: the group check of the CROSS verification can be lost, and every test that changes a signature still passes.
 - Finding: the mutation run replaced `&=` with `|=` in the group check of `Verifier::isValidSignature`, and no test failed. A changed exponent of a published vector also changes the first commitment of its round, so the digest of the commitments refuses the signature as well. The second form z of a zero exponent gives the same arithmetic as 0, so a signer that leaves out `fz_dz_norm_n` or `fz_dz_norm_m` makes a signature that breaks the group check alone. `CROSS_verify` of liboqs refused such signatures of a copy of the C signer, and the same verification without the group check accepted them.
 - Rule: when a verification checks a value that a commitment or a digest also binds, a test signs with a signer that breaks only that rule, from a constructor that only the tests have, such as `Signer::keepingTheSecondFormOfZero`. A copy of the C signer with the same step left out gives the digest of the signature, and the C verification without the check accepts it, so the input is known to reach the check.
+
+## A changed entry of a quadratic map counts only where its variables are not zero
+
+- Trap: a test that changes an entry of a public key and expects the verification to refuse the signature passes or fails with the point of the signature, not with the code.
+- Finding: the first `aSignatureIsValidOnlyWithItsMessageItsKeyAndTheLengthsOfTheSet` of UOV changed the first byte of P1, the entry of the first variable squared. The first element of the point of the OV-Is signature was zero, which happens for one signature in 16 in GF(16), so the changed key still accepted the signature. An assertion of the precondition showed it.
+- Rule: a test that changes an entry (i, j) of a public map picks i and j from the variables of the point that are not zero, or asserts that they are not zero.
+
+## The loop of a C signature can fail after its last attempt succeeds
+
+- Trap: a port of a rejection loop that returns the first success signs where the C code fails.
+- Finding: `ov_sign` of UOV counts an attempt before it runs it, and returns -1 when the count reaches 256 after the loop. So a success of the attempt with the counter 255 is a failure. No test input reaches the last attempt, because an attempt fails only when its linear system is singular, which a random system is about once in 255 in GF(256) and once in 15 in GF(16).
+- Rule: copy the count and the bound of a loop of the C code, and test the loop with an attempt function that succeeds at the first counter, at the last two counters and never, as `theFirstSuccessGivesItsResultExceptAtTheLastAttempt` does.
+
+## A generator that keeps the rest of its block is one stream
+
+- Trap: a port that makes P1 and P2 of UOV with two calls of AES in counter mode, each from the counter of the next whole block, gives other bytes for P2 when P1 does not end on a block boundary.
+- Finding: `prng_gen_publicinputs` keeps the unused bytes of its last 16-byte block for its next call. P1 of OV-Ip has 103224 bytes, half a block past a boundary. A C program called the generator in pieces of 7, 100, 16 and 33 bytes and in one call of 156 bytes, and both gave the same digest.
+- Rule: make the output of one generator of the C code as one stream, and prove it against the C generator called in pieces that do not end on a block boundary.
+
+## Products that load and store the bytes of each entry are slow in a test build
+
+- Trap: the key pair of a family with large matrices of vectors takes most of a second in the dev profile, also when each product is fast in a release build.
+- Finding: the first UOV port added each product to the bytes of the secret key, with a load and a store of eight bytes for each word of each product. A key pair of OV-V took 0.68 seconds of processor time in the dev profile. With the sums of a row of S in words, and the powers of each entry of P1 computed once for every element of a row of O, it took 0.1 to 0.18 seconds.
+- Rule: keep the sums of a target row in words, and compute the work that a factor shares with many products once. Measure the key pair in the test build as well as in the release build.
+
+## A higher optimization level of AES does not make the UOV verifications fast
+
+- Trap: a test of the UOV sets with a compressed public key spends its time in the expansion of P1 and P2, and an override of the optimization level of AES looks like the fix.
+- Finding: the 102 verifications of `SignatureCorrectnessTest` for OV-V-pkc expand 2.4 MB with AES each. They took 2.5 seconds of processor time in the dev profile, and 2.1 seconds with `opt-level = 3` for `oqs-native-aes`. The bitsliced AES is straight-line code, which the first level already compiles well.
+- Rule: measure an override of the optimization level before you add it. The workspace keeps AES at the level of the dev profile.
