@@ -15,6 +15,10 @@ use alloc::vec::Vec;
 /// restricted vector and its second commitment.
 pub(crate) struct Signer<'parameters> {
     parameters: &'parameters Parameters,
+    /// True when the signer normalizes each restricted vector before it publishes it, as
+    /// `fz_dz_norm_n` and `fz_dz_norm_m` do. Only the signer of the tests of the group check
+    /// leaves the second form of zero in its published vectors.
+    normalizesPublishedVectors: bool,
 }
 
 /// The part of a message that the C code hashes. `xof_shake_update` takes the length as an
@@ -27,7 +31,21 @@ fn hashedLength(length: usize) -> usize {
 impl<'parameters> Signer<'parameters> {
     /// Makes the signer of a parameter set.
     pub(crate) fn new(parameters: &'parameters Parameters) -> Self {
-        Signer { parameters }
+        Signer {
+            parameters,
+            normalizesPublishedVectors: true,
+        }
+    }
+
+    /// Makes a signer that publishes each restricted vector without its normalization, so that
+    /// each zero of a published vector is the second form z. The first commitments hash the
+    /// vectors as the signature holds them, so only the group check refuses its signatures.
+    #[cfg(test)]
+    pub(crate) fn keepingTheSecondFormOfZero(parameters: &'parameters Parameters) -> Self {
+        Signer {
+            parameters,
+            normalizesPublishedVectors: false,
+        }
     }
 
     /// The signature of a message under a secret key of the right length, with a root seed of
@@ -74,12 +92,16 @@ impl<'parameters> Signer<'parameters> {
                 Problem::rsdp => {
                     let difference = restricted.difference(&key.secretVector, &sampled);
                     let mut published = difference.clone();
-                    restricted.normalize(&mut published);
+                    if self.normalizesPublishedVectors {
+                        restricted.normalize(&mut published);
+                    }
                     (sampled, difference, published)
                 }
                 Problem::rsdpg => {
                     let mut word = restricted.difference(&key.secretWord, &sampled);
-                    restricted.normalize(&mut word);
+                    if self.normalizesPublishedVectors {
+                        restricted.normalize(&mut word);
+                    }
                     let mut element = restricted.subgroupElement(&sampled, &key.matrices.subgroup);
                     restricted.normalize(&mut element);
                     let difference = restricted.difference(&key.secretVector, &element);

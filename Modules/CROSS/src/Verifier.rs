@@ -189,20 +189,47 @@ impl<'parameters> Verifier<'parameters> {
 #[cfg(test)]
 mod tests {
     use super::Verifier;
-    use crate::parameters::{Parameters, allSets};
+    use crate::parameters::{Parameters, allSets, crossRSDP128Fast, crossRSDPG128Fast};
     use crate::{KeyMaterial, Packing, Problem, Signer};
+    use OQSNativeAlgorithmTests::OutputDigest;
 
     const message: &[u8] = b"the quick brown fox";
 
     /// A public key and a signature of the message, from a secret key, a root seed and a salt of
     /// chosen bytes.
     fn signed(parameters: &Parameters) -> (Vec<u8>, Vec<u8>) {
+        signedBy(&Signer::new(parameters), parameters)
+    }
+
+    /// A public key and the signature of the message by a signer, from the bytes of `signed`.
+    fn signedBy(signer: &Signer, parameters: &Parameters) -> (Vec<u8>, Vec<u8>) {
         let secretKey = vec![0x11; parameters.digestLength()];
         let publicKey = KeyMaterial::expanded(parameters, &secretKey).publicKey(parameters);
         let rootSeed = vec![0x22; parameters.seedLength()];
         let salt = vec![0x33; parameters.digestLength()];
-        let signature = Signer::new(parameters).signature(message, &secretKey, &rootSeed, &salt);
+        let signature = signer.signature(message, &secretKey, &rootSeed, &salt);
         (publicKey, signature)
+    }
+
+    /// The number of exponents z, the second form of zero, in the published restricted vectors
+    /// of a signature.
+    fn secondFormsOfZero(parameters: &Parameters, signature: &[u8]) -> usize {
+        let problem = parameters.problem();
+        let fieldVectorLength = parameters.fieldVectorLength();
+        signature[parameters.responsesRange()]
+            .chunks_exact(parameters.responseLength())
+            .map(|response| {
+                let (values, _) = Packing::unpacked(
+                    &response[fieldVectorLength..],
+                    parameters.restrictedExponentCount(),
+                    problem.restrictedBits(),
+                );
+                values
+                    .iter()
+                    .filter(|value| **value == problem.restrictedOrder())
+                    .count()
+            })
+            .sum()
     }
 
     fn isValid(parameters: &Parameters, signature: &[u8], publicKey: &[u8]) -> bool {
@@ -319,6 +346,45 @@ mod tests {
             checked += 1;
         }
         assert_eq!(checked, 12);
+    }
+
+    #[test]
+    fn aPublishedVectorWithTheSecondFormOfZeroIsRefusedByTheGroupCheckAlone() {
+        // A signer that leaves out `fz_dz_norm_n` or `fz_dz_norm_m` publishes the exponent z for
+        // each zero of a published vector. g^z is 1, as g^0 is, and the first commitments hash
+        // the vectors as the signature holds them. So both digests come out as in the signature,
+        // and only `is_fz_vec_in_restr_group_n` or `is_fz_vec_in_restr_group_m` refuses it. A C
+        // program signed the bytes of `signed` with `CROSS_sign` of liboqs and with a copy of it
+        // without the normalization. Each row gives the digests of the two signatures and the
+        // count of z in the published vectors of the second. `CROSS_verify` of liboqs accepts the
+        // first signature and refuses the second, and a copy of `CROSS_verify` without the group
+        // check accepts both.
+        let expected = [
+            (
+                &crossRSDP128Fast,
+                "227287450adc12476ee200be3b1eb9e8bd69bb8da2691f5ed9e213add2c2d3f3",
+                "6870acc58238d829da4f9f74de3e28f8a8289643517907f6df0a77a2fbd4e34c",
+                1345,
+            ),
+            (
+                &crossRSDPG128Fast,
+                "cf331f0474b26c916140c448dfb1b523c889340074d8de7c5cd1e2c35df140a9",
+                "21eb7a4902066f3056cac579c00b92798bb4134f5f35b6eede0666499be20c43",
+                20,
+            ),
+        ];
+        for (parameters, signatureDigest, hostileDigest, count) in expected {
+            let name = parameters.description.name;
+            let (publicKey, signature) = signed(parameters);
+            let (_, hostile) =
+                signedBy(&Signer::keepingTheSecondFormOfZero(parameters), parameters);
+            assert_eq!(OutputDigest::of(&signature), signatureDigest, "{name}");
+            assert_eq!(OutputDigest::of(&hostile), hostileDigest, "{name}");
+            assert_eq!(secondFormsOfZero(parameters, &signature), 0, "{name}");
+            assert_eq!(secondFormsOfZero(parameters, &hostile), count, "{name}");
+            assert!(isValid(parameters, &signature, &publicKey), "{name}");
+            assert!(!isValid(parameters, &hostile, &publicKey), "{name}");
+        }
     }
 
     /// The number of slots of a part of a signature up to its last slot that is not zero.
