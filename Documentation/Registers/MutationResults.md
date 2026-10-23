@@ -469,6 +469,35 @@ The test gap replaces `+` with `*` in the size of the stack of `FORS::node`, lin
 | A verification compares the last root with `PK.root` | `Hypertree::isValid`, line 92: `==` replaced with `!=` | `hypertreeSignatureVerifiesAndAChangedMessageDoesNot` |
 | Each field of the address is a big-endian word at its place | `Address::setWord`: each operator replaced | `eachFieldIsABigEndianWordAtItsPlaceOfFIPS205Figure2`, `compressedAddressKeepsTheBytesOfFIPS205Section11Point2` and 9 more |
 
+## Latest result for SNOVA
+
+The run of 2026-10-23 took the crate in the ten shards of the `Mutants` workflow of CI: [the crate](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40026767146). It ran on an earlier commit of the branch `family/snova`, whose SNOVA code is the code before the changes below.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-snova`, first run in CI | 1830 | 1800 | 0 | 24 | 6 |
+
+The run had no timeout.
+
+The six missed mutants are equivalent. Five of them are of two kinds that `Documentation/Learnings/MutationTesting.md` describes. In three of them, `|` or `^` joins two bit fields that cannot share a bit. In the other two, `^=` adds a whole sum to a zero. The code now joins those fields with `+` and assigns those sums, so the five mutants are gone. Applied by hand, each mutant of the new forms fails the exhaustive tests of the field arithmetic and the known answers of every set, except `+` replaced with `*` in the index of the product table, which does not build. The sixth mutant is in the back substitution, which keeps the loop of the C code. It stays, and a later run must show it, and only it, as missed.
+
+### Equivalent mutants
+
+The line numbers are those of the run. Where a line moved, the list also gives its line in the current code.
+
+- `FieldArithmetic.rs`, the constant `productTable`, line 32: `^` replaced with `|` in the index of an entry. Each entry of `powersOfX`, line 22, is from 1 to 15. So the first power four bits up has only the bits 4 to 7, the second power has only the bits 0 to 3, and the two operators give the same index. Line 34 now joins the two parts with `+`.
+- `FieldArithmetic.rs`, `product`, line 44: `^` replaced with `|` in `(left << 4) ^ right`. Both arguments are below 16 at every call, so the two parts of the index have disjoint bits, as on line 32. Every call outside the tests is in `MatrixRing.rs`. `multiply` takes the powers of S. S^0 holds 0 and 1, S^1 holds `8 - (i + j)` or 9, from 1 to 9, and each later power holds exclusive ors of entries of the table, which are below 16. `makeInvertible` multiplies `base`, from 1 to 9, with `factor`, from 1 to 15. `determinant` and `makeInvertible` take the matrices A and B of `PublicMap::generated` and of `PublicMap::fixedMatrices`, and `writeSumOfPowers` takes the coefficients of Q1 and Q2 of the same two functions. Each of them comes from `NibblePacking::unpacked`, which keeps the low 4 bits of each element. `lastCoefficient` gives the last coefficient when it is not zero, and else `16 - c0` or 15, which are from 1 to 15. `determinant` also multiplies products and exclusive ors of products, which are below 16 too. Line 52 now joins the two parts with `+`, and a debug assertion refuses an argument of 16 or more.
+- `FieldArithmetic.rs`, `element`, line 75: `|` replaced with `^` in `reduced | (reduced >> 4)`. `reduced` ends with the mask `elementBits`, line 69, so for every input it has only the bits 0, 3, 6 and 9, and its copy four bits down has only the bits 2 and 5. Line 85 now joins the two with `+`.
+- `Signer.rs`, `attemptedSolution`, lines 361 and 436: `^=` replaced with `|=`. Lines 346 and 420 set every entry of `oilProducts` to zero. The loop of line 347 writes the entry `termRow * oilLength + oil * rank + column` for each `termRow` below `alpha l`, each `oil` below o and each `column` below l. `oilLength` is `o l`, so the loop writes each entry once. The loop of line 422 does the same with `termColumn` and `row`. An or and an exclusive or with zero give the same value. The C code adds the products of its inner loop one at a time into `xtemp_int`, which `memset` sets to zero. The port computes that whole sum with `dotProduct`, so lines 362 and 437 now assign it, and the two zeroings are gone. Applied by hand, `oil * rank` replaced with `oil / rank` on either line still fails the known answers of the signature.
+- `Signer.rs`, `solved`, line 579, now line 580: `+` replaced with `*` in `row + 1`. The sum of a row then also adds `gauss[row * width + row] * solution[row]`. Line 576, now 577, sets every entry of `solution` to zero. The rows go from the last one to the first, and line 582, now 583, writes `solution[row]` after the sum of its own row. So the added product is zero, and the exclusive or keeps the sum. The back substitution of `sign_digest_core_opt` has the same loop over `xSolution`, which is zero at its declaration. Applied by hand, the mutant passed every test of the crate.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The product table holds the product of a and b at the entry `16 a + b` | `productTable`, line 34: `+` replaced with `-` in the index | `theTableHoldsThePolynomialProductsModuloX4PlusXPlus1`, `spreadProductsAreTheProductsOfTheTable` and the known answers of `KATSig.rs` for every set |
+| The product of two elements reads the entry `16 a + b` | `FieldArithmetic::product`, line 52: `+` replaced with `-` or `*` | `theTableHoldsThePolynomialProductsModuloX4PlusXPlus1`, `theDeterminantIsTheSumOverAllPermutations` and the known answers of `KATSig.rs` for every set |
+| An element has coefficient `i` of its reduced spread form at bit `i` | `FieldArithmetic::element`, line 85: `+` replaced with `-` or `*` | `theSpreadFormHoldsCoefficientIAtBit3I`, `spreadProductsAreTheProductsOfTheTable` and the known answers of `KATSig.rs` for every set |
+| Each oil product of F12 and of F21 is the dot product of its own row and column | `Signer::attemptedSolution`, lines 362 and 437: `oil * rank` replaced with `oil / rank` | `theSignatureOfADigestIsTheSignatureOfTheCFunction`, `aSingularSystemMovesTheSignatureToTheNextAttempt` |
+
 ## History
 
 | Run | Code | Mutants | Caught | Timeout | Unviable | Missed |
