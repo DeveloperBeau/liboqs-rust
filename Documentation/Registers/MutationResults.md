@@ -47,10 +47,10 @@ Each row names one mutant of a rule and the tests that fail under it. The test n
 | A local dependency is one with a path | `RingCheck::findings`, line 138: operator replaced with `&&` | `allowedEdgeHasNoFinding`, `everyRingPairMatchesTheHandWrittenTable` and 12 more |
 | A crate depends only on the rings of its register row | `RingCheck::findings`, line 102: operator deleted | `allowedEdgeHasNoFinding`, `crateWithoutRingAndCrateWithUnknownRingAreFindings` and 16 more |
 | Each kind of name has its own casing rule | `NamingCheck::problem`, line 154: match arm deleted | `libraryNameMustBeUpperCamelCaseAndALibraryMustSetIt`, `mixedAcronymIsAFinding` and 7 more |
-| A mixed acronym such as Kem is found | `titleCaseWords`, line 32: operator replaced with `||` | `titleCaseWordsSplitsMixedAcronymsAndSkipsWholeAcronyms`, `swiftCasingHasNoFinding` |
-| Each part of a version is digits only | `VersionCheck::isReleaseVersion`, line 93: operator replaced with `||` | `malformedOrMissingVersionIsAFinding`, `versionWithAnEmptyOrNonNumericPartIsAFinding` |
+| A mixed acronym such as Kem is found | `titleCaseWords`, line 32: operator replaced with `\|\|` | `titleCaseWordsSplitsMixedAcronymsAndSkipsWholeAcronyms`, `swiftCasingHasNoFinding` |
+| Each part of a version is digits only | `VersionCheck::isReleaseVersion`, line 93: operator replaced with `\|\|` | `malformedOrMissingVersionIsAFinding`, `versionWithAnEmptyOrNonNumericPartIsAFinding` |
 | The workspace version equals LIBOQS_VERSION | `VersionCheck::findings`, line 37: match guard replaced with `false` | `agreeingVersionsHaveNoFinding`, `crateWithItsOwnVersionIsAFinding` and 5 more |
-| A semicolon is a finding in prose only | `HygieneCheck::textFindings`, line 129: operator replaced with `||` | `absolutePathIsAFinding`, `cleanProseHasNoFinding` and 11 more |
+| A semicolon is a finding in prose only | `HygieneCheck::textFindings`, line 129: operator replaced with `\|\|` | `absolutePathIsAFinding`, `cleanProseHasNoFinding` and 11 more |
 | An empty word variable falls back to the local file | `HygieneCheck::forbiddenWords`, line 32: operator deleted | `forbiddenWordIsAFindingInTextAndInPathsInAnyLetterCase`, `forbiddenWordsComeFromTheVariableFirstAndElseFromTheLocalFile` and 4 more |
 | A character literal is told apart from a lifetime | `RustTokenizer::readQuote`, line 124: operator replaced with `!=` | `characterLiteralsAndLifetimesAreToldApart`, `quoteInsideACharacterLiteralDoesNotStartAString` and 4 more |
 | Block comments nest | `RustTokenizer::skipBlockComment`, line 80: operator replaced with `+=` | `blockCommentsNestAndEndAtTheirOwnClose`, `linesAreCountedThroughCommentsStringsAndRawStrings` and 3 more |
@@ -77,7 +77,7 @@ The run of 2026-10-23 on the branch `foundation/entities-domain`.
 | The wipe writes zero over every byte | `wipe`: body replaced with `()` | `wipeWritesZeroOverEveryByte`, `dropWipesTheBytesBeforeTheMemoryIsFreed` |
 | Debug text never shows secret bytes | `<impl fmt::Debug for SecretBytes>::fmt`: body replaced | `debugTextShowsTheLengthButNeverTheBytes` |
 | Inputs have the exact length | `InputLength::checked`: `==` replaced with `!=` | `checkedRejectsAShorterAndALongerInputWithBothLengths`, `checkedReturnsAnInputOfTheExpectedLength` |
-| A scheme without context support accepts only an empty context | `Signing::isValidSignatureWithContext`: `&&` replaced with `||` | `verificationWithContextAcceptsOnlyAnEmptyContext` |
+| A scheme without context support accepts only an empty context | `Signing::isValidSignatureWithContext`: `&&` replaced with `\|\|` | `verificationWithContextAcceptsOnlyAnEmptyContext` |
 
 The `xtask` files that this branch changed (`Command.rs`, `UnsafeCodeCheck.rs`, `lib.rs`) gave 18 mutants: 13 caught, 5 unviable, 0 missed.
 
@@ -154,8 +154,8 @@ The second run of `oqs-native-parity` covered the four files that changed after 
 | HQC uses the SHAKE256 generator | `KnownAnswerRandom::generator`: the condition replaced | `hqcUsesTheSHAKEGeneratorAndEveryOtherNameTheNISTGenerator` |
 | Each layout of `kat_sig` joins its parts in its order | `SignedMessageForm::signedMessage`: each arm replaced | `signedMessagesJoinThePartsInTheOrderOfTheForm`, `falconFormMovesTheSaltBeforeTheMessageAndTheHeaderAfterIt` |
 | A failure on one side only is a mismatch | `agreeOnFailure`: body replaced with `Ok(())` | `aFailureOnOneSideIsAMismatchThatNamesTheSide` |
-| A changed input changes exactly one bit | `VariationGenerator::withChangedBit`: `^=` replaced with `|=` or `&=`, `/` replaced with `%` | `aChangedBitChangesExactlyOneBitAndReachesEveryBit` |
-| A non-empty context always uses the context form | `VariationGenerator::usesContextForm`: `||` replaced with `&&`, `>` replaced | `aNonEmptyContextAlwaysUsesTheContextFormAndAnEmptyOneUsesBoth` |
+| A changed input changes exactly one bit | `VariationGenerator::withChangedBit`: `^=` replaced with `\|=` or `&=`, `/` replaced with `%` | `aChangedBitChangesExactlyOneBitAndReachesEveryBit` |
+| A non-empty context always uses the context form | `VariationGenerator::usesContextForm`: `\|\|` replaced with `&&`, `>` replaced | `aNonEmptyContextAlwaysUsesTheContextFormAndAnEmptyOneUsesBoth` |
 | The variations reach each message length range | `VariationGenerator::messageLength`: `+` replaced with `*` | `messageLengthsCoverEachRangeAndStayInTheLimit` |
 | A snapshot check counts each failure | `ParityJob::snapshotCheck`: `+=` replaced | `snapshotCheckCountsEachFailureAndEachMissedDigest` |
 | The oracle build clones only a missing source | `OracleBuild::steps`: the clone condition replaced | `missingSourceIsClonedAtTheVersionTagAndThenBuilt`, `presentSourceOfTheVersionIsBuiltWithoutAClone` |
