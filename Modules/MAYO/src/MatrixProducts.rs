@@ -263,32 +263,34 @@ pub(crate) fn quadraticForms(
     for column in 0..vectorCount {
         accumulator.fill(0);
         let vector = &signature[column * variableCount..(column + 1) * variableCount];
-        let bin = |row: usize, scalar: u8| (row * 16 + usize::from(scalar)) * limbCount;
+        // The 16 bins of a row, one for each value of an element.
+        let bin = |row: usize, scalar: u8| row * 16 + usize::from(scalar);
         let mut p1Used = 0;
         for row in 0..vinegarCount {
             for scalar in &vector[row..vinegarCount] {
-                let start = bin(row, *scalar);
                 add(
                     entry(p1, p1Used, limbCount),
-                    &mut accumulator[start..start + limbCount],
+                    mutableEntry(&mut accumulator, bin(row, *scalar), limbCount),
                 );
                 p1Used += 1;
             }
             for place in 0..oilCount {
-                let start = bin(row, vector[vinegarCount + place]);
                 add(
                     entry(p2, row * oilCount + place, limbCount),
-                    &mut accumulator[start..start + limbCount],
+                    mutableEntry(
+                        &mut accumulator,
+                        bin(row, vector[vinegarCount + place]),
+                        limbCount,
+                    ),
                 );
             }
         }
         let mut p3Used = 0;
         for row in vinegarCount..variableCount {
             for scalar in &vector[row..variableCount] {
-                let start = bin(row, *scalar);
                 add(
                     entry(p3, p3Used, limbCount),
-                    &mut accumulator[start..start + limbCount],
+                    mutableEntry(&mut accumulator, bin(row, *scalar), limbCount),
                 );
                 p3Used += 1;
             }
@@ -303,10 +305,10 @@ pub(crate) fn quadraticForms(
         for row in 0..vectorCount {
             accumulator[..binLength].fill(0);
             for place in 0..variableCount {
-                let start = usize::from(signature[row * variableCount + place]) * limbCount;
+                let scalar = signature[row * variableCount + place];
                 add(
                     entry(&mapProducts, place + column, limbCount),
-                    &mut accumulator[start..start + limbCount],
+                    mutableEntry(&mut accumulator, usize::from(scalar), limbCount),
                 );
             }
             multiplyBins(
