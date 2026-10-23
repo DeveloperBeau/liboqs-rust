@@ -220,6 +220,13 @@ limitations under the License.
 - License: CC0-1.0. Each folder `src/sig/cross/upcross_cross-*` holds the text of CC0 1.0 Universal in its `LICENSE` file, the header of each file states that the code is placed in the public domain, and liboqs states `spdx-license-identifier: CC0-1.0` in `docs/algorithms/sig/cross.yml`. The liboqs wrappers `src/sig/cross/sig_cross.h` and `sig_cross_*.c` are MIT, as liboqs is.
 - Use in this repository: `Modules/CROSS` translates the clean code and gives its bytes. The port is under MIT, and the `license` field of the crate states the combined expression `MIT AND CC0-1.0`.
 
+## UOV
+
+- Algorithm: UOV, Unbalanced Oil and Vinegar, by Ward Beullens, Ming-Shing Chen, Jintai Ding, Boru Gong, Matthias J. Kannwischer, Jacques Patarin, Bo-Yuan Peng, Dieter Schmidt, Cheng-Jhih Shih, Chengdong Tao and Bo-Yin Yang, the principal submitters that liboqs names in `docs/algorithms/sig/uov.yml`. See https://www.uovsig.org/.
+- UOV in liboqs: the reference code of the pqov project, [pqov/pqov](https://github.com/pqov/pqov), commit `33fa5278754a32064c55901c3a17d48b06cc2351`, in the folders `src/sig/uov/pqov_ov_<set>_ref`.
+- License: the folders have no license file, and their files have no copyright line. Each file has the line `SPDX-License-Identifier: CC0 OR Apache-2.0`, and liboqs states the same in `docs/algorithms/sig/uov.yml`. CC0 has one version, CC0 1.0 Universal, so the SPDX expression is `CC0-1.0 OR Apache-2.0`. The liboqs wrappers `src/sig/uov/sig_uov.h` and `sig_uov_ov_<set>.c` and the build file `src/sig/uov/CMakeLists.txt` are MIT, as liboqs is.
+- Use in this repository: `Modules/UOV` translates the reference code and gives its bytes. The port is a modified work: it takes its random bytes as an argument, it shares one code for the twelve sets, and it computes the products of the matrices in another order that gives the same bytes. The port is under MIT, and the `license` field of the crate states the combined expression `MIT AND (CC0-1.0 OR Apache-2.0)`.
+
 ## Test vectors
 
 - [NIST ACVP-Server](https://github.com/usnistgov/ACVP-Server), tag `v1.1.0.41`: the ML-KEM, ML-DSA and SLH-DSA vectors. Works of the United States government are not subject to copyright in the United States.
