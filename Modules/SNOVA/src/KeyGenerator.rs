@@ -207,88 +207,84 @@ mod tests {
     use crate::nibblePacking::NibblePacking;
     use crate::parameters::everySet;
     use crate::publicMap::PublicMap;
-    use OQSNativeSHA3::SHA3256;
+    use OQSNativeAlgorithmTests::OutputDigest;
 
-    fn lowerHex(bytes: &[u8]) -> String {
-        bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-    }
-
-    /// The SHA3-256 of the public key, the secret key, the expanded public key and the expanded
-    /// secret key of the seed 0 to 47 for each set, in the order of `everySet`, from
-    /// `generate_keys_ssk` or `generate_keys_esk`, `expand_public_pack` and `expand_secret` of
-    /// the oracle build of liboqs.
+    /// The digests of `OutputDigest` of the public key, the secret key, the expanded public key
+    /// and the expanded secret key of the seed 0 to 47 for each set, in the order of
+    /// `everySet`, from `generate_keys_ssk` or `generate_keys_esk`, `expand_public_pack` and
+    /// `expand_secret` of the oracle build of liboqs.
     const knownAnswers: [[&str; 4]; 12] = [
         [
-            "749aec7cd51f65315b1917a10b037e69c4d4f56db6117ae63d6a17a1154eb567",
-            "8e7a856365f79e42004aa1a47a3b83e8e6d0ebdbb602f62793e574139b9f2a17",
-            "18a142132ce8119e92ff27bcbbdc69d2396c2d521ec314e6004505b7c5650514",
-            "ccfd2496ee0df3e481f4270effca1c6fd5a6008a2a42546db98efc53e211741c",
+            "8f2ed604b71147138bb46decd79e02717d234bda1e4ffec3644f5d8e4d03d049",
+            "aa0e95005b8b23241332edb390a53d75747e97444b2db8d04c3cbac3bebe8c3b",
+            "f7f8df080ecd735cc021443e3086332b7e85a08ebd3382331664afbfb6d9fd22",
+            "f47f507396fca7b7a480b57e21fd8951c1c2705db95c126067e932fefdac80c6",
         ],
         [
-            "e9af94f6ae63121fc630a4055a9b2d9bd9d9a98b225dd5a7da74b621b482aa19",
-            "8e7a856365f79e42004aa1a47a3b83e8e6d0ebdbb602f62793e574139b9f2a17",
-            "62f980f4e2f14e80a2aad94f02c9df43142a4606870bf9ced018b51a662cd92d",
-            "5f329a4fdf028d100147b5c691e40a5510fed4ca5a3a2e01b859f43b3d0c8b13",
+            "10ee6146084bba3e8bb7a4f41616080a652d8d68b78fac3f0ef3416d52318c20",
+            "aa0e95005b8b23241332edb390a53d75747e97444b2db8d04c3cbac3bebe8c3b",
+            "8e102c2498db3b205116b18a31118ba639dfd3b6e0b9777dab2fa814b6b6ca40",
+            "7aaee91cb8a5d73276ef9eaec486f5f18b563a4e0cf6f4491dfccde38f837734",
         ],
         [
-            "749aec7cd51f65315b1917a10b037e69c4d4f56db6117ae63d6a17a1154eb567",
-            "ccfd2496ee0df3e481f4270effca1c6fd5a6008a2a42546db98efc53e211741c",
-            "18a142132ce8119e92ff27bcbbdc69d2396c2d521ec314e6004505b7c5650514",
-            "ccfd2496ee0df3e481f4270effca1c6fd5a6008a2a42546db98efc53e211741c",
+            "8f2ed604b71147138bb46decd79e02717d234bda1e4ffec3644f5d8e4d03d049",
+            "f47f507396fca7b7a480b57e21fd8951c1c2705db95c126067e932fefdac80c6",
+            "f7f8df080ecd735cc021443e3086332b7e85a08ebd3382331664afbfb6d9fd22",
+            "f47f507396fca7b7a480b57e21fd8951c1c2705db95c126067e932fefdac80c6",
         ],
         [
-            "e9af94f6ae63121fc630a4055a9b2d9bd9d9a98b225dd5a7da74b621b482aa19",
-            "5f329a4fdf028d100147b5c691e40a5510fed4ca5a3a2e01b859f43b3d0c8b13",
-            "62f980f4e2f14e80a2aad94f02c9df43142a4606870bf9ced018b51a662cd92d",
-            "5f329a4fdf028d100147b5c691e40a5510fed4ca5a3a2e01b859f43b3d0c8b13",
+            "10ee6146084bba3e8bb7a4f41616080a652d8d68b78fac3f0ef3416d52318c20",
+            "7aaee91cb8a5d73276ef9eaec486f5f18b563a4e0cf6f4491dfccde38f837734",
+            "8e102c2498db3b205116b18a31118ba639dfd3b6e0b9777dab2fa814b6b6ca40",
+            "7aaee91cb8a5d73276ef9eaec486f5f18b563a4e0cf6f4491dfccde38f837734",
         ],
         [
-            "d8eb3a43129f85a77abf679f352db594fcd1ee9d565ff3ebfbe10a72f986ee45",
-            "8e7a856365f79e42004aa1a47a3b83e8e6d0ebdbb602f62793e574139b9f2a17",
-            "135947fec04baa10039e10a8c07707e183ca2bbb0bd5e0d2e78e9eec7fd3b3ad",
-            "c2068514e42226e7a59e546b214df23c4c0bb4243cfa976a7e09c28a7c968534",
+            "a8e6bd859b79fdf5b378447e5ad7cba5caeb8b26ff55fa63f84f39e6df939e2e",
+            "aa0e95005b8b23241332edb390a53d75747e97444b2db8d04c3cbac3bebe8c3b",
+            "735f80e0c1825ce7b3e558b94cb684949795069244f3e2348a98cb84793dd904",
+            "0e81f110d8a81c16a653d77beb8c77a11d82d8fb805a82486ec15f573baaf675",
         ],
         [
-            "aaf69351db4c3b5b869092e9f2859ce90666911b88ae114c3c1316ab6161f92d",
-            "8e7a856365f79e42004aa1a47a3b83e8e6d0ebdbb602f62793e574139b9f2a17",
-            "a72b1c84255012cb50e59e4bf00b31baf1bbba1dd9195bc2a4e80acb8a7fabd4",
-            "36a55b785eae1ccc5423f4410d7ad460db8b95b9ab1e6231f5005da47cf54fc9",
+            "c20eaa163aafd68f693fea1b32f761c3fce8e144a7455375415facf444caedfa",
+            "aa0e95005b8b23241332edb390a53d75747e97444b2db8d04c3cbac3bebe8c3b",
+            "18e338821d38b60f8f68caaa3c89a1999fdb98c14cbdd0a9cf8cf4e5f212b240",
+            "7258246f1a313572993d615406e3c26b0cce3c60625c56c61cb6e7fa056c501d",
         ],
         [
-            "0f40add2a3b865992eca849f28dfcfe4712d11cedb053f5133502c71f422ed75",
-            "8e7a856365f79e42004aa1a47a3b83e8e6d0ebdbb602f62793e574139b9f2a17",
-            "c0d6a72b65104814ba28725d9235832fd6f1eb92250db59c24f4a736f78de76f",
-            "c4e736824fee70b8d888ee7b150bd1b74c4cea1554d5da82c7c63165317dc4aa",
+            "f516bc0826d71f557490d8787504c5b8ae5c8ac02ff1e144f148ba9f08babead",
+            "aa0e95005b8b23241332edb390a53d75747e97444b2db8d04c3cbac3bebe8c3b",
+            "c1c9bdd95665b47321d7c78df766ab2f2ab259f5ce4531bfadef64d6ed8c5574",
+            "b222016add9781423d4fd4f2f5166ee9e18e832f3f70785990b0760fa7eac4aa",
         ],
         [
-            "e3a8d9fd9035e0c8034be0e49193453511b3e25b47d650b40c86f49ffd310272",
-            "8e7a856365f79e42004aa1a47a3b83e8e6d0ebdbb602f62793e574139b9f2a17",
-            "f8ac14667295c36a1f6eeae02c5b977829edda05fa460ba067fdf50dfd6c44cd",
-            "af3e4da33ff431a7ccb0a049a13ddff4a412732c651a4b0bcfcbac70757ee5e5",
+            "2a0a50bb736821dae3e2cb4f85975aec4a30f422ea71b3d1bd4c197e6ecc587d",
+            "aa0e95005b8b23241332edb390a53d75747e97444b2db8d04c3cbac3bebe8c3b",
+            "dc7cd6e54c3b4ab3d7abe8f8a8984dfbb0cd67a2dd0ec4f5cab44547971fa960",
+            "81b7cc4f12b45443e7d20b0bcfdd0583cc27765678fb07ba50548abd802ab0a7",
         ],
         [
-            "afd4a67abe2b3a2a121d5b83d286ff04ef694ff3b57a00595d37b3f198c298bf",
-            "8e7a856365f79e42004aa1a47a3b83e8e6d0ebdbb602f62793e574139b9f2a17",
-            "6d36a8871c32f72dad2bf91c860b9b5d404d6c93315d50d4427a209da62e6763",
-            "60cf389bd6fdfefae87230cc7f3b12baaa341a7e38a42fe8f8f8c81da0c65e6a",
+            "81d3350430cc8be681ce25a12c3a450392931351455e5648c315d3d50cebe22c",
+            "aa0e95005b8b23241332edb390a53d75747e97444b2db8d04c3cbac3bebe8c3b",
+            "bc89aa7313d7e54b8860884e4de9094333993ca47231f62a062143712961e2fa",
+            "72abd44ede73fc948947b185696ab328c1e722f1e2c75b54f1613e22f12a5b88",
         ],
         [
-            "9d6102309b17c1c3e5fdaf3e5e4fe1a548be0830d53170274d2fcf6ec4927fdc",
-            "8e7a856365f79e42004aa1a47a3b83e8e6d0ebdbb602f62793e574139b9f2a17",
-            "6175ee4a512759a80c4f93439b7b02cca8ae0448412df0b6c382dd0b159c4273",
-            "5180508b9a8685a667b3b44c18bd76c6f53a589f91392cbb5b6491c7a13aff51",
+            "b98001cf55da757326b41f97a80d8d0a3d4b05c01a77e11d2e9083af631e502a",
+            "aa0e95005b8b23241332edb390a53d75747e97444b2db8d04c3cbac3bebe8c3b",
+            "44fe73aeda3bb49caa843f0509da33eb9f2db691c865370c2bad16e1870bba63",
+            "c996598d9e55971b1d046713aec4115245ebebbdf607bc889665336c436afa36",
         ],
         [
-            "4af9aea878af497951d6cda495015f08039ba02d94e3e26b7b3cf1d405c11a10",
-            "8e7a856365f79e42004aa1a47a3b83e8e6d0ebdbb602f62793e574139b9f2a17",
-            "9e08a6cdbbd60ffade4ccb636bd692dc814b59bc6c7d20d1575be9cd948bb069",
-            "df27efc392730f57c33f53ae0178f728a38606a8892ccb17744447b933a8cf96",
+            "b761142a1396455e3e2e584359ad6fbe917078c552cbe0edd24b522643997462",
+            "aa0e95005b8b23241332edb390a53d75747e97444b2db8d04c3cbac3bebe8c3b",
+            "e6be4b744343cd9b492f4dd3a0a45ff0c09bc02782eb6f0d0c859c11cc568209",
+            "f35b7d430daaaa1cc85127aa8ad04d4c43543e1b2edaa93562058db89c4397bc",
         ],
         [
-            "aa3654ee2e96e3fa971641863414eccbf2243e78bd7ee1ab49c525ca0b25d075",
-            "8e7a856365f79e42004aa1a47a3b83e8e6d0ebdbb602f62793e574139b9f2a17",
-            "2750c0a4cb2d0cc560885981099bc786832c75bc4dd4f8d6de7197504bac6826",
-            "8b5d2a13075f7bacdb9245eb2d8b250a9b8b0dfb08d1dc1213e4606d535f4bde",
+            "fb7fe3698f7cfc1b200389f0774504a818412e74d4be26f9e9cb21afc862a4f8",
+            "aa0e95005b8b23241332edb390a53d75747e97444b2db8d04c3cbac3bebe8c3b",
+            "f899c43224f5b6dc052ec9e4afcf1cd59937dbf976fa73744888cbad3256b54c",
+            "2be1a8c58bda5de2e78bb62f88b6f0ba741c42731dd11cdfea4bb5b6f63ca2e5",
         ],
     ];
 
@@ -299,8 +295,8 @@ mod tests {
             let name = parameters.description.name;
             let generator = KeyGenerator::new(parameters);
             let (publicKey, secretKey) = generator.keyPair(&seeds);
-            assert_eq!(lowerHex(&SHA3256::hash(&publicKey)), expected[0], "{name}");
-            assert_eq!(lowerHex(&SHA3256::hash(&secretKey)), expected[1], "{name}");
+            assert_eq!(OutputDigest::of(&publicKey), expected[0], "{name}");
+            assert_eq!(OutputDigest::of(&secretKey), expected[1], "{name}");
             // The expanded public key of `pkx_pack`: the public seed, then the elements of P22
             // and of P11, P12, P21, A, B, Q1 and Q2, packed.
             let oilCount = parameters.oilCount;
@@ -327,22 +323,14 @@ mod tests {
             .concat();
             let mut expandedPublicKey = seeds[..16].to_vec();
             expandedPublicKey.extend(NibblePacking::packed(&elements));
-            assert_eq!(
-                lowerHex(&SHA3256::hash(&expandedPublicKey)),
-                expected[2],
-                "{name}"
-            );
+            assert_eq!(OutputDigest::of(&expandedPublicKey), expected[2], "{name}");
             let expandedSecretKey = generator
                 .expandedKey(
                     seeds[..16].try_into().expect("16 bytes"),
                     seeds[16..].try_into().expect("32 bytes"),
                 )
                 .packed();
-            assert_eq!(
-                lowerHex(&SHA3256::hash(&expandedSecretKey)),
-                expected[3],
-                "{name}"
-            );
+            assert_eq!(OutputDigest::of(&expandedSecretKey), expected[3], "{name}");
         }
     }
 
