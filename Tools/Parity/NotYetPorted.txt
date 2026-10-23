@@ -1,15 +1,3 @@
-mqom2_cat1_gf16_fast_r3
-mqom2_cat1_gf16_fast_r5
-mqom2_cat1_gf16_short_r3
-mqom2_cat1_gf16_short_r5
-mqom2_cat3_gf16_fast_r3
-mqom2_cat3_gf16_fast_r5
-mqom2_cat3_gf16_short_r3
-mqom2_cat3_gf16_short_r5
-mqom2_cat5_gf16_fast_r3
-mqom2_cat5_gf16_fast_r5
-mqom2_cat5_gf16_short_r3
-mqom2_cat5_gf16_short_r5
 XMSS-SHA2_10_256
 XMSS-SHA2_16_256
 XMSS-SHA2_20_256

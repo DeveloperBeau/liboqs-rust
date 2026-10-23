@@ -3,12 +3,13 @@
 //! mldsa-native decodes the vectors s1, s2 and t0 of a secret key with no range check, so it
 //! signs with any bytes of the right length. Every byte string of the right length is a UOV
 //! key, and a classic secret key whose block S is zero makes every attempt of a signature
-//! fail. The SNOVA code unpacks an expanded secret key with no check either. The parity
-//! variations sign only with generated keys, so these tests sign malformed keys on both sides
-//! and compare the signatures, the failures and the verdicts on them. They also give both
-//! sides UOV public keys made by hand, which accept one signature.
+//! fail. The SNOVA code unpacks an expanded secret key with no check either, and MQOM reads its
+//! secret key, the public key and x, with no check at all. The parity variations sign only
+//! with generated keys, so these tests sign malformed keys on both sides and compare the
+//! signatures, the failures and the verdicts on them. They also give both sides UOV public keys
+//! made by hand, which accept one signature.
 
-use OQSNative::{MLDSA, OQSError, SNOVA, Signing, UOV};
+use OQSNative::{MLDSA, MQOM, OQSError, SNOVA, Signing, UOV};
 use OQSNativeCOracle::{COracle, OracleRandomness};
 use OQSNativeKATRandom::NISTKATRandom;
 use OQSNativeParity::{LargeStack, ParityMismatch, VariationGenerator};
@@ -303,6 +304,71 @@ fn snovaSignsMalformedExpandedSecretKeysLikeTheCLibrary() {
             }
             // The zero matrices fail on both sides.
             assert_eq!(failureCount, 2, "{name}");
+        }
+    });
+}
+
+#[test]
+fn mqomSignsMalformedSecretKeysLikeTheCLibrary() {
+    LargeStack::run(|| {
+        for scheme in [
+            &MQOM::mqom2Cat1GF16FastR3,
+            &MQOM::mqom2Cat1GF16FastR5,
+            &MQOM::mqom2Cat1GF16ShortR3,
+            &MQOM::mqom2Cat1GF16ShortR5,
+            &MQOM::mqom2Cat3GF16FastR3,
+            &MQOM::mqom2Cat3GF16FastR5,
+            &MQOM::mqom2Cat3GF16ShortR3,
+            &MQOM::mqom2Cat3GF16ShortR5,
+            &MQOM::mqom2Cat5GF16FastR3,
+            &MQOM::mqom2Cat5GF16FastR5,
+            &MQOM::mqom2Cat5GF16ShortR3,
+            &MQOM::mqom2Cat5GF16ShortR5,
+        ] {
+            let description = scheme.description();
+            let name = description.name;
+            for case in 0..2u64 {
+                let label = format!("{name}, case {case} of seed {keySeed:#x}");
+                let mut generator = VariationGenerator::forCase(keySeed, name, case);
+                let keyPair = scheme
+                    .generateKeyPair(&mut NISTKATRandom::new(&generator.entropy(), None))
+                    .expect("a key pair");
+                let mut secretKey = keyPair.secretKey.bytes().to_vec();
+                // Every byte random: the equation seed, y and x. Or x alone random, so x
+                // solves none of the equations of the public key.
+                let region = if case == 0 {
+                    0..secretKey.len()
+                } else {
+                    description.publicKeyLength..secretKey.len()
+                };
+                let replacement = generator.bytes(region.len());
+                secretKey[region].copy_from_slice(&replacement);
+                let messageLength = generator.below(200) as usize;
+                let message = generator.bytes(messageLength);
+                let signingEntropy = generator.entropy();
+                let signature = COracle::new(OracleRandomness::nist(signingEntropy))
+                    .sign(name, &message, &secretKey)
+                    .unwrap_or_else(|error| panic!("{label}: the C signature fails: {error}"));
+                let rustSignature = scheme
+                    .sign(
+                        &message,
+                        &secretKey,
+                        &mut NISTKATRandom::new(&signingEntropy, None),
+                    )
+                    .unwrap_or_else(|error| panic!("{label}: the Rust signature fails: {error}"));
+                if let Some(detail) = ParityMismatch::difference(&signature, &rustSignature) {
+                    panic!("{label}: {detail}");
+                }
+                // The public key of the malformed key is the one that the signature names.
+                let signedKey = &secretKey[..description.publicKeyLength];
+                for publicKey in [keyPair.publicKey.as_slice(), signedKey] {
+                    let cVerdict = COracle::new(OracleRandomness::nist([0; 48]))
+                        .isValidSignature(name, &signature, &message, publicKey);
+                    let rustVerdict = scheme.isValidSignature(&signature, &message, publicKey);
+                    assert_eq!(rustVerdict, cVerdict, "{label}");
+                    assert!(!rustVerdict, "{label}");
+                }
+            }
         }
     });
 }

@@ -365,3 +365,15 @@
 - Trap: a test of a refusal of the key generation passes without the check, because its input also fails a later step.
 - Finding: the first test of the rule of Classic McEliece that two equal order values give no key changed one value of a random input. Its matrix had no systematic form, so the key generation gave no key without the check as well, and both mutants of the check survived the first mutation run. `twoEqualOrderValuesGiveNoKeyAlsoWhenTheirOrderGivesAKey` starts from the input of a known key of `pk_gen` and gives the index 991 the value of the index 283, which comes just before it in the order of the values. The order of the indices and the matrix stay the same.
 - Rule: a test of a refusal starts from an input that the code accepts, breaks only the rule of the test, keeps every other value that the code reads, and asserts that the rest stays the same. See also "A refused case that breaks two rules cannot see the loss of one".
+
+## A check that a later check repeats cannot fail alone
+
+- Trap: the verification of MQOM refuses a nonce whose challenge fails the proof of work. A test that changes the nonce cannot see the loss of that check, because another nonce also gives other hidden leaves, and then the opening of the signature fails its own check.
+- Finding: with the check of the w bits removed, the other tests of the crate passed, the changed nonces of `eachCheckOfTheVerificationRefusesAChangeThatReachesIt` and every test of `TestSig.rs` and `FuzzTestSig.rs` among them. In the same way, with the comparison of com1 always true, every test of `TestSig.rs` passed, because a changed opening gives other evaluations and the comparison of com2 refuses them. A signer that takes the first nonce that fails the proof of work makes a signature whose opening and slopes prove the hidden leaves of that nonce. `aNonceThatFailsTheProofOfWorkIsRefusedAlthoughItsProofIsValid` signs with it, asserts that the later checks accept the proof, and failed without the check.
+- Rule: the test of each check of a verification builds an input that passes every other check, through the steps of the signer where needed, and asserts that the other checks accept it. The decoder of Classic McEliece above follows the same rule with a key whose decoding is known by hand.
+
+## A search from zero needs a case where zero wins
+
+- Trap: `SampleChallenge` tries the nonces from 0 up. A signature that searches from 1 passes every test whose signatures take a nonce above 0.
+- Finding: with the search from 1, the other tests of the fast suite passed, also the `single` digests of `KATSig.rs` and the known answers of `Sign`, because none of their signatures takes the nonce 0. With w = 3, the nonce 0 meets the proof of work for about one challenge in eight. `aSignatureTriesTheNoncesFromZero` signs until a signature takes it, and it failed with the search from 1.
+- Rule: a search of the C code has a test whose answer is the first value of the search, as well as the tests at its limit of the MAYO entry above.
