@@ -286,6 +286,18 @@ fn checked(status: c_int) -> Result<(), OQSError> {
     }
 }
 
+/// The pointer of a context string for the C library. The empty context is the null pointer,
+/// as in `tests/test_sig.c`: the liboqs wrapper of a scheme without context support refuses
+/// every other pointer, even with a length of zero, and an empty Rust slice has a pointer that
+/// is not null.
+fn contextPointer(context: &[u8]) -> *const u8 {
+    if context.is_empty() {
+        null()
+    } else {
+        context.as_ptr()
+    }
+}
+
 /// Checks that an input has the length that the C code reads.
 fn checkedLength(input: &[u8], expected: usize) -> Result<(), OQSError> {
     if input.len() == expected {
@@ -634,7 +646,7 @@ impl<'random> COracle<'random> {
                 &mut signatureLength,
                 message.as_ptr(),
                 message.len(),
-                context.as_ptr(),
+                contextPointer(context),
                 context.len(),
                 secretKey.as_ptr(),
             )
@@ -687,7 +699,7 @@ impl<'random> COracle<'random> {
                     message.len(),
                     signature.as_ptr(),
                     signature.len(),
-                    context.as_ptr(),
+                    contextPointer(context),
                     context.len(),
                     publicKey.as_ptr(),
                 )
