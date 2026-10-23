@@ -128,8 +128,9 @@ mod tests {
         ntruHPS2048509, ntruHPS4096821, ntruHPS40961229, ntruHRSS701, ntruHRSS1373,
     };
     use crate::testInputs::{
-        cAnswer, digest, everySet, sequence, sequenceBytes, ternarySequence, valuesDigest,
+        cAnswer, everySet, sequence, sequenceBytes, ternarySequence, valuesDigest,
     };
+    use OQSNativeAlgorithmTests::OutputDigest;
 
     #[test]
     fn ternaryBytesAreDigitsInBaseThreeWithTheFirstCoefficientLowest() {
@@ -252,7 +253,11 @@ mod tests {
             let count = parameters.coefficientCount;
             let name = parameters.description.name;
             let bytes = packing.ternaryBytes(&ternarySequence(count, 6));
-            assert_eq!(digest(&bytes), cAnswer(name, "ternaryBytes"), "{name}");
+            assert_eq!(
+                OutputDigest::of(&bytes),
+                cAnswer(name, "ternaryBytes"),
+                "{name}"
+            );
             let polynomial =
                 packing.ternaryPolynomial(&sequenceBytes(parameters.ternaryLength(), 7));
             assert_eq!(
@@ -261,7 +266,11 @@ mod tests {
                 "{name}"
             );
             let bytes = packing.modulusBytes(&sequence(count, 8));
-            assert_eq!(digest(&bytes), cAnswer(name, "modulusBytes"), "{name}");
+            assert_eq!(
+                OutputDigest::of(&bytes),
+                cAnswer(name, "modulusBytes"),
+                "{name}"
+            );
             let polynomial =
                 packing.sumZeroPolynomial(&sequenceBytes(parameters.packedLength(), 9));
             assert_eq!(

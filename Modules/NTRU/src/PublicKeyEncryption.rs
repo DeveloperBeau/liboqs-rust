@@ -150,7 +150,8 @@ mod tests {
     use crate::parameters::{
         ntruHPS2048509, ntruHPS2048677, ntruHPS4096821, ntruHPS40961229, ntruHRSS701, ntruHRSS1373,
     };
-    use crate::testInputs::{cAnswer, digest, everySet, sequenceBytes};
+    use crate::testInputs::{cAnswer, everySet, sequenceBytes};
+    use OQSNativeAlgorithmTests::OutputDigest;
 
     #[test]
     fn theCiphertextCheckReadsOnlyTheUnusedBitsOfTheLastByte() {
@@ -272,16 +273,20 @@ mod tests {
             let (publicKey, secretKey) =
                 scheme.keyPair(&sequenceBytes(parameters.sampleLength(), 18));
             assert_eq!(secretKey.len(), parameters.encryptionSecretKeyLength());
-            assert_eq!(digest(&publicKey), cAnswer(name, "publicKey"), "{name}");
             assert_eq!(
-                digest(&secretKey),
+                OutputDigest::of(&publicKey),
+                cAnswer(name, "publicKey"),
+                "{name}"
+            );
+            assert_eq!(
+                OutputDigest::of(&secretKey),
                 cAnswer(name, "encryptionSecretKey"),
                 "{name}"
             );
             let (packed, failure) =
                 scheme.decrypt(&sequenceBytes(parameters.packedLength(), 19), &secretKey);
             assert_eq!(
-                digest(&packed),
+                OutputDigest::of(&packed),
                 cAnswer(name, "hostileDecryption"),
                 "{name}"
             );
