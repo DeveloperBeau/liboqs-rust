@@ -22,5 +22,6 @@ Each page describes one subsystem as the code is today: its purpose, its crates,
 | [MLDSA.md](MLDSA.md) | ML-DSA | Yes |
 | [Falcon.md](Falcon.md) | Falcon | Yes |
 | [MAYO.md](MAYO.md) | MAYO | Yes |
+| [SLHDSA.md](SLHDSA.md) | SLH-DSA | Yes |
 | [RepositoryChecks.md](RepositoryChecks.md) | The `cargo xtask` checks for rings, names, versions, hygiene and unsafe code | Yes |
 | [Versioning.md](Versioning.md) | How the crate version follows the liboqs version | Yes |

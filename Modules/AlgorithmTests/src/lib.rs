@@ -55,6 +55,8 @@ mod signedMessageForm;
 mod statefulKnownAnswerDigests;
 #[path = "StatefulKnownAnswerTest.rs"]
 mod statefulKnownAnswerTest;
+#[path = "SuiteSample.rs"]
+mod suiteSample;
 #[cfg(feature = "std")]
 #[path = "TestVectorFiles.rs"]
 mod testVectorFiles;
@@ -82,6 +84,7 @@ pub use signatureMemoryTest::SignatureMemoryTest;
 pub use signedMessageForm::SignedMessageForm;
 pub use statefulKnownAnswerDigests::StatefulKnownAnswerDigests;
 pub use statefulKnownAnswerTest::StatefulKnownAnswerTest;
+pub use suiteSample::SuiteSample;
 #[cfg(feature = "std")]
 pub use testVectorFiles::TestVectorFiles;
 pub use vectorRandom::VectorRandom;

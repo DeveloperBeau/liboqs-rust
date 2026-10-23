@@ -105,8 +105,8 @@
 ## The tests of a signature family spend their time in SHAKE
 
 - Trap: the correctness test of a lattice signature takes minutes in the `dev` profile, although the code of the family is fast.
-- Finding: `SignatureCorrectnessTest` took 93 seconds on one thread for the three ML-DSA sets at the optimization level 1. A probe found the time in SHA-3: the SHAKE128 sampling of one matrix polynomial took 27 microseconds, and one NTT 2 microseconds. At the level 3, SHAKE was seven to nine times faster, and the NTT changed little.
-- Rule: the `dev` profile builds `oqs-native-sha3` with `opt-level = 3` and every other crate with level 1. The override changes only the optimization, so the overflow checks and the debug assertions stay on. The same test now takes 18.5 seconds on one thread.
+- Finding: `SignatureCorrectnessTest` took 93 seconds on one thread for the three ML-DSA sets at the optimization level 1. A probe found the time in SHA-3: the SHAKE128 sampling of one matrix polynomial took 27 microseconds, and one NTT 2 microseconds. At the level 3, SHAKE was seven to nine times faster, and the NTT changed little. A signature of SLH-DSA-SHAKE-128s, which calls the permutation about two million times, took 13 seconds at the level 1, 1.3 seconds with `oqs-native-sha3` at the level 3, and 1.0 seconds in a release build.
+- Rule: the `dev` profile builds `oqs-native-sha3` with `opt-level = 3` and every other crate with level 1. The override changes only the optimization, so the overflow checks and the debug assertions stay on. The same test now takes 18.5 seconds on one thread. Measure a new family in both profiles before you plan its tests.
 
 ## A refused case that breaks two rules cannot see the loss of one
 
@@ -215,3 +215,27 @@
 - Trap: the decoder of sntrup761 reads one or two bytes for each pair of ranges and rounds the merged range, and the two lists of ranges of sntrup761 never reach the thresholds of the C code. A mutant at a threshold passes every test of the keys and the ciphertexts.
 - Finding: two mutants of `RadixEncoding::decode` survived: `>` replaced with `>=` at the product `256 * 16383`, and `(m + 255) >> 8` replaced with `(m - 255) >> 8` in a pair of two bytes. At no level of the recursion do the ranges 4591 and 1531 give a product of `256 * 16383`, or a product of two bytes whose first rounding is 1 or 2 modulo 256. A list of two values at the first threshold did not show its mutant either, because the mutant reads the same three bytes and gives the same values for a valid encoding.
 - Rule: a test of a mixed-radix decoder takes the bytes of the C encoder for ranges at each threshold, and puts another pair after the pair at the threshold, so that a wrong number of bytes moves the next pair. `decodingReadsTheBytesOfEncodeAtEachThresholdOfTheRanges` is the template.
+
+## liboqs has no known answers of `kat_sig` for some families
+
+- Trap: a port that plans the `kats.json` digests of each set as its known-answer test finds none for SLH-DSA.
+- Finding: `combine_message_signature` of `tests/kat_sig.c` has no signed-message form for SLH-DSA, so the program fails, `tests/KATs/sig/kats.json` has no entry, and `tests/test_kat.py` skips every SLH-DSA scheme, because the ACVP vectors test it instead.
+- Rule: read the skips of the upstream test scripts before you plan the tests of a family. Replicate the skip in `KATSig.rs`, and take the known answers from the source that liboqs uses instead.
+
+## An upstream vector script can skip vectors by mistake
+
+- Trap: a Rust test that copies the vector loop of `tests/test_acvp_vectors.py` also copies its gaps.
+- Finding: `slh_test_sig_name` replaces `-` with `_` in the hash name, so `SHA2-512/224` and `SHA2-512/256` keep their slash and match no liboqs name. liboqs never runs those 48 signature vectors and 26 verification vectors. `VectorsSig.rs` maps them to `SHA2_512_224` and `SHA2_512_256`, and they pass.
+- Rule: map every vector of a file to its scheme, assert the count of each kind of vector, and write each upstream skip in the documentation of the test.
+
+## A hedged signature can draw its randomness before it fails
+
+- Trap: a port that checks the context before it draws its random bytes leaves the random source in another state than the C code.
+- Finding: each SLH-DSA wrapper calls `OQS_randombytes(addrnd, n)` before `slh_sign` refuses a context of more than 255 bytes.
+- Rule: copy the place of each random request relative to each check of the C code, and test the requests of the failed operation, as `aContextOfMoreThan255BytesIsRefusedAfterTheRandomRequest` does.
+
+## The C library sets the time budget of the test suite
+
+- Trap: the parity tests of the suite, which check every registered algorithm, take an hour once a slow family is registered.
+- Finding: the C library signs a small set of SLH-DSA in 0.55 to 1.6 seconds in a release build. `RegisteredParity.rs` runs 11 cases of each scheme, `SnapshotParity.rs` the base case of each, and `runOverTheRegistryReportsItsSize` ran `parity run` over the whole registry with a limit of 120 seconds.
+- Rule: `SuiteSample` of `oqs-native-algorithm-tests` holds the algorithms of the default suite, and every test of every algorithm is behind `#[ignore]` with the reason. A slow family adds its rule to `SuiteSample`, and `parity run` stays the full gate.
