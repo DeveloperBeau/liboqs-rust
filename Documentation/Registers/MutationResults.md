@@ -4,7 +4,7 @@ This register holds the result of the latest mutation run of each crate, and the
 
 ## How to run
 
-1. Run `cargo mutants --package <name> -j 4` from the repository root.
+1. Run `cargo mutants --package <name> -j 4` from the repository root, with the variable `CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER` of the `Mutants` workflow, which caps the memory of each test program.
 2. Read the summary line. `.cargo/mutants.toml` holds the settings.
 3. Give each missed mutant a test, or record here why the mutant is equivalent.
 4. Run the facade as `cargo mutants --package oqs-native --test-package oqs-native,oqs-native-parity --timeout 900 -j 4`. The coverage tests of the parity crate are the tests that see a wrong registry. The baseline times only the tests of the mutated package, so the explicit timeout keeps the slower tests of the parity crate from reading as timeouts.
