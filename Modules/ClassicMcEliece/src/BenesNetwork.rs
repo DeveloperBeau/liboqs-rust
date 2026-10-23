@@ -237,12 +237,13 @@ mod tests {
     use crate::controlBits::ControlBits;
     use crate::controlBits::tests::{routedIdentity, seededPermutation};
     use crate::parameters::{classicMcEliece348864, classicMcEliece460896, classicMcEliece8192128};
-    use crate::testSupport::{SeededWords, digest};
+    use crate::testSupport::digest;
+    use OQSNativeAlgorithmTests::FuzzRandom;
 
     #[test]
     fn transposeSwapsRowsAndColumns() {
-        let mut words = SeededWords::new(64);
-        let original: [u64; 64] = core::array::from_fn(|_| words.next());
+        let mut words = FuzzRandom::seeded(64);
+        let original: [u64; 64] = core::array::from_fn(|_| words.nextWord());
         let mut transposed = original;
         BenesNetwork::transpose(&mut transposed);
         for (row, transposedRow) in transposed.iter().enumerate() {
@@ -265,8 +266,8 @@ mod tests {
             let bits = ControlBits::ofPermutation(&permutation, logarithm);
             assert_eq!(routedIdentity(&bits, logarithm), permutation);
             let size = 1usize << logarithm;
-            let mut words = SeededWords::new(8);
-            let row: Vec<u8> = (0..size / 8).map(|_| words.next() as u8).collect();
+            let mut words = FuzzRandom::seeded(8);
+            let row: Vec<u8> = (0..size / 8).map(|_| words.nextWord() as u8).collect();
             let mut permuted = row.clone();
             network.apply(&mut permuted, &bits);
             for (place, source) in permutation.iter().enumerate() {
@@ -335,13 +336,13 @@ mod tests {
         ];
         for (parameters, rowDigest, supportDigest) in expected {
             let network = BenesNetwork::new(parameters);
-            let mut words = SeededWords::new(21);
+            let mut words = FuzzRandom::seeded(21);
             let bits: Vec<u8> = (0..parameters.controlBitsLength())
-                .map(|_| words.next() as u8)
+                .map(|_| words.nextWord() as u8)
                 .collect();
-            let mut words = SeededWords::new(22);
+            let mut words = FuzzRandom::seeded(22);
             let mut row: Vec<u8> = (0..parameters.fieldSize() / 8)
-                .map(|_| words.next() as u8)
+                .map(|_| words.nextWord() as u8)
                 .collect();
             network.apply(&mut row, &bits);
             let support: Vec<u8> = network
