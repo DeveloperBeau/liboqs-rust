@@ -7,6 +7,11 @@ use std::time::Duration;
 
 /// Runs the program and waits at most 120 seconds, so a hang fails with a name.
 fn runProgram(arguments: &[&str]) -> Output {
+    runProgramWithin(arguments, Duration::from_secs(120))
+}
+
+/// Runs the program and waits at most a time, so a hang fails with a name.
+fn runProgramWithin(arguments: &[&str], bound: Duration) -> Output {
     let child = Command::new(env!("CARGO_BIN_EXE_parity"))
         .args(arguments)
         .stdout(Stdio::piped())
@@ -18,8 +23,8 @@ fn runProgram(arguments: &[&str]) -> Output {
         let _ = sender.send(child.wait_with_output());
     });
     receiver
-        .recv_timeout(Duration::from_secs(120))
-        .expect("the parity program did not end within 120 seconds")
+        .recv_timeout(bound)
+        .unwrap_or_else(|_| panic!("the parity program did not end within {bound:?}"))
         .expect("the parity program gives its output")
 }
 
@@ -73,7 +78,7 @@ fn knownAnswersOfStatefulSchemesReadTheirResponseFiles() {
     assert_eq!(output.status.code(), Some(0));
     let text = standardOutput(&output);
     assert!(
-        text.contains("ok    XMSS-SHA2_10_256 (response file, C, "),
+        text.contains("ok    XMSS-SHA2_10_256 (response file, C and Rust, "),
         "{text}"
     );
     assert!(
@@ -174,7 +179,9 @@ fn runOverTheSuiteSampleOfTheRegistryReportsItsSizeAndEachAlgorithm() {
     for name in &names {
         arguments.extend(["--only", name]);
     }
-    let output = runProgram(&arguments);
+    // Each stateful set of the sample makes a key pair on each side, with up to six trees of
+    // height 10 for the XMSS^MT sets of 60/6, so the run takes minutes in a test build.
+    let output = runProgramWithin(&arguments, Duration::from_secs(1200));
     assert_eq!(output.status.code(), Some(0));
     let text = standardOutput(&output);
     assert!(

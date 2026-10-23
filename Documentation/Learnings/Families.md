@@ -377,3 +377,45 @@
 - Trap: `SampleChallenge` tries the nonces from 0 up. A signature that searches from 1 passes every test whose signatures take a nonce above 0.
 - Finding: with the search from 1, the other tests of the fast suite passed, also the `single` digests of `KATSig.rs` and the known answers of `Sign`, because none of their signatures takes the nonce 0. With w = 3, the nonce 0 meets the proof of work for about one challenge in eight. `aSignatureTriesTheNoncesFromZero` signs until a signature takes it, and it failed with the search from 1.
 - Rule: a search of the C code has a test whose answer is the first value of the search, as well as the tests at its limit of the MAYO entry above.
+
+## A replicated reader of a response file can be quadratic
+
+- Trap: the known-answer tests of a family with long keys take most of a minute, although the code of the family is fast.
+- Finding: `ReadHex` of `tests/kat_sig_stfl.c` shifts the whole value by four bits for each hex digit, and the first `ResponseFile` did the same. The response files of XMSS^MT hold secret keys of up to 38,099 bytes, so one value cost billions of byte shifts. The known-answer tests of XMSS took 46 seconds in the dev profile. A reader that places each digit once gives the same bytes, as a test against the shifts of the C reader shows, and the same tests took 0.74 seconds.
+- Rule: a replicated test program keeps the result of the C code, not its cost. A test compares the faster form with the C form.
+
+## A response file of liboqs can hold a key pair that its generator does not give
+
+- Trap: a key pair test that compares the key pair of the NIST generator seeded with the bytes 0 to 47 with the response file fails for nine XMSS sets, although the port gives the bytes of the C library.
+- Finding: the response files of the six 192-bit XMSS sets and of XMSS-SHAKE256_10_256, XMSS-SHAKE256_16_256 and XMSS-SHAKE256_20_256 hold seeds that the generator does not give. A C program on the oracle made the key pairs of the sets of height 10 with that generator, and got the bytes of the port and not the bytes of the files. `kat_sig_stfl.c` signs with the secret key of the file and never makes a key pair, so liboqs does not see the difference.
+- Rule: the key pair test of a stateful family takes its answers from a C program on the oracle. It uses a response file only for a set where that program gives the bytes of the file.
+
+## A count that the C code returns as a char
+
+- Trap: a port that keeps the count of `bds_treehash_update` as an unsigned int passes every signature test.
+- Finding: the C function returns the count of the updates that are left as a `char`, and the caller reads it back as an unsigned int. The count goes below zero when three trees of an XMSS^MT set of tree height 5 end at once. A `char` is signed on x86-64, and its sign extension equals the wrap of an unsigned int for each count from -128 to 127. The key of a key generation keeps the count between -9 and 10, so only the unit test of the conversion failed without it. A target with an unsigned `char` gets 255 minus the updates used instead, and the signature tests also pass with that form.
+- Rule: the port copies the conversion of each C return type, and a unit test pins it at the values where it changes the result.
+
+## A cast in one call of the C code
+
+- Trap: a port that passes the tree index of each layer in 64 bits gives other signatures for the XMSS^MT sets with a high tree index.
+- Finding: in the layer loop of `xmssmt_core_sign`, one call of `set_tree_addr` passes the tree index through `uint32_t`, and the other calls pass it in 64 bits. The tree index of the lowest layer of XMSSMT-SHA2_60/3_256 has more than 32 bits from index 2^52 on. No sequence from index 0 reaches that index, so only a test at index 2^52 + 5 failed without the cast.
+- Rule: each cast of the C code is a fact of the port, with a test at a value where the cast changes the result.
+
+## The last index of an XMSS key signs with a wiped key
+
+- Trap: a port that refuses the last index of a key, or signs it with the seeds of the key, differs from the C library.
+- Finding: `xmss_core_sign` and `xmssmt_core_sign` wipe the key after its identifier once the index reaches 2^h - 1. At that index they still sign, with zero seeds, and write back the index 2^h and the counters of the state before the wipe. That signature does not verify, and the count of the signatures left wraps to 2^64 - 1. Past the last index the call fails, and the key stays zero. A zero key has the index 0, so the C library signs with it again.
+- Rule: the port follows the C code at the end of a key. The tests sign at the last index, past it and with the wiped key, with the answers of a C program.
+
+## The identifier in an XMSS key chooses the parameters
+
+- Trap: a port that signs with the parameters of its set differs from the C library for a key that holds the identifier of another set.
+- Finding: `xmss_sign` and `xmssmt_sign` read the parameters from the identifier in the key, and hash with the core hash that the set compiled. A key with the identifier of XMSS-SHAKE_10_256 signs with SHA-256 under XMSS-SHA2_10_256. When the parameters of the identifier need another n, a longer key or a longer signature, the C code leaves its buffers.
+- Rule: the port takes the parameters from the identifier, refuses each case where the C code leaves its buffers with `OQSError::operationFailed`, and tests each refusal with a case that breaks that rule alone. A longer XMSS key always comes with a longer signature, so the signature rule takes an XMSS^MT case: a key of XMSSMT-SHA2_20/4_256 in the buffer of XMSSMT-SHA2_60/3_256.
+
+## The counters of a serialized state are input
+
+- Trap: a port that trusts the counters of the BDS state in a secret key panics, or reaches outside the key, for a forged key.
+- Finding: the stack offset, the stack usage, the stack levels and the next leaf of each state come from the key. The C code adds them to pointers into the key, so a forged value reads or writes outside the buffer. A stack offset of 2^32 - 1 in the next tree of the lowest layer of an XMSS^MT key puts the next leaf 2^32 - 32 bytes after the stack.
+- Rule: the port keeps the arrays of a state as offsets into the key, computes each place with the 32-bit arithmetic of the C code, and refuses an access outside the key with `OQSError::operationFailed`. A signature works on a copy of the key, so a refusal leaves the key as it was.

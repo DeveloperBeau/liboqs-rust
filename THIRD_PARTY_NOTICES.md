@@ -284,6 +284,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## XMSS
+
+- Algorithm: XMSS, the eXtended Merkle Signature Scheme, and its multi-tree form XMSS^MT, by Andreas Hülsing, Denis Butin, Stefan-Lukas Gazdag, Joost Rijneveld and Aziz Mohaisen, RFC 8391 of the IRTF. NIST approves it in SP 800-208. See https://www.rfc-editor.org/info/rfc8391 and https://csrc.nist.gov/pubs/sp/800/208/final.
+- XMSS in liboqs: the code of `src/sig_stfl/xmss/external`, which SandboxAQ based on the [XMSS reference implementation](https://github.com/XMSS/xmss-reference) of Andreas Hülsing and Joost Rijneveld. liboqs names no commit. It builds the code with `xmss_core_fast.c`, the BDS traversal.
+- Copyright (c) 2024 SandboxAQ. License: CC0-1.0 AND (Apache-2.0 OR MIT), in the `LICENSE` file of `src/sig_stfl/xmss` and in the `SPDX-License-Identifier: (Apache-2.0 OR MIT) AND CC0-1.0` line of each file, the liboqs wrappers included. The reference implementation of Hülsing and Rijneveld is under the CC0 1.0 Universal Public Domain Dedication.
+- Use in this repository: `Modules/XMSS` translates that code and the wrappers into Rust, and gives their bytes. The port is under MIT, and the `license` field of the crate states the combined expression `MIT AND (Apache-2.0 OR MIT) AND CC0-1.0`.
+
 ## Test vectors
 
 - [NIST ACVP-Server](https://github.com/usnistgov/ACVP-Server), tag `v1.1.0.41`: the ML-KEM, ML-DSA and SLH-DSA vectors. Works of the United States government are not subject to copyright in the United States.
