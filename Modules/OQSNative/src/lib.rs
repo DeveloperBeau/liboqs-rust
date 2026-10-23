@@ -24,6 +24,8 @@ pub use OQSNativeHQC::HQC;
 pub use OQSNativeMAYO::MAYO;
 pub use OQSNativeMLDSA::{MLDSA, PreHashAlgorithm};
 pub use OQSNativeMLKEM::{Kyber, MLKEM};
+pub use OQSNativeNTRU::NTRU;
+pub use OQSNativeNTRUPrime::NTRUPrime;
 #[cfg(feature = "std")]
 pub use OQSNativeSystemRandom::SystemRandom;
 pub use registry::Registry;
