@@ -149,3 +149,21 @@
 - **Trap.** An or of two words, or of a word and its negation, that sets a sticky bit or tests for zero gives the same bit as an exclusive or, except when the two words are equal or the word is `2^31`. Random operands never meet these ties.
 - **Finding.** In `FloatingPoint.rs`, the sticky bit of a product, `z0 | z1`, and the sticky bit of the dropped bits of a rounding, at lines 117 and 118 of the first Falcon run, survived 20000 random products and conversions. Products whose low limbs are equal, which a C search found, and values with one dropped bit at each position kill the three mutants. The limb comparisons of `GaussianSampler::halfGaussian` survived in the same way, and values next to each table value kill them.
 - **Rule.** For each sticky bit, zero test and limb comparison, the tests include the inputs at its ties: equal limbs, a single set bit at each position, and the values next to each bound.
+
+## A zip with a longer slice hides a wrong end of the range
+
+- **Trap.** A helper that zips two slices, such as `add` of `PackedVectors.rs` in MAYO, stops at the shorter one. A mutant that makes the range of the target longer changes nothing, and it survives.
+- **Finding.** In `quadraticForms` of MAYO, `start * limbCount` in place of `start + limbCount` survived the first run of `oqs-native-mayo`. The range started at the same word and was longer. For the element 0 it was empty, and the bin 0 is the one bin that no line reads.
+- **Rule.** Take each entry of a list with the one helper that gives its exact range, such as `mutableEntry` of `MatrixProducts.rs`. A mutant of the range is then a mutant of the helper, and every use of the helper checks it.
+
+## A remainder by 16 before a read of the low nibble gives an equivalent mutant
+
+- **Trap.** `(x % 16) as u8` gives the low nibble of x. The mutant `(x + 16) as u8` keeps the low nibble, and a function that reads only the low nibble cannot tell the two apart.
+- **Finding.** The top element of the right-hand side of MAYO goes only into `field::product`, which reads the bits 0 to 3 of its first factor. The mutant survived the first run of `oqs-native-mayo`.
+- **Rule.** Take a nibble with `& 0x0F`. Its mutants `| 0x0F` and `^ 0x0F` change the low nibble.
+
+## A stepped range with a count of its own hides a wrong end
+
+- **Trap.** A loop over `(0..length).step_by(16)` that writes `16.min(length - start)` elements at each start gives the same writes when the end of the range is one or two too high. The extra start writes no element, or no extra start is a multiple of 16.
+- **Finding.** In `systemMatrix` of MAYO, three mutants of the end of the range and of the count survived the first run of `oqs-native-mayo`. The one extra element of the count was in a column whose element is always zero.
+- **Rule.** Walk a slice of the exact length with `chunks_mut(16)`. A slice end that is too high then panics, or it writes into a place that a test checks.
