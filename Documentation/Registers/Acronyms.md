@@ -22,6 +22,7 @@ A name writes each acronym in this table as one unit: all upper case (`MLKEM768`
 | `FFT` | Fast Fourier transform |
 | `FIPS` | Federal Information Processing Standard |
 | `FORS` | Forest of random subsets |
+| `GF` | Galois field, a finite field such as GF(16) and GF(256) |
 | `HMAC` | Hash-based message authentication code |
 | `HPS` | Hoffstein, Pipher and Silverman, the NTRU-HPS parameter sets |
 | `HQC` | Hamming Quasi-Cyclic |
@@ -42,6 +43,7 @@ A name writes each acronym in this table as one unit: all upper case (`MLKEM768`
 | `NTRU` | The NTRU lattice scheme |
 | `OQS` | Open Quantum Safe |
 | `OS` | Operating system |
+| `OV` | Oil and Vinegar, the name of the UOV parameter sets of liboqs, such as `OV-Is` |
 | `PRF` | Pseudorandom function |
 | `RFC` | Request for Comments |
 | `RNG` | Random number generator |
