@@ -74,13 +74,13 @@ impl SortingNetwork {
 #[cfg(test)]
 mod tests {
     use super::SortingNetwork;
-    use crate::testSupport::SeededWords;
+    use OQSNativeAlgorithmTests::FuzzRandom;
 
     #[test]
     fn integersComeOutInTheOrderOfTheStandardSort() {
-        let mut words = SeededWords::new(0x5052_5453);
+        let mut words = FuzzRandom::seeded(0x5052_5453);
         for length in [0usize, 1, 2, 3, 7, 64, 100, 4096, 8192] {
-            let mut values: Vec<i32> = (0..length).map(|_| words.next() as i32).collect();
+            let mut values: Vec<i32> = (0..length).map(|_| words.nextWord() as i32).collect();
             // The extremes and repeated values, whose differences overflow 32 bits.
             if length >= 8 {
                 values[0] = i32::MIN;
@@ -97,9 +97,9 @@ mod tests {
 
     #[test]
     fn wordsBelowTwoToThe63ComeOutInTheOrderOfTheStandardSort() {
-        let mut words = SeededWords::new(0x5357_4F52);
+        let mut words = FuzzRandom::seeded(0x5357_4F52);
         for length in [0usize, 1, 2, 5, 4096, 8192] {
-            let mut values: Vec<u64> = (0..length).map(|_| words.next() >> 1).collect();
+            let mut values: Vec<u64> = (0..length).map(|_| words.nextWord() >> 1).collect();
             let mut expected = values.clone();
             expected.sort_unstable();
             SortingNetwork::sortWords(&mut values);
