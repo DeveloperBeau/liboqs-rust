@@ -25,6 +25,7 @@ The workspace root `Cargo.toml` lists the member folders `Modules/*` and `Tools/
 | `oqs-native-frodokem` | `Modules/FrodoKEM` | `features` |
 | `oqs-native-ml-dsa` | `Modules/MLDSA` | `features` |
 | `oqs-native-falcon` | `Modules/Falcon` | `features` |
+| `oqs-native-mayo` | `Modules/MAYO` | `features` |
 | `oqs-native` | `Modules/OQSNative` | `composition` |
 | `oqs-native-parity` | `Tools/Parity` | `tooling` |
 | `xtask` | `Tools/Xtask` | `tooling` |

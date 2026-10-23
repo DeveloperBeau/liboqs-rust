@@ -155,3 +155,21 @@
 - Trap: a fuzz test of signing with hostile keys hangs when a key passes every check of the C code and reaches a loop that never ends.
 - Finding: a `Falcon-512` secret key with `F = 0` decodes, and its `G` is 0, so it passes the checks of `do_sign`. The C library did not return in 120 seconds, and the port did not return in 300 seconds. In the fuzz tests, every random secret key fails the checks, because it has a forbidden value or a `G` out of range.
 - Rule: the fuzz tests of a scheme with a retry loop use hostile inputs that the checks refuse, and the architecture page of the family names the inputs that reach the loop. A guard that the C code does not have is a decision for the owner.
+
+## A search limit needs an input at the limit and one past it
+
+- Trap: the echelon form of MAYO searches for the pivot of a column in at most 33 rows. A port with 32 or 34 rows passes the tests of a random matrix and of a matrix whose first entry is far past the limit.
+- Finding: with the bound changed from 32 to 31 or to 33, every test of the crate passed, also the known-answer signatures of the 100 counts of each set and a crafted matrix whose first column is zero in its first 40 rows. The pivot of a random column is in one of the first rows, and row 40 is past both bounds. Two matrices whose first entry of the first column is at row 32, the last row of the search, and at row 33 caught the two changes, each at its own case.
+- Rule: a test of a search limit puts the input exactly at the limit and one place past it, with the answer of the C code for both. `pivotAtSearchEnd` and `pivotPastSearch` in `EchelonForm.rs` are the template. See also the rejection loop of HQC above.
+
+## A random change cannot see a comparison that skips one element
+
+- Trap: the verification of MAYO compares the m elements of the value of the public map with the m elements of the target. A comparison of m - 1 elements passes every test that changes a signature, a message or a key.
+- Finding: with the last element left out of the comparison, every test of the crate passed. Each changed input gives a value that differs from the target in nearly every element, so the other elements still refuse it. A solver that solves the linear system for a right-hand side with one element changed gives a signature whose value differs from the target in that element alone. With it, the comparisons without the first, the middle or the last element each failed.
+- Rule: the test of a comparison of two vectors gives an input that differs in one element only, at the first, a middle and the last place, and asserts that the difference is at that place alone. `aSignatureWhoseValueDiffersFromTheTargetInOneElementIsRefused` is the template.
+
+## The static functions of the C code give known answers too
+
+- Trap: a unit test of a step of a family, such as the matrix of the linear system of MAYO, needs a known answer, and liboqs does not export the C function, because it is `static`.
+- Finding: `nm` on `liboqs.a` lists `sample_solution`, `m_upper` and the public functions of MAYO, but not `compute_A`, `compute_rhs`, `EF` or `m_calculate_PS_SPS`. A C program that includes `mayo.c` and `arithmetic.c` calls them. Built with `MAYO_BUILD_TYPE_REF` in place of `MAYO_BUILD_TYPE_OPT`, the copy has the names `pqmayo_MAYO_1_ref_*`, which do not clash with the copy in `liboqs.a`. Its `mayo_expand_sk` and `sample_solution` gave the same digests as the exported functions of `liboqs.a`.
+- Rule: when a C function is static, build its source file into the known-answer program with the flags of the oracle build of each set, from the `CMakeLists.txt` of the family, and with another namespace. Check one answer against an exported function of `liboqs.a`, so the program is known to build the same code.
