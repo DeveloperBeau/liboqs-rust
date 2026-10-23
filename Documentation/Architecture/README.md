@@ -7,7 +7,7 @@ Each page describes one subsystem as the code is today: its purpose, its crates,
 | [Rings.md](Rings.md) | The workspace layout and the ring rule | Yes |
 | [Entities.md](Entities.md) | The plain data types | Yes |
 | [Domain.md](Domain.md) | The capability interfaces and their rules | Yes |
-| [Primitives.md](Primitives.md) | SHA-3, SHA-2 and AES | Yes |
+| [Primitives.md](Primitives.md) | SHA-3, SHA-2, AES and the sorting network | Yes |
 | [Randomness.md](Randomness.md) | The random sources | Yes |
 | [Registry.md](Registry.md) | The facade crate and the registry of algorithms | Yes |
 | [Oracle.md](Oracle.md) | The C library as the test oracle, and `cargo xtask fetch-oracle` | Yes |
