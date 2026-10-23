@@ -90,12 +90,15 @@ impl<'parameters> GoppaPolynomial<'parameters> {
 mod tests {
     use super::GoppaPolynomial;
     use crate::parameters::allParameters;
-    use crate::testSupport::{SeededWords, digest};
+    use crate::testSupport::digest;
+    use OQSNativeAlgorithmTests::FuzzRandom;
 
     /// The element of GF((2^m)^t) of a seed, `t` values below `2^m`.
     fn seededElement(seed: u64, degree: usize, mask: u16) -> Vec<u16> {
-        let mut words = SeededWords::new(seed);
-        (0..degree).map(|_| words.next() as u16 & mask).collect()
+        let mut words = FuzzRandom::seeded(seed);
+        (0..degree)
+            .map(|_| words.nextWord() as u16 & mask)
+            .collect()
     }
 
     #[test]
