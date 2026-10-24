@@ -1,10 +1,11 @@
 /// The field GF(2^m) of a parameter set, with `m` 12 or 13, as `gf.c`, `root.c` and the field
 /// functions of `util.c` compute it.
 ///
-/// An element is a `u16`. The products, squares and inverses copy the integer formulas of the C
-/// code, which have no branch on a value, so they give the bytes of the C code also for a value
-/// with bits above `m`. GF(2^12) reduces by `x^12 + x^3 + 1` and GF(2^13) by
-/// `x^13 + x^4 + x^3 + x + 1`.
+/// An element is a `u16`. The products, squares and inverses follow the integer formulas of the
+/// C code, which have no branch on a value, so they give the bytes of the C code also for a value
+/// with bits above `m`. Where the C code joins two terms that have no set bit in common with an
+/// or or an exclusive or, the port adds them. GF(2^12) reduces by `x^12 + x^3 + 1` and GF(2^13)
+/// by `x^13 + x^4 + x^3 + x + 1`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct GaloisField {
     bits: u32,
@@ -98,14 +99,19 @@ impl GaloisField {
     }
 
     /// The square in GF(2^12), `gf_sq`: the bits spread to the even places and then folded.
+    ///
+    /// The C code spreads with `x = (x | (x << s)) & B`, whose two terms overlap only in bits
+    /// that the mask clears. Each step here adds the low half of each group of bits and the high
+    /// half moved up by `s`. The two have no bit in common, so the spread is the same.
     fn square12(value: u16) -> u16 {
         let mut spread = u32::from(value);
-        spread = (spread | (spread << 8)) & 0x00FF_00FF;
-        spread = (spread | (spread << 4)) & 0x0F0F_0F0F;
-        spread = (spread | (spread << 2)) & 0x3333_3333;
-        spread = (spread | (spread << 1)) & 0x5555_5555;
+        spread = (spread & 0x0000_00FF) + ((spread & 0x0000_FF00) << 8);
+        spread = (spread & 0x000F_000F) + ((spread & 0x00F0_00F0) << 4);
+        spread = (spread & 0x0303_0303) + ((spread & 0x0C0C_0C0C) << 2);
+        spread = (spread & 0x1111_1111) + ((spread & 0x2222_2222) << 1);
         let mut high = spread & 0x7F_C000;
-        spread ^= high >> 9;
+        // The spread value has bits at even places only, and `high >> 9` at odd places only.
+        spread += high >> 9;
         spread ^= high >> 12;
         high = spread & 0x3000;
         spread ^= high >> 9;
@@ -154,6 +160,9 @@ impl GaloisField {
     }
 
     /// The square of the square in GF(2^13), `gf_sq2`.
+    ///
+    /// The C code spreads with `x = (x | (x << s)) & B`. In each step the shifted copy has no set
+    /// bit in common with the value, so the port adds the two.
     fn squareSquared13(value: u16) -> u16 {
         const masks: [u64; 4] = [
             0x0001_FF00_0000_0000,
@@ -162,10 +171,10 @@ impl GaloisField {
             0x0000_0000_003F_E000,
         ];
         let mut spread = u64::from(value);
-        spread = (spread | (spread << 24)) & 0x0000_00FF_0000_00FF;
-        spread = (spread | (spread << 12)) & 0x000F_000F_000F_000F;
-        spread = (spread | (spread << 6)) & 0x0303_0303_0303_0303;
-        spread = (spread | (spread << 3)) & 0x1111_1111_1111_1111;
+        spread = (spread + (spread << 24)) & 0x0000_00FF_0000_00FF;
+        spread = (spread + (spread << 12)) & 0x000F_000F_000F_000F;
+        spread = (spread + (spread << 6)) & 0x0303_0303_0303_0303;
+        spread = (spread + (spread << 3)) & 0x1111_1111_1111_1111;
         for mask in masks {
             spread = Self::folded13(spread, mask);
         }
@@ -208,7 +217,8 @@ impl GaloisField {
         let mut spread = u64::from(value);
         let factor = u64::from(factor);
         let mut product = (factor << 18) * (spread & (1 << 6));
-        spread ^= spread << 21;
+        // The value has 16 bits, so its copy 21 places up has no bit in common with it.
+        spread += spread << 21;
         product ^= factor * (spread & 0x0_1000_0001);
         product ^= (factor * (spread & 0x0_2000_0002)) << 3;
         product ^= (factor * (spread & 0x0_4000_0004)) << 6;
