@@ -51,10 +51,13 @@ fn knownAnswersOfOneAlgorithmPassWithItsLine() {
     assert_eq!(output.status.code(), Some(0));
     let text = standardOutput(&output);
     assert!(
-        text.starts_with("known answers of 1 C algorithms through the Rust harness\n"),
+        text.starts_with("known answers of 1 C algorithms and their registered Rust algorithms\n"),
         "{text}"
     );
-    assert!(text.contains("ok    ML-KEM-768 (single, "), "{text}");
+    assert!(
+        text.contains("ok    ML-KEM-768 (single, C and Rust, "),
+        "{text}"
+    );
 }
 
 #[test]
@@ -69,11 +72,11 @@ fn knownAnswersOfStatefulSchemesReadTheirResponseFiles() {
     assert_eq!(output.status.code(), Some(0));
     let text = standardOutput(&output);
     assert!(
-        text.contains("ok    XMSS-SHA2_10_256 (response file digest identical, "),
+        text.contains("ok    XMSS-SHA2_10_256 (response file, C, "),
         "{text}"
     );
     assert!(
-        text.contains("ok    LMS_SHA256_H5_W1 (response file digest identical, "),
+        text.contains("ok    LMS_SHA256_H5_W1 (response file, C, "),
         "{text}"
     );
 }

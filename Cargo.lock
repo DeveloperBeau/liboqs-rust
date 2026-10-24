@@ -8,6 +8,7 @@ version = "0.16.0"
 dependencies = [
  "oqs-native-domain",
  "oqs-native-entities",
+ "oqs-native-frodokem",
  "oqs-native-ml-kem",
  "oqs-native-system-random",
 ]
@@ -44,6 +45,18 @@ dependencies = [
 [[package]]
 name = "oqs-native-entities"
 version = "0.16.0"
+
+[[package]]
+name = "oqs-native-frodokem"
+version = "0.16.0"
+dependencies = [
+ "oqs-native-aes",
+ "oqs-native-algorithm-tests",
+ "oqs-native-domain",
+ "oqs-native-entities",
+ "oqs-native-kat-random",
+ "oqs-native-sha3",
+]
 
 [[package]]
 name = "oqs-native-kat-random"

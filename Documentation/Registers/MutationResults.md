@@ -7,6 +7,7 @@ This register holds the result of the latest mutation run of each crate, and the
 1. Run `cargo mutants --package <name> -j 4` from the repository root.
 2. Read the summary line. `.cargo/mutants.toml` holds the settings.
 3. Give each missed mutant a test, or record here why the mutant is equivalent.
+4. Run the facade as `cargo mutants --package oqs-native --test-package oqs-native,oqs-native-parity --timeout 900 -j 4`. The coverage tests of the parity crate are the tests that see a wrong registry. The baseline times only the tests of the mutated package, so the explicit timeout keeps the slower tests of the parity crate from reading as timeouts.
 
 A mutant is "caught" when a test fails. A "timeout" is a mutant that makes a loop run forever: the suite does not end, so it counts as caught. An "unviable" mutant does not build and proves nothing.
 
@@ -106,10 +107,10 @@ The run of 2026-10-23 on the branch `foundation/primitives`.
 
 | Rule | Mutant | Killed by |
 |---|---|---|
-| The S-box is the AES S-box | `substitute`: each other operator of the circuit replaced | `bitslicedSubstitutionMatchesTheTableForEveryByte`, `aes128EncryptsTheBlockOfFips197` |
+| The S-box is the AES S-box | `substitute`: each other operator of the circuit replaced | `bitslicedSubstitutionMatchesTheTableForEveryByte`, `aes128EncryptsTheBlockOfFIPS197` |
 | The counter is 32 bits, big-endian, and wraps | `ExpandedKey::fillCounterKeystream`: `wrapping_add` operands and the byte swap | `counterWrapsAtThirtyTwoBitsAndKeepsTheFirstTwelveBytes`, `counterKeystreamIsTheEncryptionOfCounterBlocks` |
 | Counter blocks continue the stream | `AES256::fillCounterBlocks`: counter update removed | `counterBlocksContinueTheKeystreamAndAdvanceTheCounter` |
-| Only AES-256 substitutes the fourth key word | `scheduleKey`: `==` replaced with `!=` | `aes256EncryptsTheBlockOfFips197` |
+| Only AES-256 substitutes the fourth key word | `scheduleKey`: `==` replaced with `!=` | `aes256EncryptsTheBlockOfFIPS197` |
 | SHA-2 pads at each block edge | `SHA256::absorbPadding`: `>=` replaced with `>` | `splitInputGivesTheOneShotDigestAtEveryLength` |
 | The SHAKE stream does not depend on the call sizes | `KeccakSponge::squeeze`: block test replaced | `shake128SmallAbsorbAndSqueezeCallsGiveTheSameStream` |
 
@@ -177,7 +178,7 @@ The first run of `oqs-native-ml-kem` missed 7 of 350 mutants, and the first run 
 
 - `oqs-native-ml-kem`, `Polynomial.rs`, `twelveBitPair`: `|` replaced with `^`, twice. The operands of the first `|` hold bits 0 to 7 and bits 8 to 11, and the operands of the second hold bits 0 to 3 and bits 4 to 11. They have no set bit in common, so `|` and `^` give the same value for every input.
 - `oqs-native-ml-kem`, `Polynomial.rs`, `rootPowers`: `|` replaced with `^` in `(reversed << 1) | bit`. The shift clears bit 0, and the other operand is bit 0 alone, so the two operators give the same value.
-- `oqs-native`, `Registry.rs`: 9 of the 12 mutants that P0 recorded. They replace the signature list or the stateful list with an empty list, a lookup with `None`, or a name with another text. Those lists stay empty until the first signature family. The three mutants of the KEM list are now caught by `eachAlgorithmIsFoundByItsOwnName` and the coverage tests of `Tools/Parity`.
+- `oqs-native`, `Registry.rs`: 9 of the 12 mutants that P0 recorded. Eight replace the signature list or the stateful list with an empty list, a lookup with `None`, or a name with another text, and those lists stay empty until the first signature family. The ninth replaces the KEM list with an empty list. It survived because this run had only the tests of the facade. The FrodoKEM run below adds the tests of `Tools/Parity`, which kill it. `eachAlgorithmIsFoundByItsOwnName` kills the other two mutants of the KEM list, the names and the lookup.
 
 | Rule | Mutant | Killed by |
 |---|---|---|
@@ -220,6 +221,35 @@ The timeout of the test support stops the position of `ResponseFile::value`, so 
 | A response file name writes each `/` as `-` | `TestVectorFiles::responseFilePath`: body replaced | `responseFilesAreInTheLiboqsSourceWithADashForEachSlash` |
 | The stateful adapter saves the advanced key before it releases the signature | `OracleStatefulScheme::sign`: body replaced with `Ok(vec![])` | `statefulAdapterSavesTheAdvancedKeyBeforeItReleasesTheSignature` |
 | The C verification of a stateful signature is the verdict | `COracle::isValidStatefulSignature`: body replaced with `true` | `statefulVerificationReadsARawLMSPublicKeyAsTheCLibraryDoes` and 2 more |
+
+## Latest result for FrodoKEM and eFrodoKEM
+
+The runs of 2026-10-23 on the branch `family/frodokem`, with `OQS_ORACLE_DIR` set to the oracle folder. The facade ran with the tests of `oqs-native-parity` as well, because the coverage tests of the parity crate are the tests that see a wrong registry.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-frodokem` | 256 | 244 | 1 | 11 | 0 |
+| `oqs-native`, with the tests of `oqs-native-parity` | 21 | 6 | 0 | 7 | 8 |
+| `oqs-native-parity`, `ParityJob.rs` | 28 | 25 | 1 | 2 | 0 |
+
+The timeout of FrodoKEM multiplies in place of an addition in the noise length of `FrodoKEM::encryption`, so the encryption asks for some thousand times more noise and the test does not end in its time. The timeout of the parity harness inverts the selection of `ParityJob::cSnapshot`, as before.
+
+### Equivalent mutants
+
+- `oqs-native`, `Registry.rs`: the 8 missed mutants replace the signature list or the stateful list with an empty list, a lookup in those lists with `None`, or the name of a scheme of those lists with another text. Both lists stay empty until the first signature family, so no test can see a difference yet.
+
+The empty list of KEMs is now caught by `knownAnswersOfOneAlgorithmPassWithItsLine`, a test of `Tools/Parity`. The run of F1 had only the tests of the facade, so that mutant survived it, and its record below is corrected.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The comparison of decapsulation gathers every difference | `ConstantTime::mismatchSelector`, line 13: the or replaced with `^` | `twoEqualDifferencesInTwoValuesStillDiffer` |
+| The selection takes the key for zero and the rejection secret for minus one | `ConstantTime::select`, line 29: each operator replaced | `selectionTakesTheFirstInputForZeroAndTheSecondForMinusOne` |
+| The noise sampler gives the values of the C code | `ErrorDistribution::sample`: body replaced with `()` | `samplesOfEveryValueEqualTheSamplesOfTheCCode` and 2 more |
+| A reduction keeps the low bits of the modulus | `MatrixArithmetic::reduce`: the and of the mask replaced with an or | `sumsDifferencesAndReductionsKeepTheLowBitsOfTheModulus` |
+| Packing writes the high bit of each value first | `Packing::pack`, line 16: `/` replaced | `packingWritesTheHighBitOfEachValueFirst` and 3 more |
+| A row of the public matrix comes from its row index and the seed | `MatrixGeneration::forEachRow`: body replaced with `()` | `aSHAKERowIsTheHashOfTheRowIndexAndTheSeed`, `anAESRowIsTheEncryptionOfTheRowAndColumnBlocks` |
+| The lengths are the lengths of the liboqs header | `Parameters::secretKeyLength`, line 103: `-` replaced | `lengthsAreTheLengthsOfTheLiboqsHeader` |
+| A known-answer job fails on a wrong Rust digest | `ParityJob::knownAnswerJobs`: body replaced with `vec![]` | `knownAnswerJobsFollowTheDigestFilesAndTheSelection` |
 
 ## History
 

@@ -20,6 +20,7 @@ The workspace root `Cargo.toml` lists the member folders `Modules/*` and `Tools/
 | `oqs-native-c-oracle` | `Modules/COracle` | `infrastructure` |
 | `oqs-native-algorithm-tests` | `Modules/AlgorithmTests` | `infrastructure` |
 | `oqs-native-ml-kem` | `Modules/MLKEM` | `features` |
+| `oqs-native-frodokem` | `Modules/FrodoKEM` | `features` |
 | `oqs-native` | `Modules/OQSNative` | `composition` |
 | `oqs-native-parity` | `Tools/Parity` | `tooling` |
 | `xtask` | `Tools/Xtask` | `tooling` |

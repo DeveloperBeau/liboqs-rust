@@ -1,4 +1,5 @@
 use OQSNativeDomain::{KeyEncapsulating, Signing, StatefulSigning};
+use OQSNativeFrodoKEM::FrodoKEM;
 use OQSNativeMLKEM::{Kyber, MLKEM};
 
 /// Every algorithm of the port, by its liboqs name.
@@ -15,6 +16,18 @@ const mechanisms: &[&dyn KeyEncapsulating] = &[
     &MLKEM::mlkem512,
     &MLKEM::mlkem768,
     &MLKEM::mlkem1024,
+    &FrodoKEM::frodoKEM640AES,
+    &FrodoKEM::frodoKEM640SHAKE,
+    &FrodoKEM::frodoKEM976AES,
+    &FrodoKEM::frodoKEM976SHAKE,
+    &FrodoKEM::frodoKEM1344AES,
+    &FrodoKEM::frodoKEM1344SHAKE,
+    &FrodoKEM::eFrodoKEM640AES,
+    &FrodoKEM::eFrodoKEM640SHAKE,
+    &FrodoKEM::eFrodoKEM976AES,
+    &FrodoKEM::eFrodoKEM976SHAKE,
+    &FrodoKEM::eFrodoKEM1344AES,
+    &FrodoKEM::eFrodoKEM1344SHAKE,
 ];
 
 /// The signature schemes.
