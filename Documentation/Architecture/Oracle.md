@@ -20,6 +20,8 @@ The parity tests compare each Rust algorithm with the C algorithm of the same na
 3. It builds the library. A second run takes a few seconds when nothing changed.
 4. It downloads each test vector file of `Documentation/Registers/TestVectors.md` that is missing from `target/oracle/<version>/vectors/` or that has another SHA-256, and then checks the SHA-256 of every file.
 
+CMake gets the source and build folders with every link resolved, because CMake records the folders that it is given. Several worktrees can then link `target/oracle` to one shared folder, and a fetch from any of them gives CMake the same paths, so nothing builds again.
+
 `OracleBuild` decides the steps from the files of the repository, and `ProcessRunning` runs them. The tests use `RecordingProcesses` in place of the real programs.
 
 The build script of `oqs-native-c-oracle` finds the folder through `OQS_ORACLE_DIR`, or else at `target/oracle/<version>` in the workspace. A missing folder stops the build with the command to run. The script compiles two C files with the system C compiler and links them with `liboqs.a` and `liboqs-internal.a`:

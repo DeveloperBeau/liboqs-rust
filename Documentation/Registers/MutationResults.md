@@ -251,6 +251,19 @@ The empty list of KEMs is now caught by `knownAnswersOfOneAlgorithmPassWithItsLi
 | The lengths are the lengths of the liboqs header | `Parameters::secretKeyLength`, line 103: `-` replaced | `lengthsAreTheLengthsOfTheLiboqsHeader` |
 | A known-answer job fails on a wrong Rust digest | `ParityJob::knownAnswerJobs`: body replaced with `vec![]` | `knownAnswerJobsFollowTheDigestFilesAndTheSelection` |
 
+## Latest result for the linked oracle folder
+
+The run of 2026-10-23 on the branch `foundation/crate-builds`, of the functions that changed: `resolvedPath` and `OracleBuild::steps`.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `xtask`, `resolvedPath` and `OracleBuild::steps` | 6 | 4 | 0 | 2 | 0 |
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The disk adapter resolves the links of a path and keeps the end that does not exist yet | `DiskFileSystem::resolvedPath`: body replaced with `Default::default()` | `resolvedPathFollowsALinkAndKeepsTheEndThatDoesNotExistYet` |
+| The oracle build gives CMake the folders with every link resolved | Run by hand: `OracleBuild::steps` with the folders not resolved | `linkedOracleFolderIsClonedAndBuiltAtTheFolderThatTheLinkNames` |
+
 ## History
 
 | Run | Code | Mutants | Caught | Timeout | Unviable | Missed |

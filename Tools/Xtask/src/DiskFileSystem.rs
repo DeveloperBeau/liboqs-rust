@@ -66,4 +66,27 @@ impl FileReading for DiskFileSystem {
         paths.dedup();
         Ok(paths)
     }
+
+    fn resolvedPath(&self, path: &Path) -> PathBuf {
+        // The longest start of the path that exists is resolved, so a folder that a later step
+        // makes still resolves through a link above it.
+        let fullPath = self.root.join(path);
+        let mut existing = fullPath.as_path();
+        let mut missingParts = Vec::new();
+        loop {
+            if let Ok(resolved) = existing.canonicalize() {
+                return missingParts
+                    .iter()
+                    .rev()
+                    .fold(resolved, |folder, part| folder.join(part));
+            }
+            match (existing.parent(), existing.file_name()) {
+                (Some(parent), Some(part)) => {
+                    missingParts.push(part);
+                    existing = parent;
+                }
+                _ => return fullPath,
+            }
+        }
+    }
 }

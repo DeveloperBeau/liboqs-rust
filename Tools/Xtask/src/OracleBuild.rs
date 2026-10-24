@@ -73,8 +73,10 @@ impl OracleBuild {
     pub fn steps(&self, files: &dyn FileReading) -> Result<Vec<ProcessStep>, String> {
         let source = self.folder().join("source");
         let build = self.folder().join("build");
-        let sourceText = source.to_string_lossy().to_string();
-        let buildText = build.to_string_lossy().to_string();
+        // CMake records the folders that it is given. Through a link that two worktrees share,
+        // each worktree would give another path, and CMake would build everything again.
+        let sourceText = files.resolvedPath(&source).to_string_lossy().to_string();
+        let buildText = files.resolvedPath(&build).to_string_lossy().to_string();
         let mut steps = Vec::new();
         match files.text(&source.join("CMakeLists.txt")) {
             Ok(cmakeText) => {
@@ -182,6 +184,27 @@ mod tests {
             "curl -fsSL --retry 3 --create-dirs -o target/oracle/0.16.0/vectors/a.json https://example.org/a"
         );
         assert_eq!(lines.len(), 5);
+    }
+
+    #[test]
+    fn linkedOracleFolderIsClonedAndBuiltAtTheFolderThatTheLinkNames() {
+        let mut files = MemoryFileSystem::withFiles(&[(TestVector::registerPath, register)]);
+        files.addLink("target/oracle", "shared/oracle");
+        let steps = OracleBuild::new("0.16.0").steps(&files).expect("steps");
+        let lines: Vec<String> = steps.iter().map(|step| step.to_string()).collect();
+        assert_eq!(
+            lines[0],
+            "git clone --depth 1 --branch 0.16.0 https://github.com/open-quantum-safe/liboqs.git shared/oracle/0.16.0/source"
+        );
+        assert!(lines[1].starts_with(
+            "cmake -S shared/oracle/0.16.0/source -B shared/oracle/0.16.0/build -DCMAKE_BUILD_TYPE=Release"
+        ));
+        assert_eq!(
+            lines[2],
+            "cmake --build shared/oracle/0.16.0/build --parallel"
+        );
+        // The vector files are written and read through the link, which records no path.
+        assert!(lines[3].contains(" -o target/oracle/0.16.0/vectors/a.json "));
     }
 
     #[test]

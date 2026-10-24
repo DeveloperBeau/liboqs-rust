@@ -28,7 +28,13 @@
 
 - **Trap.** `cargo mutants` puts values such as `Vec::new()` and `vec![]` into a function. In a library that is always `no_std`, those names are not in scope, so the mutant does not build and proves nothing.
 - **Finding.** The first run of `oqs-native-entities` and `oqs-native-domain` gave 16 unviable mutants of 26, among them each mutant of the "persist before release" rule. With the `std` feature on by default, the same run gave 23 caught and 3 unviable.
-- **Rule.** A crate that must build without the standard library gets a `std` feature, on by default, and `#![cfg_attr(not(feature = "std"), no_std)]`. CI builds with `--no-default-features`, so the `no_std` form cannot rot.
+- **Rule.** A crate that must build without the standard library gets a `std` feature, on by default, and `#![cfg_attr(not(feature = "std"), no_std)]`. CI builds the workspace and each crate alone with `--no-default-features`, so the `no_std` form cannot rot.
+
+## The workspace build hides a crate that needs the standard library
+
+- **Trap.** `cargo build --workspace --lib --no-default-features` passes, and a crate of the workspace still fails to build without `std`.
+- **Finding.** Cargo unifies the features of the crates of one build. The tools turn on the `std` feature of the facade crate, and the facade crate turns on `std` in every family, so the workspace build compiles each family with `std`. `cargo build -p oqs-native-ml-kem --lib --no-default-features` failed, because `vec!` was not in scope in `PublicKeyEncryption.rs`.
+- **Rule.** CI also builds each crate of `Modules` alone with `--no-default-features`. Before a change goes up, build each crate that it adds or changes alone in the same way.
 
 ## Drop code needs an allocator to prove it
 
