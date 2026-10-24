@@ -8,8 +8,10 @@
 //! correctness, fuzz and memory programs of `tests/test_kem.c`, `tests/fuzz_test_kem.c`,
 //! `tests/test_kem_mem.c`, `tests/test_sig.c`, `tests/fuzz_test_sig.c` and
 //! `tests/test_sig_mem.c` check the behavior. The known-answer program of the stateful
-//! schemes, `tests/kat_sig_stfl.c`, reads the response files of the liboqs source. Only tests
-//! use the crate.
+//! schemes, `tests/kat_sig_stfl.c`, reads the response files of the liboqs source, and the
+//! correctness and fuzz programs `tests/test_sig_stfl.c`, `tests/fuzz_test_sig_stfl_xmss.c` and
+//! `tests/fuzz_test_sig_stfl_lms.c` check the behavior of the stateful schemes. Only tests use
+//! the crate.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -55,6 +57,12 @@ mod signedMessageForm;
 mod statefulKnownAnswerDigests;
 #[path = "StatefulKnownAnswerTest.rs"]
 mod statefulKnownAnswerTest;
+#[path = "StatefulSignatureCorrectnessTest.rs"]
+mod statefulSignatureCorrectnessTest;
+#[path = "StatefulSignatureFuzzTest.rs"]
+mod statefulSignatureFuzzTest;
+#[path = "StatefulTreeHeight.rs"]
+mod statefulTreeHeight;
 #[path = "SuiteSample.rs"]
 mod suiteSample;
 #[cfg(feature = "std")]
@@ -84,6 +92,9 @@ pub use signatureMemoryTest::SignatureMemoryTest;
 pub use signedMessageForm::SignedMessageForm;
 pub use statefulKnownAnswerDigests::StatefulKnownAnswerDigests;
 pub use statefulKnownAnswerTest::StatefulKnownAnswerTest;
+pub use statefulSignatureCorrectnessTest::StatefulSignatureCorrectnessTest;
+pub use statefulSignatureFuzzTest::StatefulSignatureFuzzTest;
+pub use statefulTreeHeight::StatefulTreeHeight;
 pub use suiteSample::SuiteSample;
 #[cfg(feature = "std")]
 pub use testVectorFiles::TestVectorFiles;

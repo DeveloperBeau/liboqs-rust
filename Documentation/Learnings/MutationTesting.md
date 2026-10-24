@@ -287,3 +287,21 @@
 - **Trap.** The C code clears a part of a stack array because the array is not initialized. The port makes the array with `vec![0; n]`, so the part is already zero, and a mutant that empties the range of the clear survives.
 - **Finding.** `GGMTree_PartiallyExpand` clears the hidden leaf of its array `node`. In `GGMTree::partialLeaves` of MQOM no line writes the hidden leaf or one of its ancestors, so the clear of the port changed nothing, and `(hiddenLeaf + 1)` replaced with `(hiddenLeaf * 1)` survived the CI run.
 - **Rule.** Leave out a clear of a zeroed vector, and say in a comment why the part stays zero. Keep a test that checks the part, so a later write into it fails. This is the rule of "Writes into zeroed or unused space give equivalent mutants" for a write of zero.
+
+## A guard against a zero divisor shows only with a zero dividend
+
+- **Trap.** `layers > 0 && total.is_multiple_of(layers)` guards `total / layers`. `is_multiple_of(0)` is false for every total but 0, so the mutant `layers >= 0` divides by zero only for a total of 0 and 0 layers. A test of 0 layers with any other total passes.
+- **Finding.** In `StatefulTreeHeight::largest` of the test support, the mutant survived the first run of `oqs-native-algorithm-tests`. The name `XMSSMT-SHA2_0/0_256` kills it.
+- **Rule.** A test of a guard of a divisor gives the zero divisor with a zero dividend as well.
+
+## A reduction in the caller hides when every result picks a valid branch
+
+- **Trap.** `byte % 3` in the caller picks one of three orders, and `byte / 3` picks one of the same three orders through the default arm. A property that holds for every order cannot tell the two apart.
+- **Finding.** In `StatefulSignatureFuzzTest::run`, `%` replaced with `/` survived the first run of `oqs-native-algorithm-tests`. Every order of a correct scheme refuses a changed value.
+- **Rule.** Give the function under test the raw input of the C program, here the selector byte, and reduce it inside, where a test of the raw values sees each order.
+
+## A drop that frees C memory has no output to check
+
+- **Trap.** A drop that calls a free function of the C library changes no value that a test reads. The mutant that deletes the body only leaks memory, and it survives.
+- **Finding.** The drop of `OracleWorkingKey` survived the first run of `oqs-native-c-oracle`. The memory of the working key belongs to `malloc` of the C library, so the recording allocator of `SecretBytes.rs` does not see it.
+- **Rule.** The shim counts the loads and the frees of each handle in a counter of the thread, and a contract test checks that the count goes back after the drop. A counter of the thread does not see the tests of other threads.

@@ -21,7 +21,15 @@ fn main() {
     let internalLibrary = oracleFolder.join("build/lib/liboqs-internal.a");
     let includeFolder = oracleFolder.join("build/include");
     let testHelpers = oracleFolder.join("source/tests/test_helpers.c");
-    for required in [&library, &internalLibrary, &includeFolder, &testHelpers] {
+    // The hash-sigs code of LMS, whose working key the shim keeps between signatures.
+    let lmsFolder = oracleFolder.join("source/src/sig_stfl/lms/external");
+    for required in [
+        &library,
+        &internalLibrary,
+        &includeFolder,
+        &testHelpers,
+        &lmsFolder,
+    ] {
         if !required.exists() {
             panic!(
                 "the C oracle is missing: {} does not exist. Run `cargo xtask fetch-oracle` first.",
@@ -48,6 +56,10 @@ fn main() {
             .arg(&includeFolder)
             .arg("-I")
             .arg(oracleFolder.join("source/tests"))
+            // Only for quoted includes: the folder holds an endian.h that must not hide the
+            // endian.h of the system.
+            .arg("-iquote")
+            .arg(&lmsFolder)
             .arg("-o")
             .arg(&object)
             .arg(source));

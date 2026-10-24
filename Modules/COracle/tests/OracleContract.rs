@@ -3,6 +3,7 @@
 
 use OQSNativeCOracle::{
     COracle, OracleMechanism, OracleRandomness, OracleSignatureScheme, OracleStatefulScheme,
+    OracleWorkingKey,
 };
 use OQSNativeDomain::{
     KeyEncapsulating, KeyStatePersisting, RandomGenerating, Signing, StatefulSigning,
@@ -502,6 +503,232 @@ fn statefulVerificationReadsARawLMSPublicKeyAsTheCLibraryDoes() {
     let mut longerKey = keyPair.publicKey.clone();
     longerKey.push(0);
     assert!(!oracle.isValidStatefulSignature(name, &signature, b"message", &longerKey));
+}
+
+/// The message of signature `index` of the working key tests: a length and bytes that change with
+/// the index, so no two signatures sign the same message.
+fn indexedMessage(index: usize) -> Vec<u8> {
+    (0..(7 * index) % 61)
+        .map(|offset| (31 * index + offset) as u8)
+        .collect()
+}
+
+/// Signs message `index` on both paths: `OQS_SIG_STFL_sign` from a serialized key, and the working
+/// key. Both give the same signature and the same advanced key, or both fail. Returns the advanced
+/// key of `OQS_SIG_STFL_sign`, or `None` when both fail.
+fn signOnBothPaths(
+    oracle: &mut COracle<'_>,
+    name: &str,
+    index: usize,
+    secretKey: &[u8],
+    workingKey: &mut OracleWorkingKey,
+) -> Option<Vec<u8>> {
+    let message = indexedMessage(index);
+    let plain = oracle.signStateful(name, &message, secretKey);
+    let working = oracle.signWithWorkingKey(workingKey, &message);
+    match (plain, working) {
+        (Ok((signature, advanced)), Ok(workingSignature)) => {
+            assert!(
+                signature == workingSignature,
+                "{name}: signature {index} differs on the two paths"
+            );
+            assert!(
+                advanced.bytes() == workingKey.secretKey(),
+                "{name}: the advanced key of signature {index} differs on the two paths"
+            );
+            Some(advanced.bytes().to_vec())
+        }
+        (Err(_), Err(_)) => None,
+        (plain, working) => panic!(
+            "{name}: signature {index} gives {:?} on the plain path and {:?} with the working key",
+            plain.map(|_| ()),
+            working.map(|_| ())
+        ),
+    }
+}
+
+/// The remaining and the total count of a serialized key, from `OQS_SIG_STFL_sigs_remaining` and
+/// `OQS_SIG_STFL_sigs_total`, equal the counts of the working key with that key.
+fn assertCountsOnBothPaths(
+    oracle: &mut COracle<'_>,
+    name: &str,
+    index: usize,
+    secretKey: &[u8],
+    workingKey: &OracleWorkingKey,
+) {
+    assert_eq!(
+        oracle.remainingSignatureCount(name, secretKey),
+        oracle.remainingSignatureCountOfWorkingKey(workingKey),
+        "{name}: the remaining count after signature {index}"
+    );
+    assert_eq!(
+        oracle.totalSignatureCount(name, secretKey),
+        oracle.totalSignatureCountOfWorkingKey(workingKey),
+        "{name}: the total count after signature {index}"
+    );
+}
+
+/// Signs every signature of a new key on both paths, each path with its own advanced key, and
+/// one more, which both paths refuse. Compares the counts after each signature.
+fn signTheWholeKeyOnBothPaths(name: &str, signatureCount: usize) {
+    let mut oracle = COracle::new(OracleRandomness::nist(countingEntropy()));
+    let keyPair = oracle.generateStatefulKeyPair(name).expect("key pair");
+    let mut secretKey = keyPair.secretKey.bytes().to_vec();
+    let mut workingKey = oracle
+        .loadLMSWorkingKey(name, &keyPair.publicKey, &secretKey)
+        .expect("working key");
+    assertCountsOnBothPaths(&mut oracle, name, 0, &secretKey, &workingKey);
+    for index in 0..signatureCount {
+        secretKey = signOnBothPaths(&mut oracle, name, index, &secretKey, &mut workingKey)
+            .unwrap_or_else(|| panic!("{name}: signature {index} fails on both paths"));
+        assertCountsOnBothPaths(&mut oracle, name, index, &secretKey, &workingKey);
+    }
+    assert_eq!(
+        signOnBothPaths(
+            &mut oracle,
+            name,
+            signatureCount,
+            &secretKey,
+            &mut workingKey
+        ),
+        None,
+        "{name}: the key has no signature left"
+    );
+    // The working key could not load again from the overwritten key, and both paths refuse to
+    // count.
+    assertCountsOnBothPaths(&mut oracle, name, signatureCount, &secretKey, &workingKey);
+    assert_eq!(
+        oracle.remainingSignatureCountOfWorkingKey(&workingKey),
+        Err(OQSError::operationFailed)
+    );
+}
+
+#[test]
+fn aWorkingKeySignsEachSignatureOfTheWholeKeyAsTheCLibraryDoes() {
+    // The total count of liboqs is 31, but the key signs 32 times: sequence numbers 0 to 31. The
+    // last signature overwrites the private key, and no count of it remains.
+    signTheWholeKeyOnBothPaths("LMS_SHA256_H5_W1", 32);
+}
+
+#[test]
+#[ignore = "OQS_SIG_STFL_sign loads a new working key for each of the 1024 signatures, so the run takes about a quarter of an hour of C time"]
+fn aTwoLevelWorkingKeySignsEachSignatureOfTheWholeKeyAsTheCLibraryDoes() {
+    signTheWholeKeyOnBothPaths("LMS_SHA256_H5_W8_H5_W8", 1024);
+}
+
+#[test]
+fn aTwoLevelWorkingKeySignsAcrossItsBottomTreesAsTheCLibraryDoes() {
+    // The working key signs every signature up to the third bottom tree. At the sampled indices,
+    // the plain path signs from the serialized key of the working key, around the two boundaries
+    // where the working key of liboqs stops and loads again.
+    let name = "LMS_SHA256_H5_W8_H5_W8";
+    let mut oracle = COracle::new(OracleRandomness::nist(countingEntropy()));
+    let keyPair = oracle.generateStatefulKeyPair(name).expect("key pair");
+    let liveCount = oracle.liveWorkingKeyCount();
+    let mut workingKey = oracle
+        .loadLMSWorkingKey(name, &keyPair.publicKey, keyPair.secretKey.bytes())
+        .expect("working key");
+    let sampled = [0, 1, 2, 30, 31, 32, 33, 34, 62, 63, 64, 65, 66];
+    for index in 0..=66 {
+        if sampled.contains(&index) {
+            let secretKey = workingKey.secretKey().to_vec();
+            let advanced = signOnBothPaths(&mut oracle, name, index, &secretKey, &mut workingKey)
+                .unwrap_or_else(|| panic!("{name}: signature {index} fails on both paths"));
+            if [31, 32, 33, 63, 64, 65].contains(&index) {
+                assertCountsOnBothPaths(&mut oracle, name, index, &advanced, &workingKey);
+            }
+        } else {
+            let message = indexedMessage(index);
+            let signature = oracle
+                .signWithWorkingKey(&mut workingKey, &message)
+                .expect("signature");
+            assert!(oracle.isValidStatefulSignature(
+                name,
+                &signature,
+                &message,
+                &keyPair.publicKey
+            ));
+        }
+    }
+    assert_eq!(
+        oracle.remainingSignatureCountOfWorkingKey(&workingKey),
+        Ok(1023 - 67)
+    );
+    // Each new load at a boundary released the working key that it replaced.
+    assert_eq!(oracle.liveWorkingKeyCount(), liveCount + 1);
+}
+
+#[test]
+fn aWorkingKeyRefusesWhatTheCLibraryRefuses() {
+    let mut oracle = COracle::new(OracleRandomness::nist(countingEntropy()));
+    let keyPair = oracle
+        .generateStatefulKeyPair("LMS_SHA256_H5_W1")
+        .expect("key pair");
+    let secretKey = keyPair.secretKey.bytes();
+    assert_eq!(
+        oracle
+            .loadLMSWorkingKey("XMSS-SHA2_10_256", &[0u8; 68], &[0u8; 1373])
+            .err(),
+        Some(OQSError::operationFailed),
+        "a working key is a key of hash-sigs"
+    );
+    assert_eq!(
+        oracle
+            .loadLMSWorkingKey("LMS_NONE", &keyPair.publicKey, secretKey)
+            .err(),
+        Some(OQSError::operationFailed)
+    );
+    assert_eq!(
+        oracle
+            .loadLMSWorkingKey("LMS_SHA256_H5_W1", &keyPair.publicKey[4..], secretKey)
+            .err(),
+        Some(OQSError::invalidLength {
+            expected: 60,
+            actual: 56
+        })
+    );
+    // hash-sigs knows no parameter set of zeros, and a private key of 63 bytes is too short.
+    for hostileKey in [vec![0u8; secretKey.len()], secretKey[..63].to_vec()] {
+        assert_eq!(
+            oracle
+                .loadLMSWorkingKey("LMS_SHA256_H5_W1", &keyPair.publicKey, &hostileKey)
+                .err(),
+            Some(OQSError::operationFailed)
+        );
+    }
+}
+
+#[test]
+fn aDroppedWorkingKeyReleasesItsMemoryInTheCLibrary() {
+    let name = "LMS_SHA256_H5_W1";
+    let mut oracle = COracle::new(OracleRandomness::nist(countingEntropy()));
+    let keyPair = oracle.generateStatefulKeyPair(name).expect("key pair");
+    let liveCount = oracle.liveWorkingKeyCount();
+    let workingKey = oracle
+        .loadLMSWorkingKey(name, &keyPair.publicKey, keyPair.secretKey.bytes())
+        .expect("working key");
+    assert_eq!(
+        oracle.liveWorkingKeyCount(),
+        liveCount + 1,
+        "the load holds one working key"
+    );
+    drop(workingKey);
+    assert_eq!(
+        oracle.liveWorkingKeyCount(),
+        liveCount,
+        "the drop releases the working key"
+    );
+    let refused = vec![0u8; keyPair.secretKey.bytes().len()];
+    assert!(
+        oracle
+            .loadLMSWorkingKey(name, &keyPair.publicKey, &refused)
+            .is_err()
+    );
+    assert_eq!(
+        oracle.liveWorkingKeyCount(),
+        liveCount,
+        "a refused load holds no working key"
+    );
 }
 
 #[test]
