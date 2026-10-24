@@ -1,12 +1,15 @@
-//! The tests of the LMS family for liboqs `tests/test_sig_stfl.c`: the key pairs and the
+//! The correctness test of liboqs `tests/test_sig_stfl.c` through
+//! `StatefulSignatureCorrectnessTest`, and the tests of the LMS family: the key pairs and the
 //! signatures of the C library, the random request, the secret key after each signature, the
 //! counts, the end of a key, a failed save, each rejection path, both sides of each verdict of
-//! a verification, the working key, and hostile inputs.
+//! a verification, and the working key.
 //!
 //! The known answers come from the C library of the oracle with the NIST known-answer
 //! generator seeded with the bytes 0 to 47, and the message `the quick brown fox`.
 
-use OQSNativeAlgorithmTests::{FuzzRandom, ResponseFile, TestVectorFiles};
+use OQSNativeAlgorithmTests::{
+    FuzzRandom, ResponseFile, StatefulSignatureCorrectnessTest, StatefulTreeHeight, TestVectorFiles,
+};
 use OQSNativeDomain::{KeyStatePersisting, RandomGenerating, StatefulSigning};
 use OQSNativeEntities::{OQSError, SecretBytes};
 use OQSNativeKATRandom::NISTKATRandom;
@@ -16,9 +19,6 @@ use OQSNativeSHA2::SHA256;
 /// The message of the known answers.
 const baseMessage: &[u8] = b"the quick brown fox";
 
-/// The seed of the hostile inputs. A failure message names it.
-const fuzzSeed: u64 = 0x4C4D_535F_4655_5A5A;
-
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
@@ -26,6 +26,45 @@ fn hex(bytes: &[u8]) -> String {
 fn digest(bytes: &[u8]) -> String {
     hex(&SHA256::hash(bytes))
 }
+
+// The correctness program.
+
+/// The seed of the random source of the correctness program. A failure message names it.
+const correctnessSeed: u64 = 0x4C4D_535F_5445_5354;
+
+/// Runs the correctness program of `tests/test_sig_stfl.c` on each set whose largest tree has
+/// at most a height. liboqs runs the program on LMS without a response file, so each run makes
+/// its key pairs. Returns the failures.
+fn correctnessFailures(largestHeight: u32) -> Vec<String> {
+    LMS::schemes
+        .iter()
+        .filter(|scheme| {
+            StatefulTreeHeight::largest(scheme.description().name)
+                .is_some_and(|height| height <= largestHeight)
+        })
+        .filter_map(|scheme| {
+            let mut random = FuzzRandom::seeded(correctnessSeed);
+            StatefulSignatureCorrectnessTest::run(*scheme, &mut random, None)
+                .err()
+                .map(|message| format!("{message}, seed {correctnessSeed:#x}"))
+        })
+        .collect()
+}
+
+#[test]
+fn testSigStflPassesForEachSetOfTreesOfHeight5() {
+    let failures = correctnessFailures(5);
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+#[ignore = "the correctness program makes three key pairs of each set, and the 9 sets with trees of height 10 take minutes in a test build: run it with --release"]
+fn testSigStflPassesForEachSetOfTreesOfHeight10() {
+    let failures = correctnessFailures(10);
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+// The family.
 
 /// The NIST known-answer generator seeded with the bytes 0 to 47.
 fn knownAnswerRandom() -> NISTKATRandom {
@@ -809,74 +848,4 @@ fn aWorkingKeySignsEveryCountOfAKeyAndThenNoMore() {
         Err(OQSError::keyExhausted)
     );
     assert!(store.saved.is_empty());
-}
-
-fn randomBytes(random: &mut FuzzRandom, length: usize) -> Vec<u8> {
-    let mut bytes = vec![0u8; length];
-    random.fillRandomBytes(&mut bytes);
-    bytes
-}
-
-#[test]
-fn hostileSignaturesKeysAndSecretKeysGiveADefinedResult() {
-    let mut random = FuzzRandom::seeded(fuzzSeed);
-    for scheme in [LMS::lmsSHA256H5W8, LMS::lmsSHA256H5W8H5W8] {
-        let description = scheme.description();
-        let name = description.name;
-        let keyPair = scheme
-            .generateKeyPair(&mut knownAnswerRandom())
-            .expect("a key pair");
-        let mut secretKey = keyPair.secretKey.clone();
-        let validSignature = scheme
-            .sign(
-                baseMessage,
-                &mut secretKey,
-                &mut RecordingStore::accepting(),
-            )
-            .expect("a signature");
-        for case in 0..40u64 {
-            let label = format!("{name}, case {case} of seed {fuzzSeed:#x}");
-            let length = FuzzRandom::wrongLength(case, description.signatureLength);
-            for signature in [
-                randomBytes(&mut random, description.signatureLength),
-                randomBytes(&mut random, length),
-            ] {
-                assert!(
-                    !scheme.isValidSignature(&signature, baseMessage, &keyPair.publicKey),
-                    "{label}"
-                );
-            }
-            // A valid signature whose words of structure stay, with random bytes elsewhere.
-            let mut hostile = validSignature.clone();
-            let place = 12 + (random.nextWord() as usize) % (hostile.len() - 12);
-            hostile[place] = hostile[place].wrapping_add(1 + (case as u8 % 255));
-            assert!(
-                !scheme.isValidSignature(&hostile, baseMessage, &keyPair.publicKey),
-                "{label}, byte {place}"
-            );
-            let hostileKey = randomBytes(&mut random, 60);
-            assert!(
-                !scheme.isValidSignature(&validSignature, baseMessage, &hostileKey),
-                "{label}"
-            );
-            // Random secret keys have no valid parameter set, and some have one with a random
-            // count: each gives a defined error and leaves the key as it was.
-            let mut hostileSecretKey = randomBytes(&mut random, 64 + (case as usize % 3));
-            if case % 2 == 0 {
-                hostileSecretKey[8..16]
-                    .copy_from_slice(&[0x54, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
-            }
-            let original = hostileSecretKey.clone();
-            let mut wrapped = SecretBytes::new(hostileSecretKey);
-            let result = scheme.sign(baseMessage, &mut wrapped, &mut RecordingStore::accepting());
-            assert!(
-                matches!(
-                    result,
-                    Err(OQSError::operationFailed) | Err(OQSError::keyExhausted)
-                ),
-                "{label}: {result:?}"
-            );
-            assert_eq!(wrapped.bytes(), &original[..], "{label}");
-        }
-    }
 }
