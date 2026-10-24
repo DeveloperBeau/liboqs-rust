@@ -47,6 +47,8 @@ mod rustTokenKind;
 mod rustTokenizer;
 #[path = "TokenTree.rs"]
 mod tokenTree;
+#[path = "UnsafeCodeCheck.rs"]
+mod unsafeCodeCheck;
 #[path = "VersionCheck.rs"]
 mod versionCheck;
 #[path = "WorkspaceLayout.rs"]
@@ -86,6 +88,7 @@ use rustTokenizer::RustTokenizer;
 #[cfg(test)]
 use seededGenerator::SeededGenerator;
 use tokenTree::TokenTree;
+use unsafeCodeCheck::UnsafeCodeCheck;
 use versionCheck::VersionCheck;
 use workspaceLayout::WorkspaceLayout;
 
@@ -165,6 +168,12 @@ fn findings(
         }
         if command.includes(Command::versions) {
             findings.extend(VersionCheck::findings(files, layout));
+        }
+    }
+    if command.includes(Command::unsafeCode) {
+        match UnsafeCodeCheck::load(files) {
+            Ok(check) => findings.extend(check.findings(files)),
+            Err(finding) => findings.push(finding),
         }
     }
     if command.includes(Command::hygiene) {

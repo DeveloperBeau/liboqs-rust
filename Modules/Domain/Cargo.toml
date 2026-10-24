@@ -1,0 +1,27 @@
+[package]
+name = "oqs-native-domain"
+description = "Capability interfaces of the native liboqs port and the rules that use them."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[package.metadata]
+ring = "domain"
+
+[lib]
+name = "OQSNativeDomain"
+path = "src/lib.rs"
+
+[dependencies]
+oqs-native-entities = { path = "../Entities", default-features = false }
+
+[features]
+default = ["std"]
+# Without `std` the crate builds with `core` and `alloc` only.
+std = ["oqs-native-entities/std"]
+
+[lints]
+workspace = true

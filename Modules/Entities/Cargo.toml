@@ -1,0 +1,24 @@
+[package]
+name = "oqs-native-entities"
+description = "Plain data types of the native liboqs port: descriptions, key containers and errors."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[package.metadata]
+ring = "entities"
+
+[lib]
+name = "OQSNativeEntities"
+path = "src/lib.rs"
+
+[features]
+default = ["std"]
+# Without `std` the crate builds with `core` and `alloc` only.
+std = []
+
+[lints]
+workspace = true

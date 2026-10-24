@@ -23,3 +23,15 @@
 - **Trap.** `cargo mutants` copies the source tree without `.git`, so a test that runs git on the repository itself fails in the copy and stops the run.
 - **Finding.** The contract test of `DiskFileSystem` must run git, because the adapter calls git.
 - **Rule.** A test that needs git makes its own repository in a temporary folder and deletes it at the end. No test reads the git state of the repository that it tests.
+
+## A `no_std` library makes most mutants unviable
+
+- **Trap.** `cargo mutants` puts values such as `Vec::new()` and `vec![]` into a function. In a library that is always `no_std`, those names are not in scope, so the mutant does not build and proves nothing.
+- **Finding.** The first run of `oqs-native-entities` and `oqs-native-domain` gave 16 unviable mutants of 26, among them each mutant of the "persist before release" rule. With the `std` feature on by default, the same run gave 23 caught and 3 unviable.
+- **Rule.** A crate that must build without the standard library gets a `std` feature, on by default, and `#![cfg_attr(not(feature = "std"), no_std)]`. CI builds with `--no-default-features`, so the `no_std` form cannot rot.
+
+## Drop code needs an allocator to prove it
+
+- **Trap.** A test cannot read memory after it is freed, so the wipe of `SecretBytes` in `Drop` had no test, and the mutant that deletes the body of `drop` survived.
+- **Finding.** A test-only global allocator that inspects each freed block of one unusual size sees whether the block was wiped. A plain vector of the same size is the control, so the test can tell a wipe from no wipe.
+- **Rule.** Prove a wipe on drop with the recording allocator of `SecretBytes.rs`, and keep its control case.

@@ -62,6 +62,24 @@ Each row names one mutant of a rule and the tests that fail under it. The test n
 | A member pattern matches child folders only | `WorkspaceLayout::matches`, line 58: operator replaced with `!=` | `loadFindsMembersOfWildcardAndPlainPatternsOnly`, `libraryNameMustBeUpperCamelCaseAndALibraryMustSetIt` and 15 more |
 | A bracket inside a string does not continue a value | `CargoManifest::openBracketCount`, line 260: match guard replaced with `true` | `bracketsInsideAStringDoNotContinueTheValue` |
 
+## Latest result for `oqs-native-entities` and `oqs-native-domain`
+
+The run of 2026-10-23 on the branch `foundation/entities-domain`.
+
+| File | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| All files of both crates | 26 | 23 | 0 | 3 | 0 |
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| Dropped secret bytes are wiped | `<impl Drop for SecretBytes>::drop`: body replaced with `()` | `dropWipesTheBytesBeforeTheMemoryIsFreed` |
+| The wipe writes zero over every byte | `wipe`: body replaced with `()` | `wipeWritesZeroOverEveryByte`, `dropWipesTheBytesBeforeTheMemoryIsFreed` |
+| Debug text never shows secret bytes | `<impl fmt::Debug for SecretBytes>::fmt`: body replaced | `debugTextShowsTheLengthButNeverTheBytes` |
+| Inputs have the exact length | `InputLength::checked`: `==` replaced with `!=` | `checkedRejectsAShorterAndALongerInputWithBothLengths`, `checkedReturnsAnInputOfTheExpectedLength` |
+| A scheme without context support accepts only an empty context | `Signing::isValidSignatureWithContext`: `&&` replaced with `||` | `verificationWithContextAcceptsOnlyAnEmptyContext` |
+
+The `xtask` files that this branch changed (`Command.rs`, `UnsafeCodeCheck.rs`, `lib.rs`) gave 18 mutants: 13 caught, 5 unviable, 0 missed.
+
 ## History
 
 | Run | Code | Mutants | Caught | Timeout | Unviable | Missed |

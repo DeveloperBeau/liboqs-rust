@@ -1,8 +1,8 @@
 name: CI
 
 on:
+  # Every pull request, so a pull request stacked on another one also runs the checks.
   pull_request:
-    branches: [release, develop]
   push:
     branches: [release, develop]
 
@@ -21,6 +21,8 @@ jobs:
         run: cargo fmt --all --check
       - name: Lint
         run: cargo clippy --workspace --all-targets --locked
+      - name: Build without the standard library
+        run: cargo build --workspace --lib --no-default-features --locked
       - name: Test
         run: cargo test --workspace --locked
       - name: Repository checks
