@@ -1,5 +1,6 @@
 use OQSNativeAES::{AES128, Rijndael256};
 use alloc::vec;
+use alloc::vec::Vec;
 
 /// The block cipher of a parameter set with one key, which encrypts seeds of λ / 8 bytes.
 ///
@@ -65,12 +66,14 @@ impl SeedCipher {
             SeedCipher::aes128(cipher) => cipher.encryptBlocks(seeds, output),
             SeedCipher::rijndael256(cipher) => cipher.encryptBlocks(seeds, output),
             SeedCipher::truncatedRijndael256(cipher) => {
-                let count = seeds.len() / 24;
-                let mut padded = vec![0u8; 32 * count];
-                for (block, seed) in padded.chunks_exact_mut(32).zip(seeds.chunks_exact(24)) {
-                    block[..24].copy_from_slice(seed);
-                }
-                let mut encrypted = vec![0u8; 32 * count];
+                // Each seed fills a block of its own, with eight zeros after it. The blocks
+                // come from the seeds themselves, so the cipher encrypts exactly the blocks
+                // that the seeds fill.
+                let padded: Vec<u8> = seeds
+                    .chunks_exact(24)
+                    .flat_map(|seed| seed.iter().copied().chain([0u8; 8]))
+                    .collect();
+                let mut encrypted = vec![0u8; padded.len()];
                 cipher.encryptBlocks(&padded, &mut encrypted);
                 for (block, out) in encrypted.chunks_exact(32).zip(output.chunks_exact_mut(24)) {
                     out.copy_from_slice(&block[..24]);
@@ -150,14 +153,16 @@ mod tests {
 
     #[test]
     fn theTweakAddsTheSelectorTheRepetitionAndTheIndex() {
-        let salt = [0x10u8; 16];
+        // `TweakSalt` of `common.h` adds `sel + 4 e`, `j & 0xff` and `j >> 8` to the bytes 0, 1
+        // and 2 with an exclusive or. Each salt byte 0x13 shares a set bit with its tweak, so
+        // an or in place of an exclusive or gives another key.
+        let salt = [0x13u8; 16];
         let seed = [0x33u8; 16];
         let mut tweaked = [0u8; 16];
         SeedCipher::tweaked(&salt, 3, 5, 0x0201).encrypt(&seed, &mut tweaked);
+        // 0x13 ^ (3 + 4 * 5) is 0x04, 0x13 ^ 0x01 is 0x12 and 0x13 ^ 0x02 is 0x11.
         let mut key = salt;
-        key[0] ^= 3 + 4 * 5;
-        key[1] ^= 0x01;
-        key[2] ^= 0x02;
+        key[..3].copy_from_slice(&[0x04, 0x12, 0x11]);
         let mut expected = [0u8; 16];
         SeedCipher::new(&key).encrypt(&seed, &mut expected);
         assert_eq!(tweaked, expected);

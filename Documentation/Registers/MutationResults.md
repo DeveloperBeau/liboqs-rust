@@ -716,6 +716,38 @@ The line numbers are those of the run. Where a line moved, the list also gives i
 | An element has coefficient `i` of its reduced spread form at bit `i` | `FieldArithmetic::element`, line 85: `+` replaced with `-` or `*` | `theSpreadFormHoldsCoefficientIAtBit3I`, `spreadProductsAreTheProductsOfTheTable` and the known answers of `KATSig.rs` for every set |
 | Each oil product of F12 and of F21 is the dot product of its own row and column | `Signer::attemptedSolution`, lines 362 and 437: `oil * rank` replaced with `oil / rank` | `theSignatureOfADigestIsTheSignatureOfTheCFunction`, `aSingularSystemMovesTheSignatureToTheNextAttempt` |
 
+## Latest result for MQOM
+
+The run of 2026-10-24 is the `Mutants` workflow of CI, in ten shards, on the branch `mutants/oqs-native-mqom`, which holds the MQOM code of the branch `family/mqom`: [run 40045151708](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40045151708).
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-mqom` | 662 | 628 | 4 | 28 | 2 |
+
+Two of the four timeouts failed a test first. `XOF::absorb` and `XOF::hash` replaced with `()` each failed the known answers of `theEquationsAreTheEquationsOfTheCFunctionForEverySet`, `theKeysTheChallengeAndTheSignatureAreThoseOfTheCFunctions` and `theCommitmentItsOpeningAndItsEvaluationsAreThoseOfTheCFunctions`. The challenge then no longer depends on the nonce, so the search of every 32-bit nonce in `aNonceThatFailsTheProofOfWorkIsRefusedAlthoughItsProofIsValid` or in a signature does not end.
+
+The other two timeouts had no failed test. Each was applied by hand and ran the suite of the crate for 450 seconds, ten times the 41 seconds of the unmutated suite.
+
+- `InternalAlgorithms::challenge`, line 132: `&` replaced with `|` in `values[repetitionCount] & workMask == 0`. The work bits of every set are from 3 to 12, so `workMask` is not zero, and the or of a value with it is never zero. No nonce meets the proof of work, and each signature searches all 2^32 nonces. The suite did not end, and four tests that sign were still running. The search ends with a failure only after 2^32 challenge hashes, so the mutant counts as caught. `&` replaced with `^` at the same place failed `theKeysTheChallengeAndTheSignatureAreThoseOfTheCFunctions` and `aSignatureTriesTheNoncesFromZero`.
+- `SeedCipher::encrypt`, line 68: `/` replaced with `*` in `seeds.len() / 24`. The truncated Rijndael-256 of the level 3 then encrypts 576 times the blocks of its seeds. The seeds fill only the first blocks, and the output takes only the first blocks, so every output stays the same and only the time grows. The suite did not end, and no test failed. The mutant is a missed mutant that the time limit hid. `encrypt` now builds the padded blocks from the seeds themselves, so no count of its own can grow the input of the cipher, and the mutant is gone. `theTruncatedFormIsRijndael256OfTheZeroPaddedKeyAndBlock` and the known answers of the level 3 sets check the new form.
+
+Of the two missed mutants, one is a test gap, and a new test input kills it.
+
+- `SeedCipher::tweaked`, line 57, now line 58: `^=` replaced with `|=` in `key[2] ^= (index >> 8) as u8`. An index of 256 or more comes only from the PRG of the equations of `EquationSystem::expanded`, whose stream of a level 3 or level 5 set of GF(2^16) has more than 256 blocks. That PRG has a zero salt, and an or into a zero byte is an exclusive or. Every other index of the callers is below 256, so its high byte is zero. The one other index above 255 is the index 0x0201 of `theTweakAddsTheSelectorTheRepetitionAndTheIndex`. Its salt bytes were 0x10, which share no set bit with 0x02, so the or and the exclusive or gave the same key. The salt bytes are now 0x13, which share a set bit with each of the three tweak bytes, and the test compares with the key 0x04, 0x12, 0x11 that `TweakSalt` of `common.h` gives, written by hand. Applied by hand, the mutant failed the test, and so did `|=` in place of `^=` at the lines of the bytes 0 and 1.
+
+The other one is equivalent, and the code no longer has its line.
+
+### Equivalent mutants
+
+- `GGMTree.rs`, `partialLeaves`, line 134: `+` replaced with `*` in `(hiddenLeaf + 1) * seedLength`. The range of the clear of the hidden leaf is then empty, so the hidden leaf keeps its value. Line 96 sets every node to zero, and no line writes the hidden leaf. The loop of line 99 writes only the siblings of the ancestors of the leaf, node `index ^ 1` for each ancestor `index`, and nodes 0 and 1 when the path is longer than the tree. A sibling is never an ancestor, because each level holds one ancestor, and its sibling is another node of that level. The loop of line 105 writes the children of a known parent of the levels 1 to `treeDepth - 1`, which are the nodes 2 and up. By induction on the level, no ancestor is known: an ancestor of level 1 is node 2 or 3, which only the first loop could write, and an ancestor of a lower level is a child of an ancestor, which is not known. So the hidden leaf is still zero before the clear, and the clear changes nothing. The callers give a hidden leaf below the leaf count, the masked value of `InternalAlgorithms::challenge`, and a larger one panics in the first loop with both forms. `GGMTree_PartiallyExpand` clears the hidden leaf because its array `node` is not initialized. The port leaves out the clear, and `theLeavesSumToDeltaAndThePathGivesEveryOtherLeaf` checks that the hidden leaf is zero for the hidden leaves 0, 1, N / 2 and N - 1. A deliberate write of 1 into the hidden leaf failed that test and `theLeavesThePathAndThePartialLeavesAreThoseOfTheCFunctions`.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The tweak of a salt adds the selector, the repetition and the 16-bit index with an exclusive or | `SeedCipher::tweaked`, lines 56 to 58: `^=` replaced with `\|=` on each byte | `theTweakAddsTheSelectorTheRepetitionAndTheIndex` |
+| A signature searches the nonces until one meets the proof of work | `InternalAlgorithms::challenge`, line 132: `&` replaced with `^` | `theKeysTheChallengeAndTheSignatureAreThoseOfTheCFunctions`, `aSignatureTriesTheNoncesFromZero` |
+| The truncated Rijndael-256 pads each seed of 24 bytes with eight zeros | `SeedCipher::encrypt`: the body replaced with `()`, as in the run | `theTruncatedFormIsRijndael256OfTheZeroPaddedKeyAndBlock` and the known answers of the level 3 sets |
+| The partial leaves give every leaf off the path and a zero hidden leaf | `GGMTree::partialLeaves`: a written hidden leaf, by hand | `theLeavesSumToDeltaAndThePathGivesEveryOtherLeaf`, `theLeavesThePathAndThePartialLeavesAreThoseOfTheCFunctions` |
+
 ## Latest result for Classic McEliece
 
 The run of 2026-10-23 is the `Mutants` workflow of CI, in ten shards, on the branch `mutants/oqs-native-classic-mceliece`, which holds the code of the branch `family/classic-mceliece`: [run 40030259136](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40030259136).
