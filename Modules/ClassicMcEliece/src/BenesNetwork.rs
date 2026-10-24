@@ -33,15 +33,18 @@ impl<'parameters> BenesNetwork<'parameters> {
 
     /// The transpose of a 64 by 64 matrix of bits in place, `transpose_64x64`: word `i` is
     /// row `i`, and bit `j` of a word is column `j`.
+    ///
+    /// The two terms of each new word hold the bits of the two masks of the step, which have no
+    /// bit in common, so the port adds them where the C code takes their or.
     pub(crate) fn transpose(words: &mut [u64; 64]) {
         for (step, masks) in transposeMasks.iter().enumerate().rev() {
             let stride = 1 << step;
             for start in (0..64).step_by(2 * stride) {
                 for index in start..start + stride {
                     let low =
-                        (words[index] & masks[0]) | ((words[index + stride] & masks[0]) << stride);
+                        (words[index] & masks[0]) + ((words[index + stride] & masks[0]) << stride);
                     let high =
-                        ((words[index] & masks[1]) >> stride) | (words[index + stride] & masks[1]);
+                        ((words[index] & masks[1]) >> stride) + (words[index + stride] & masks[1]);
                     words[index] = low;
                     words[index + stride] = high;
                 }

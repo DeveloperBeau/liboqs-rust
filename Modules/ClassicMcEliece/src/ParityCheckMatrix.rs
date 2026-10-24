@@ -152,14 +152,15 @@ impl<'parameters> ParityCheckMatrix<'parameters> {
         Some(pivots)
     }
 
-    /// The 64 bits of a row from a column, as the C code loads them from the bytes.
+    /// The 64 bits of a row from a column, as the C code loads them from the bytes. The parts
+    /// from the two words have no bit in common, so an addition joins them.
     fn window(&self, row: usize, column: usize) -> u64 {
         let words = &self.rows[row * self.rowWords..(row + 1) * self.rowWords];
         let (index, shift) = (column / 64, column % 64);
         if shift == 0 {
             words[index]
         } else {
-            (words[index] >> shift) | (words[index + 1] << (64 - shift))
+            (words[index] >> shift) + (words[index + 1] << (64 - shift))
         }
     }
 
@@ -193,13 +194,15 @@ impl<'parameters> ParityCheckMatrix<'parameters> {
     }
 
     /// The trailing zeros of a value that is not zero, `ctz` of `pk_gen.c`, with no branch.
+    ///
+    /// At each bit `b` the C code sets `m |= b` and adds `(m ^ 1) & (b ^ 1)`. A set bit sets `m`
+    /// first, so the second factor is 1 wherever the first one is, and the port adds `m ^ 1`.
     fn trailingZeroCount(value: u64) -> usize {
         let mut isSeen = 0u64;
         let mut count = 0u64;
         for bit in 0..64 {
-            let isSet = (value >> bit) & 1;
-            isSeen |= isSet;
-            count += (isSeen ^ 1) & (isSet ^ 1);
+            isSeen |= (value >> bit) & 1;
+            count += isSeen ^ 1;
         }
         count as usize
     }
@@ -261,7 +264,8 @@ impl<'parameters> ParityCheckMatrix<'parameters> {
 
     /// The public key: of each row, the `n - m t` columns after the identity part, packed from
     /// the low bit of each byte, as the `memcpy` of `pk_gen` copies them, or the shifts of the
-    /// 6960119 sets, whose identity part ends inside a byte.
+    /// 6960119 sets, whose identity part ends inside a byte. The two parts of each shifted byte
+    /// have no bit in common, so an addition joins them.
     fn publicKey(&self) -> Vec<u8> {
         let parameters = self.parameters;
         let rowCount = parameters.rowCount();
@@ -278,7 +282,7 @@ impl<'parameters> ParityCheckMatrix<'parameters> {
                 publicKey.extend_from_slice(&bytes[rowCount / 8..byteCount]);
             } else {
                 for index in (rowCount - 1) / 8..byteCount - 1 {
-                    publicKey.push((bytes[index] >> tail) | (bytes[index + 1] << (8 - tail)));
+                    publicKey.push((bytes[index] >> tail) + (bytes[index + 1] << (8 - tail)));
                 }
                 publicKey.push(bytes[byteCount - 1] >> tail);
             }
