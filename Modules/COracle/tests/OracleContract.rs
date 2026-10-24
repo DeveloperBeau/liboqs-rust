@@ -624,6 +624,7 @@ fn aTwoLevelWorkingKeySignsAcrossItsBottomTreesAsTheCLibraryDoes() {
     let name = "LMS_SHA256_H5_W8_H5_W8";
     let mut oracle = COracle::new(OracleRandomness::nist(countingEntropy()));
     let keyPair = oracle.generateStatefulKeyPair(name).expect("key pair");
+    let liveCount = oracle.liveWorkingKeyCount();
     let mut workingKey = oracle
         .loadLMSWorkingKey(name, &keyPair.publicKey, keyPair.secretKey.bytes())
         .expect("working key");
@@ -653,6 +654,8 @@ fn aTwoLevelWorkingKeySignsAcrossItsBottomTreesAsTheCLibraryDoes() {
         oracle.remainingSignatureCountOfWorkingKey(&workingKey),
         Ok(1023 - 67)
     );
+    // Each new load at a boundary released the working key that it replaced.
+    assert_eq!(oracle.liveWorkingKeyCount(), liveCount + 1);
 }
 
 #[test]
@@ -693,6 +696,39 @@ fn aWorkingKeyRefusesWhatTheCLibraryRefuses() {
             Some(OQSError::operationFailed)
         );
     }
+}
+
+#[test]
+fn aDroppedWorkingKeyReleasesItsMemoryInTheCLibrary() {
+    let name = "LMS_SHA256_H5_W1";
+    let mut oracle = COracle::new(OracleRandomness::nist(countingEntropy()));
+    let keyPair = oracle.generateStatefulKeyPair(name).expect("key pair");
+    let liveCount = oracle.liveWorkingKeyCount();
+    let workingKey = oracle
+        .loadLMSWorkingKey(name, &keyPair.publicKey, keyPair.secretKey.bytes())
+        .expect("working key");
+    assert_eq!(
+        oracle.liveWorkingKeyCount(),
+        liveCount + 1,
+        "the load holds one working key"
+    );
+    drop(workingKey);
+    assert_eq!(
+        oracle.liveWorkingKeyCount(),
+        liveCount,
+        "the drop releases the working key"
+    );
+    let refused = vec![0u8; keyPair.secretKey.bytes().len()];
+    assert!(
+        oracle
+            .loadLMSWorkingKey(name, &keyPair.publicKey, &refused)
+            .is_err()
+    );
+    assert_eq!(
+        oracle.liveWorkingKeyCount(),
+        liveCount,
+        "a refused load holds no working key"
+    );
 }
 
 #[test]

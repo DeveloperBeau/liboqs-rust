@@ -64,20 +64,20 @@ impl StatefulSignatureFuzzTest {
                 input.fillRandomBytes(&mut buffer);
                 buffer
             };
-            let order = if isLMS { bytes(1)[0] % 3 } else { 0 };
+            let selector = if isLMS { bytes(1)[0] } else { 0 };
             let fieldLength = publicKey.len() + signature.len() + message.len();
             let dataLength =
                 (FuzzRandom::hostile(seed, case).nextWord() % (fieldLength as u64 + 1)) as usize;
             let data = bytes(dataLength);
             let (fuzzedKey, fuzzedSignature, fuzzedMessage) =
-                Self::overwritten(order, &data, &publicKey, &signature, &message);
+                Self::overwritten(selector, &data, &publicKey, &signature, &message);
             // Fuzz bytes that leave the values as they are give the values that the verification
             // accepted before the cases.
             let isChanged = (&fuzzedKey, &fuzzedSignature, &fuzzedMessage)
                 != (&publicKey, &signature, &message);
             if isChanged && scheme.isValidSignature(&fuzzedSignature, &fuzzedMessage, &fuzzedKey) {
                 return Err(failure(format!(
-                    "the verification accepts the values of the file with {dataLength} fuzz bytes written over them in order {order}"
+                    "the verification accepts the values of the file with {dataLength} fuzz bytes written over them with the field selector {selector}"
                 )));
             }
             let wrongLength = |length: usize| FuzzRandom::wrongLength(case, length);
@@ -122,17 +122,17 @@ impl StatefulSignatureFuzzTest {
     }
 
     /// The public key, the signature and the message of the file with the fuzz bytes written over
-    /// them in an order of `fuzz_test_sig_stfl_lms.c`, as far as the bytes reach. Order 0 is the
-    /// order of `fuzz_test_sig_stfl_xmss.c`.
+    /// them in the order that a field selector byte picks, modulo 3, as `fuzz_test_sig_stfl_lms.c`
+    /// picks it, as far as the bytes reach. Order 0 is the order of `fuzz_test_sig_stfl_xmss.c`.
     fn overwritten(
-        order: u8,
+        selector: u8,
         data: &[u8],
         publicKey: &[u8],
         signature: &[u8],
         message: &[u8],
     ) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
         let mut fields = [publicKey.to_vec(), signature.to_vec(), message.to_vec()];
-        let sequence: [usize; 3] = match order {
+        let sequence: [usize; 3] = match selector % 3 {
             1 => [1, 2, 0],
             2 => [2, 0, 1],
             _ => [0, 1, 2],
@@ -154,7 +154,7 @@ mod tests {
     use alloc::vec;
 
     #[test]
-    fn theFuzzBytesFillTheFieldsInTheOrderOfTheCPrograms() {
+    fn theFuzzBytesFillTheFieldsInTheOrderThatTheSelectorPicksModulo3() {
         let key = [1u8; 2];
         let signature = [2u8; 3];
         let message = [3u8; 2];
@@ -171,6 +171,20 @@ mod tests {
             StatefulSignatureFuzzTest::overwritten(2, &data, &key, &signature, &message),
             (vec![7, 6], vec![2, 2, 2], vec![9, 8])
         );
+        // The order is the selector modulo 3: 3 and 255 pick order 0, 7 picks order 1, and 5
+        // picks order 2.
+        for (selector, expected) in [
+            (3, (vec![9, 8], vec![7, 6, 2], vec![3, 3])),
+            (255, (vec![9, 8], vec![7, 6, 2], vec![3, 3])),
+            (7, (vec![1, 1], vec![9, 8, 7], vec![6, 3])),
+            (5, (vec![7, 6], vec![2, 2, 2], vec![9, 8])),
+        ] {
+            assert_eq!(
+                StatefulSignatureFuzzTest::overwritten(selector, &data, &key, &signature, &message),
+                expected,
+                "selector {selector}"
+            );
+        }
         // The bytes past all three fields are not used, and no bytes leave the fields as they are.
         let long = [5u8; 9];
         assert_eq!(
