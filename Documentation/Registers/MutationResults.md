@@ -412,6 +412,8 @@ The run of 2026-10-23 on the branch `family/falcon`, in the ten shards of the `M
 |---|---|---|---|---|---|
 | `oqs-native-falcon`, ten shards | 2486 | 1202 | 1134 | 45 | 105 |
 
+The [second run](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40046895309), on the commit of the new tests and the new forms, had 2465 mutants: 1255 caught, 1120 timeouts, 46 unviable and 44 missed. The 44 missed mutants are the 33 equivalent mutants and the 11 open mutants below.
+
 1082 of the 1134 timeouts had a failed test before the time limit. The other 52 had no failed test at the limit. Each of them ran by hand as the unit test binary of the code of the run with its diff applied, with one thread for each test, for 300 seconds. The last 40 ran with the address space capped at 6 GiB. The first 12 ran before the cap, and their memory did not grow. None of the 52 passes.
 
 Two end with a failed test:
