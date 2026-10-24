@@ -57,7 +57,7 @@ The C verification of a stateful signature reads the public key from a buffer of
 3. The shim verifies each signature. When the signature fails or does not verify, it sets the private key back to its state before the signature, loads the working key again and signs again. A working key of liboqs does not sign on past a subtree boundary, see `Documentation/Learnings/COracle.md`.
 4. `remainingSignatureCountOfWorkingKey` and `totalSignatureCountOfWorkingKey` count as `OQS_SIG_STFL_sigs_remaining` and `OQS_SIG_STFL_sigs_total`, with the `max_count` of the loaded working key in place of a new load. A count above `max_count` is refused, as the load of liboqs refuses it. After the last signature the private key is all `0xFF` bytes, so its count is above `max_count` too.
 
-The working key is a model of the keys that a key generation gives, not of hostile keys. The drop frees the working key without the lock, because the free touches only the memory of that key.
+The working key is a model of the keys that a key generation gives, not of hostile keys. The drop frees the working key without the lock, because the free touches only the memory of that key. The shim counts the working keys that each thread loaded and did not free, and `COracle::liveWorkingKeyCount` reads the count of the calling thread, so a contract test proves that the drop frees the key.
 
 ## Edge cases
 
