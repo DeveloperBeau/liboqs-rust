@@ -254,6 +254,31 @@ fn fuzzTestReportsAWrongSecretAndAWrongLengthCheck() {
 }
 
 #[test]
+fn fuzzTestRunsExactlyTheCasesOfARange() {
+    // The first case of the range is the first case that runs: the defect of the key pair
+    // after the first one shows in the second case of the range.
+    let failing = EchoMechanism::new(&seededDescription, Fault::failsAfterTheFirstKeyPair);
+    assert_eq!(
+        KEMFuzzTest::runCases(&failing, 1, 5..8),
+        Err(
+            "Seeded-Echo, fuzz case 6 of seed 0x1: the key pair failed: the operation failed"
+                .to_string()
+        )
+    );
+    let wrongSecret = EchoMechanism::new(&seededDescription, Fault::wrongSecret);
+    assert_eq!(
+        KEMFuzzTest::runCases(&wrongSecret, 0x5EED, 2..4),
+        Err(
+            "Seeded-Echo, fuzz case 2 of seed 0x5eed: the shared secrets are not equal".to_string()
+        )
+    );
+    // An empty range runs nothing, and a correct mechanism passes from any case.
+    assert_eq!(KEMFuzzTest::runCases(&wrongSecret, 0x5EED, 3..3), Ok(()));
+    let mechanism = EchoMechanism::new(&seededDescription, Fault::none);
+    assert_eq!(KEMFuzzTest::runCases(&mechanism, 0x5EED, 2..30), Ok(()));
+}
+
+#[test]
 fn memoryTestRoundTripsTheValuesThroughFilesAndRemovesThem() {
     let folder = std::env::temp_dir().join(format!("oqs-native-kem-memory-{}", std::process::id()));
     std::fs::create_dir_all(&folder).expect("a temporary folder");
