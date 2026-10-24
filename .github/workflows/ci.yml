@@ -43,7 +43,9 @@ jobs:
           path: target/release/parity
           retention-days: 1
 
-  checks:
+  # Each job below takes the oracle or the parity program of the build job, so the graph of a
+  # run shows one build and the jobs that use it, and the last job joins their results.
+  lint:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -51,16 +53,31 @@ jobs:
       - uses: actions/checkout@v5
       - name: Install the pinned toolchain
         run: rustup show active-toolchain || rustup toolchain install
-      - name: Format
-        run: cargo fmt --all --check
       - name: Restore the C oracle of the build job
         uses: actions/cache/restore@v4
         with:
           path: target/oracle
           key: oracle-${{ runner.os }}-${{ hashFiles('LIBOQS_VERSION', 'Tools/Xtask/src/OracleBuild.rs', 'Tools/Xtask/src/TestVector.rs', 'Documentation/Registers/TestVectors.md') }}
           fail-on-cache-miss: true
+      - name: Format
+        run: cargo fmt --all --check
       - name: Lint
         run: cargo clippy --workspace --all-targets --locked
+
+  no-std:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Restore the C oracle of the build job
+        uses: actions/cache/restore@v4
+        with:
+          path: target/oracle
+          key: oracle-${{ runner.os }}-${{ hashFiles('LIBOQS_VERSION', 'Tools/Xtask/src/OracleBuild.rs', 'Tools/Xtask/src/TestVector.rs', 'Documentation/Registers/TestVectors.md') }}
+          fail-on-cache-miss: true
       - name: Build without the standard library
         run: cargo build --workspace --lib --no-default-features --locked
       - name: Build each crate alone without the standard library
@@ -70,8 +87,32 @@ jobs:
           for manifest in Modules/*/Cargo.toml; do
             cargo build --manifest-path "$manifest" --lib --no-default-features --locked
           done
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Restore the C oracle of the build job
+        uses: actions/cache/restore@v4
+        with:
+          path: target/oracle
+          key: oracle-${{ runner.os }}-${{ hashFiles('LIBOQS_VERSION', 'Tools/Xtask/src/OracleBuild.rs', 'Tools/Xtask/src/TestVector.rs', 'Documentation/Registers/TestVectors.md') }}
+          fail-on-cache-miss: true
       - name: Test
         run: cargo test --workspace --locked
+
+  repository:
+    # The repository checks read the files of the tree and need no oracle.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
       - name: Repository checks
         env:
           HYGIENE_WORDS: ${{ secrets.HYGIENE_WORDS }}
@@ -83,6 +124,18 @@ jobs:
             if [ -n "$word" ]; then echo "::add-mask::$word"; fi
           done
           cargo xtask check
+
+  known-answers:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Restore the C oracle of the build job
+        uses: actions/cache/restore@v4
+        with:
+          path: target/oracle
+          key: oracle-${{ runner.os }}-${{ hashFiles('LIBOQS_VERSION', 'Tools/Xtask/src/OracleBuild.rs', 'Tools/Xtask/src/TestVector.rs', 'Documentation/Registers/TestVectors.md') }}
+          fail-on-cache-miss: true
       - name: Fetch the parity program of the build job
         uses: actions/download-artifact@v4
         with:
@@ -91,6 +144,24 @@ jobs:
         run: chmod +x parity
       - name: Known answers of the C library through the Rust harness
         run: ./parity known-answers --all --processes 4
+
+  snapshot:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Restore the C oracle of the build job
+        uses: actions/cache/restore@v4
+        with:
+          path: target/oracle
+          key: oracle-${{ runner.os }}-${{ hashFiles('LIBOQS_VERSION', 'Tools/Xtask/src/OracleBuild.rs', 'Tools/Xtask/src/TestVector.rs', 'Documentation/Registers/TestVectors.md') }}
+          fail-on-cache-miss: true
+      - name: Fetch the parity program of the build job
+        uses: actions/download-artifact@v4
+        with:
+          name: parity
+      - name: Make the parity program executable
+        run: chmod +x parity
       - name: Snapshot of the C library
         run: ./parity snapshot --check --processes 4
 
@@ -113,3 +184,16 @@ jobs:
         # The gate workflow runs the 1000 variations. Blocks of 10 variations spread a slow
         # algorithm over every shard and process.
         run: ./parity run --cases 100 --block-size 10 --shard ${{ matrix.shard }}/4 --processes 4
+
+  passed:
+    # The one result of a run, for a required check of the branch rules. It fails when any
+    # job failed or was cancelled.
+    needs: [build, lint, no-std, test, repository, known-answers, snapshot, parity]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: A job failed, was cancelled or did not run
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: exit 1
+      - name: Every job passed
+        run: echo "every job of the run passed"
