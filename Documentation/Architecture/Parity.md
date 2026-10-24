@@ -82,4 +82,6 @@ The first difference stops the check with a `ParityMismatch`, which names the al
 
 CI runs the test suite on every pull request, then `known-answers --all` and `snapshot --check`, and `run` with 100 variations in blocks of 10, in four shards of four processes.
 
+One build job of each workflow builds the C oracle and the release `parity` program once. The other jobs restore the oracle from the cache that it fills and run the program from its artifact, so no shard builds either again.
+
 The gate workflow runs `run` with 1000 variations in blocks of 25, in fifteen shards of four processes. It runs on each push to `release` and `develop`, on each push to a branch under `gate/`, and on demand. A push of a branch under `gate/` gives the gate of any commit before it merges. The slow families, such as SLH-DSA and Classic McEliece, take hours of processor time for 1000 variations, so each pull request runs 100.

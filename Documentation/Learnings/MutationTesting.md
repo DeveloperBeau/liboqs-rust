@@ -119,3 +119,9 @@
 - **Trap.** On a loaded machine, a timeout is more likely an equivalent mutant than a mutant that a test kills.
 - **Finding.** `cargo test` stops at the first test binary that fails, so the suite of a caught mutant usually ends after the unit tests. An equivalent mutant runs every test binary. In the first run of `oqs-native-ml-dsa`, at a load average of 15 to 28, nine of the 21 timeouts were equivalent mutants, and each passed every test by hand.
 - **Rule.** Check each timeout by hand with a generous limit before the register counts it as caught. Look first at the timeouts in constant expressions, whose mutants cannot make a loop endless.
+
+## A shard that builds its own copy repeats the work of every other shard
+
+- **Trap.** Each shard of a workflow ran the same setup before its own part: the build of the C oracle, the release build of the parity program, and the install of cargo-mutants.
+- **Finding.** A shard of the parity gate spent about three minutes on the build of the C oracle before 40 seconds of parity, and the shards of a mutation run each spent about as long on the oracle. When fifteen shards start at once, they race to save the same cache key, so most of them miss it and build the oracle again.
+- **Rule.** One job builds what every shard needs. The shards depend on it, restore the oracle with `fail-on-cache-miss`, and take a program from its artifact, so a shard builds only what is its own, such as the mutants of its part.
