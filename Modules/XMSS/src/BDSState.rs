@@ -856,6 +856,40 @@ mod tests {
         assert_eq!(swapWithinKey(&mut key, 32, 16, 8), Ok(()));
         assert_eq!(key[16..24], [32, 33, 34, 35, 36, 37, 38, 39]);
         assert_eq!(key[32..40], [16, 17, 18, 19, 20, 21, 22, 23]);
+        // The order of the two places does not matter.
+        assert_eq!(swapWithinKey(&mut key, 16, 32, 8), Ok(()));
+        assert_eq!(key[16..24], [16, 17, 18, 19, 20, 21, 22, 23]);
+        assert_eq!(key[32..40], [32, 33, 34, 35, 36, 37, 38, 39]);
+        // A swap of a place with itself changes nothing, as `memswap` of one place does.
+        assert_eq!(swapWithinKey(&mut key, 40, 40, 8), Ok(()));
+        assert_eq!(key[40..48], [40, 41, 42, 43, 44, 45, 46, 47]);
+        // Places that touch do not overlap, for a swap and for a copy.
+        assert_eq!(swapWithinKey(&mut key, 48, 56, 8), Ok(()));
+        assert_eq!(key[48..56], [56, 57, 58, 59, 60, 61, 62, 63]);
+        assert_eq!(key[56..64], [48, 49, 50, 51, 52, 53, 54, 55]);
+        assert_eq!(copyWithinKey(&mut key, 24..32, 16), Ok(()));
+        assert_eq!(key[16..24], [24, 25, 26, 27, 28, 29, 30, 31]);
+    }
+
+    #[test]
+    fn theMinimumHeightIsTheLowestLevelOfTheNodesOfTheInstanceOnTheStack() {
+        // `treehash_minheight_on_stack` starts from the tree height and takes the lowest level of
+        // the `stackusage` nodes at the top of the stack.
+        let parameters = parameters();
+        let mut key = keyWithInstances(0);
+        // Three nodes on the stack, at the levels 2, 5 and 3 from the bottom.
+        key[484..488].copy_from_slice(&[0, 0, 0, 3]);
+        key[488..491].copy_from_slice(&[2, 5, 3]);
+        let (states, _) = BDSState::deserialized(&parameters, &key, 1).expect("a state");
+        for (usage, minimum) in [(0u8, 10u32), (1, 3), (2, 3), (3, 2)] {
+            let mut instance = states[0].treeHash[4];
+            instance.stackUsage = usage;
+            assert_eq!(
+                states[0].minimumHeightOnStack(&key, &parameters, &instance),
+                Ok(minimum),
+                "stack usage {usage}"
+            );
+        }
     }
 
     #[test]
@@ -879,6 +913,10 @@ mod tests {
         }
         assert_eq!(key[131 + 7 * 625..], original[131 + 7 * 625..]);
         assert_eq!(key[..131], original[..131]);
+        // The order of the two states does not matter: the swap back gives the original key.
+        BDSState::swap(&mut states, 0, 4, &mut key, &parameters).expect("a swap");
+        BDSState::serialize(&states, &parameters, &mut key).expect("serialize");
+        assert_eq!(key, original);
         // Swapping a state with itself changes nothing.
         let before = key.clone();
         BDSState::swap(&mut states, 2, 2, &mut key, &parameters).expect("no swap");

@@ -873,6 +873,65 @@ fn theEdgesOfTheIndexOfXMSSMTSignAsTheCLibraryDoes() {
     }
 }
 
+/// Writes the next leaf of a state of XMSSMT-SHA2_20/4_256, the last 4 bytes of the state. The
+/// states of 625 bytes follow the 135 bytes of the identifier, the index and the seeds.
+fn withNextLeaf(key: &[u8], state: usize, nextLeaf: u32) -> SecretBytes {
+    let mut bytes = key.to_vec();
+    let offset = 135 + 625 * state + 621;
+    bytes[offset..offset + 4].copy_from_slice(&nextLeaf.to_be_bytes());
+    SecretBytes::new(bytes)
+}
+
+#[test]
+fn theNextTreesOfXMSSMTGetTheirLeavesWithinTheLimitsOfTheCCode() {
+    let (_, key) = responseKeyPair(&XMSSMT::sha2Height20Layers4);
+    let scheme = &XMSSMT::sha2Height20Layers4;
+    let cases = [
+        // At leaf 0 of the last tree of the lowest layer, the next tree of that layer would start
+        // at 2^20, so it gets no leaf.
+        (
+            "index 2^20 - 32",
+            withIndex(key.bytes(), 3, (1 << 20) - 32),
+            "df3bd1e676a49786a1ba4c3b70d17fcd559df312242a6af96ae7ae393e09399c",
+            "85e1bd407d3b54130752e2565e9b58762fe6e1b51d871b9b660f1fb58b6eb268",
+            30,
+            "f4ed55ea3530ac5825822be23b7cb669ec6664670320ec4e038356f4649bba96",
+            "74de19fe3bc09a58bbc9026dbad6accc31b97e67f2dfcfb29fb0e3eef4bf4845",
+        ),
+        // A next tree of layer 1 whose next leaf is 2^20 gets no leaf, and its update goes to
+        // the next tree of layer 2.
+        (
+            "state 5 at the next leaf 2^20",
+            withNextLeaf(key.bytes(), 5, 1 << 20),
+            "be21ce8041d4aeaef95300456a3afb695e38624176280b88be0d620c6b7b7c17",
+            "779986312ccb42398c7632087d46001f9ec60132ff19998a30d58d334a03960b",
+            1048574,
+            "3279e30d2a97e40183fc99f812ea5f5e0b15a7fe3911973ce15f795b86bb0c11",
+            "14b940f47af9d719f8ed192fa3962f2f71904953f0063eabedc5be63d44263ea",
+        ),
+        // At the end of the trees of layers 0 and 1, the state of each tree that ends becomes the
+        // next tree of its layer and starts again at leaf 0. The next leaf 7 of the tree of layer
+        // 1 is then gone, and the keys are those of the fresh key at the index 1023.
+        (
+            "index 1023 with state 1 at the next leaf 7",
+            withNextLeaf(withIndex(key.bytes(), 3, 1023).bytes(), 1, 7),
+            "7c9c59493c2338d36c4f4cce9d8661b86ee415da801d637f6bda3e38d8431e9d",
+            "e990ac79c3cb2fd7752eb2d7a7fc974ccd303d4e1a1c799bfd805ebcd74f614f",
+            1047551,
+            "3a42f3cb8f3d03ed93d7737cf3170ae7980dc75a3597466a0dc364dd2708e1ae",
+            "52c5ae4e0402730def3ee6fdccc8d3b765a9491d58bcdc66ebedcedc16645756",
+        ),
+    ];
+    for (name, secretKey, signature, firstKey, remaining, second, secondKey) in cases {
+        let outcome = signTwice(scheme, secretKey);
+        assert_eq!(outcome.first.as_deref(), Ok(signature), "{name}");
+        assert_eq!(outcome.firstKey, firstKey, "{name}");
+        assert_eq!(outcome.remaining, Ok(remaining), "{name}");
+        assert_eq!(outcome.second.as_deref(), Ok(second), "{name}");
+        assert_eq!(outcome.secondKey, secondKey, "{name}");
+    }
+}
+
 #[test]
 fn updatesBelowZeroReachTheNextTreesOfTheLayersAboveAsInTheCLibrary() {
     // At index 32767 of XMSSMT-SHA2_40/8_256 three trees end at once, and the count of updates
@@ -1177,6 +1236,20 @@ fn aForgedStateThatLeavesTheKeyIsRefusedAndKeepsTheKey() {
         Err(OQSError::operationFailed)
     );
     assert_eq!(secretKey.bytes(), bytes.as_slice());
+    // Stack levels that merge up to two nodes of the height of the tree would make the C code
+    // keep a node with a shift by a negative amount. The stack offset 13 puts the new leaf and
+    // the merged nodes after the stack levels that the merges read, which are bytes of the path:
+    // the levels 5, 4, 3, 2, 1 and 0 below the leaf. The next leaf 96 gives 3 at height 5.
+    let mut merged = bytes.clone();
+    merged[2827..2831].copy_from_slice(&13u32.to_be_bytes());
+    merged[2838..2844].copy_from_slice(&[5, 4, 3, 2, 1, 0]);
+    merged[3256..3260].copy_from_slice(&96u32.to_be_bytes());
+    let mut secretKey = SecretBytes::new(merged.clone());
+    assert_eq!(
+        XMSSMT::sha2Height20Layers4.sign(b"message", &mut secretKey, &mut store),
+        Err(OQSError::operationFailed)
+    );
+    assert_eq!(secretKey.bytes(), merged.as_slice());
     // The same key with the stack offset 0 of a fresh key signs.
     bytes[2827..2831].copy_from_slice(&[0; 4]);
     let mut secretKey = SecretBytes::new(bytes);

@@ -809,6 +809,7 @@ The runs of 2026-10-23 are the `Mutants` workflow of CI, in ten shards, on the c
 | Crate | Mutants | Caught | Timeout | Unviable | Missed |
 |---|---|---|---|---|---|
 | `oqs-native-algorithm-tests` | 423 | 392 | 6 | 21 | 4 |
+| `oqs-native-algorithm-tests`, second run in CI | 424 | 398 | 5 | 21 | 0 |
 | `oqs-native-c-oracle` | 175 | 143 | 0 | 30 | 2 |
 | `oqs-native-parity` | 249 | 230 | 0 | 18 | 1 |
 
@@ -829,6 +830,8 @@ Of the 7 missed mutants, three were test gaps, two joined disjoint bit fields wi
 - `ResponseFile::value`, lines 41 and 43 of that run: `|` replaced with `^` where a digit shifted into the value. The equivalence is in the section of the known-answer program of the stateful schemes above. The reader no longer shifts each digit through the value. It now places the last digits of the line in one pass, and joins the two halves of a byte with `+=`, as the rule of disjoint bit fields in `Documentation/Learnings/MutationTesting.md` says. Applied by hand, `+=` replaced with `-=` or with `*=` on that line fails five of the seven tests of `ResponseFile`, `eachValueIsTheValueThatTheShiftsOfTheCReaderGive` among them.
 - `COracle.rs`, `Drop for OracleWorkingKey`, line 1225: the body replaced with `()`. The working key of hash-sigs then stays in the memory of the C library, and no output shows it. The shim now counts the working keys that each thread loaded and did not free, and `COracle::liveWorkingKeyCount` reads the count. `aDroppedWorkingKeyReleasesItsMemoryInTheCLibrary` checks that a load adds one, that the drop takes it away, and that a refused load adds none. Applied by hand, the mutant fails it with the count 1 in place of 0. `aTwoLevelWorkingKeySignsAcrossItsBottomTreesAsTheCLibraryDoes` checks that each new load at a boundary frees the working key that it replaces.
 
+The [second run of `oqs-native-algorithm-tests`](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40050762272), on the commit `4e856f4` of the branch `mutants/oqs-native-algorithm-tests.2`, after the new tests and the new reader, had no missed mutant. Its 5 timeouts are the five mutants of `JSONValue.rs` above, whose file did not change, with the same tests of the reader still running in each log. The mutant of `ResponseFile::value`, line 35, `+=` replaced with `*=`, no longer runs forever: the reader that places the digits in one pass fails a test, and the run caught it. The four missed mutants of the first run are caught.
+
 ### Equivalent mutants
 
 - `oqs-native-c-oracle`, `verifiedSignature`, line 327: `<` replaced with `<=`. The CROSS section records it. For a signature of the scheme length, the mutant resizes the buffer to the length that it already has, which changes nothing.
@@ -840,6 +843,47 @@ Of the 7 missed mutants, three were test gaps, two joined disjoint bit fields wi
 | The LMS fuzz program picks the order of the fields with the selector byte modulo 3 | `StatefulSignatureFuzzTest::overwritten`: `%` replaced with `/`, by hand | `theFuzzBytesFillTheFieldsInTheOrderThatTheSelectorPicksModulo3` |
 | A response value keeps the last digits of its line, as the shifts of `ReadHex` leave them | `ResponseFile::value`: `+=` replaced with `-=` or `*=`, by hand | `eachValueIsTheValueThatTheShiftsOfTheCReaderGive`, `aValueKeepsTheLastDigitsWithZerosInFrontOfAShortOne` and 3 more |
 | The drop of a working key frees it in the C library | `Drop for OracleWorkingKey`: body replaced with `()` | `aDroppedWorkingKeyReleasesItsMemoryInTheCLibrary` |
+
+## Latest result for XMSS and XMSS^MT
+
+The run of 2026-10-24 is the `Mutants` workflow of CI, in ten shards, on the branch `mutants/oqs-native-xmss`, at the commit `4e856f4` of the code of the branch `family/xmss`: [run 40050761803](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40050761803). The branch then moved onto the current stack. The move changed no file of `Modules/XMSS` or of `Modules/AlgorithmTests`.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-xmss` | 868 | 777 | 1 | 71 | 19 |
+
+The timeout is `WOTS::chain`, line 48: `+=` replaced with `*=`. The step stays at its start, so a chain from step 0 never ends, and every key pair, signature and verification starts its chains at step 0. The log shows no failed test. Applied by hand, the suite of the crate ran under the cap of the address space until the limit of 300 seconds, fifteen times the 20 seconds of the whole suite, and did not end. The unit test program alone was still in `keysSignaturesAndRecoveredKeysAreThoseOfTheCFunctions`, `eachLeafIsTheLeafOfTheCFunction` and `anUnfinishedInstanceUsesAnUpdateAndTheLowestInstanceGoesFirst` after 150 seconds, where it ends in under a second.
+
+Of the 19 missed mutants, 13 are test gaps, and new tests kill them. Each new test failed with its mutant applied by hand and passed with the code.
+
+- `CoreAlgorithms::multiTreeSignature`, line 271: `<` replaced with `<=` in the test of the next tree of the lowest layer. The two sides are equal only at leaf 0 of the last tree of the layer, the index 2^20 - 32 of XMSSMT-SHA2_20/4_256, where the mutant adds a leaf to a next tree that does not exist. No test signed there.
+- `CoreAlgorithms::multiTreeSignature`, line 308: `<` replaced with `<=` in the test of the next leaf of a next tree, and `BDSState::nextLeaf` replaced with 0 or with 1. `addNextLeaf` stops at the leaf 2^(h/d), so only a forged state has the next leaf 2^h. With the next leaf 2^20 in the next tree of layer 1, the C library gives that tree no leaf, and each mutant gives it one.
+- `CoreAlgorithms::multiTreeSignature`, line 346: `+` replaced with `-` in `states[next + layer]`. At the end of a tree of layer 1 or above, the mutant restarts the current tree of layer d - layer in place of the next tree of the layer. The tests signed at the ends of trees with fresh keys, whose counters are zero, so both restarts changed nothing.
+- `BDSState::minimumHeightOnStack` replaced with `Ok(1)`. The order of the treehash updates in the sequences of signatures did not depend on the minimum.
+- `BDSState::addNextLeaf`, line 542: `<` replaced with `<=` in `nodeHeight < treeHeight`. Only a forged stack merges two nodes of the height of the tree. The code refuses that merge, where the C code shifts by a negative amount, and the mutant looks up a treehash instance past the last one and panics.
+- `BDSState::swap`, line 667: `<` replaced with `==`. Every signature swaps the next tree of a layer, whose index is above, with its current tree, so the order of the two states was always the same.
+- `copyWithinKey`, line 66: `<` replaced with `<=`, `swapWithinKey`, line 80: `||` replaced with `&&`, line 83: `<` replaced with `==`, and line 89: `>` replaced with `>=`. In the signatures of the tests, the source of a copy never starts where its target ends, the two places of a swap are never the same place or next to each other, and a swap always gives the later place first.
+- `WOTS::chain`, line 45: `<` replaced with `<=` in `step < w`. Every chain of the code ends at step 15, so the bound of `gen_chain` at w = 16 never stops a chain.
+
+### Equivalent mutants
+
+- `BDSState.rs`, `initializeTree`, line 358: `<` replaced with `<=` in `nodeHeight < height`. The stack of the function is its own buffer, and each level on it comes from the merges of the function. A node of level L covers 2^L leaves, and the nodes on the stack cover different leaves of the 2^height leaves of the tree. So two nodes of level `height` never meet, each merge has children of a level of at most `height - 1`, and the condition holds on both sides.
+- `BDSState.rs`, `minimumHeightOnStack`, line 394: `<` replaced with `<=`. The mutant also assigns a level that equals the minimum, which leaves the same value.
+- `BDSState.rs`, `advanceAuthenticationPath`, line 620: `<` replaced with `<=` in `startIndex < 1 << treeHeight`. The sides are equal only when `leafIndex + 1 + 3 * 2^i = 2^h` for a height i below tau. Lines 578 to 580 make bits 0 to tau - 1 of the leaf index 1 and bit tau 0, or tau equal to h, so `leafIndex + 1` is a multiple of 2^tau, and so of 2^(i + 1). For i up to h - 2, `2^h - 3 * 2^i` is 2^i times the odd number `2^(h - i) - 3`, and for i = h - 1 it is negative, so it is never a multiple of 2^(i + 1). The proof needs a leaf index below 2^h and a sum without a wrap. XMSS calls the function only for an index below 2^h - 1 (`CoreAlgorithms.rs`, line 195), XMSS^MT masks the leaf index with `leafMask`, and h is at most 20, so the sum stays below 2^32.
+- `BDSState.rs`, `swap`, line 667: `<` replaced with `<=`. Line 641 returns when the two states are the same, so the two operators agree on every pair that reaches line 667.
+- `BDSState.rs`, `swapWithinKey`, line 83: `<` replaced with `<=`. Line 80 returns when the two places are the same, so the two operators agree on every pair that reaches line 83.
+- `MerkleTree.rs`, `isValidSignature`, line 130: `+` replaced with `*` in the end of R, `indexLength + hashLength`. `KeyedHash::messageHash` reads only the first n bytes of R (line 117). The index has at least 3 bytes, so the slice of the mutant, from `indexLength` to `indexLength * n`, holds at least n bytes, and its first n bytes are R. It ends at 256 bytes at most, and `Scheme::isValidSignature` checks the length of the set first, which is at least 1492 bytes. So the hash is the same and no slice panics.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The last tree of the lowest layer gives no leaf to a next tree | `multiTreeSignature`, line 271: `<` replaced with `<=` | `theNextTreesOfXMSSMTGetTheirLeavesWithinTheLimitsOfTheCCode`, case `index 2^20 - 32` |
+| A next tree at the next leaf 2^h gets no leaf, and its update goes to the layer above | `multiTreeSignature`, line 308: `<` replaced with `<=`, `BDSState::nextLeaf` replaced with 0 or 1 | `theNextTreesOfXMSSMTGetTheirLeavesWithinTheLimitsOfTheCCode`, case `state 5 at the next leaf 2^20` |
+| A tree that ends restarts the next tree of its own layer | `multiTreeSignature`, line 346: `+` replaced with `-` | `theNextTreesOfXMSSMTGetTheirLeavesWithinTheLimitsOfTheCCode`, case `index 1023 with state 1 at the next leaf 7` |
+| The minimum height of an instance is the lowest level of its nodes on the stack | `BDSState::minimumHeightOnStack` replaced with `Ok(1)` | `theMinimumHeightIsTheLowestLevelOfTheNodesOfTheInstanceOnTheStack` |
+| A merge of two nodes of the height of the tree is refused | `BDSState::addNextLeaf`, line 542: `<` replaced with `<=` | `aForgedStateThatLeavesTheKeyIsRefusedAndKeepsTheKey` |
+| A swap of two states gives the same key in either order | `BDSState::swap`, line 667: `<` replaced with `==` | `aSwapExchangesTheContentsAndTheCountersOfTwoStates` |
+| Places that touch do not overlap, a place swaps with itself as `memswap` does, and the order of two places does not matter | `copyWithinKey`, line 66, and `swapWithinKey`, lines 80, 83 and 89 | `overlappingCopiesAndSwapsAreUndefinedAndTheOthersMoveTheBytes` |
+| A chain takes no step from w on, as `gen_chain` | `WOTS::chain`, line 45: `<` replaced with `<=` | `aChainTakesNoStepFromWOnAsGenChainDoes` |
 
 ## History
 
