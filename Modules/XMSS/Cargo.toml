@@ -1,0 +1,41 @@
+[package]
+name = "oqs-native-xmss"
+description = "XMSS and XMSS^MT of RFC 8391, a native port of the stateful XMSS signatures of liboqs."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# The port is under MIT. The XMSS code of liboqs, by SandboxAQ after the reference code of
+# Andreas Hülsing and Joost Rijneveld, is under (Apache-2.0 OR MIT) AND CC0-1.0.
+license = "MIT AND (Apache-2.0 OR MIT) AND CC0-1.0"
+authors.workspace = true
+repository.workspace = true
+
+[package.metadata]
+ring = "features"
+
+[lib]
+name = "OQSNativeXMSS"
+path = "src/lib.rs"
+
+[dependencies]
+oqs-native-domain = { path = "../Domain", default-features = false }
+oqs-native-entities = { path = "../Entities", default-features = false }
+oqs-native-sha2 = { path = "../SHA2", default-features = false }
+oqs-native-sha3 = { path = "../SHA3", default-features = false }
+
+[dev-dependencies]
+oqs-native-algorithm-tests = { path = "../AlgorithmTests" }
+oqs-native-kat-random = { path = "../KATRandom" }
+
+[features]
+default = ["std"]
+# Without `std` the crate builds with `core` and `alloc` only.
+std = [
+    "oqs-native-domain/std",
+    "oqs-native-entities/std",
+    "oqs-native-sha2/std",
+    "oqs-native-sha3/std",
+]
+
+[lints]
+workspace = true

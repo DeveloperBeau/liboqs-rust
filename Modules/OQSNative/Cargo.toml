@@ -34,6 +34,7 @@ oqs-native-slh-dsa = { path = "../SLHDSA", default-features = false }
 oqs-native-snova = { path = "../SNOVA", default-features = false }
 oqs-native-system-random = { path = "../SystemRandom", optional = true }
 oqs-native-uov = { path = "../UOV", default-features = false }
+oqs-native-xmss = { path = "../XMSS", default-features = false }
 
 [features]
 default = ["std"]
@@ -56,6 +57,7 @@ std = [
     "oqs-native-slh-dsa/std",
     "oqs-native-uov/std",
     "oqs-native-snova/std",
+    "oqs-native-xmss/std",
     "dep:oqs-native-system-random",
 ]
 
