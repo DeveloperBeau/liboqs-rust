@@ -1,5 +1,8 @@
+use std::ops::Range;
+
 /// The settings of a parity run: how many variations each algorithm runs, the seed of the
-/// variations, and the part of the algorithms that this process checks.
+/// variations, how the variations split into blocks, and the part of the blocks that this
+/// process checks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ParitySettings {
     /// The number of variations of each algorithm, after its base case.
@@ -8,8 +11,11 @@ pub struct ParitySettings {
     pub seed: u64,
     /// The shard of this process, from 0.
     pub shardIndex: u64,
-    /// The number of shards. Algorithm `n` of the registry belongs to shard `n % shardCount`.
+    /// The number of shards. Block `n` of the run belongs to shard `n % shardCount`.
     pub shardCount: u64,
+    /// The variations of one block, or `None` for one block for each algorithm. The shards
+    /// and the processes split the blocks, so blocks spread a slow algorithm over them.
+    pub blockSize: Option<u64>,
 }
 
 impl ParitySettings {
@@ -25,6 +31,7 @@ impl ParitySettings {
             seed: Self::defaultSeed,
             shardIndex: 0,
             shardCount: 1,
+            blockSize: None,
         }
     }
 
@@ -71,7 +78,23 @@ impl ParitySettings {
         Ok(self)
     }
 
-    /// True when the algorithm at a position of the registry belongs to this shard.
+    /// The blocks of the variations of one algorithm, as ranges of cases in their order.
+    ///
+    /// The first block also holds the base case, so a run without variations still has one
+    /// empty block.
+    pub fn caseBlocks(&self) -> Vec<Range<u64>> {
+        let size = self.blockSize.unwrap_or(self.caseCount).max(1);
+        let mut blocks: Vec<Range<u64>> = (0..self.caseCount)
+            .step_by(size as usize)
+            .map(|first| first..(first + size).min(self.caseCount))
+            .collect();
+        if blocks.is_empty() {
+            blocks.push(0..0);
+        }
+        blocks
+    }
+
+    /// True when the block at a position of the run belongs to this shard.
     pub fn includes(&self, position: usize) -> bool {
         position as u64 % self.shardCount == self.shardIndex
     }
@@ -131,6 +154,22 @@ mod tests {
         assert_eq!(positions, vec![1, 4, 7]);
         let whole = ParitySettings::new(1);
         assert!((0..10).all(|position| whole.includes(position)));
+    }
+
+    #[test]
+    fn caseBlocksSplitTheVariationsInOrderAndTheLastBlockTakesTheRest() {
+        let mut settings = ParitySettings::new(10);
+        assert_eq!(settings.caseBlocks(), vec![0..10]);
+        settings.blockSize = Some(4);
+        assert_eq!(settings.caseBlocks(), vec![0..4, 4..8, 8..10]);
+        settings.blockSize = Some(5);
+        assert_eq!(settings.caseBlocks(), vec![0..5, 5..10]);
+        settings.blockSize = Some(1000);
+        assert_eq!(settings.caseBlocks(), vec![0..10]);
+        let mut empty = ParitySettings::new(0);
+        assert_eq!(empty.caseBlocks(), vec![0..0]);
+        empty.blockSize = Some(3);
+        assert_eq!(empty.caseBlocks(), vec![0..0]);
     }
 
     #[test]

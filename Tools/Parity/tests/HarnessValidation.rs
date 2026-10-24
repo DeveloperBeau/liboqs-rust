@@ -15,6 +15,7 @@ use OQSNativeParity::{
     KEMParity, LargeStack, ParityJob, ParityOptions, ParitySettings, SignatureParity,
 };
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 const caseCount: u64 = 3;
 
@@ -512,6 +513,163 @@ fn parityJobsReportExactlyTheBrokenAlgorithms() {
     );
     assert!(lines[2].starts_with("ok    ML-DSA-44 (base case and 1 variations identical, "));
     assert!(lines[3].starts_with("ok    ML-KEM-512 (base case and 1 variations identical, "));
+}
+
+/// A C mechanism that counts its key pairs. The base case and each variation make one.
+struct CountingMechanism {
+    inner: OracleMechanism,
+    keyPairCount: AtomicUsize,
+}
+
+impl KeyEncapsulating for CountingMechanism {
+    fn description(&self) -> &'static KEMDescription {
+        self.inner.description()
+    }
+
+    fn generateKeyPair(&self, random: &mut dyn RandomGenerating) -> Result<KeyPair, OQSError> {
+        self.keyPairCount.fetch_add(1, Ordering::SeqCst);
+        self.inner.generateKeyPair(random)
+    }
+
+    fn generateKeyPairFromSeed(&self, seed: &[u8]) -> Result<KeyPair, OQSError> {
+        self.inner.generateKeyPairFromSeed(seed)
+    }
+
+    fn encapsulate(
+        &self,
+        publicKey: &[u8],
+        random: &mut dyn RandomGenerating,
+    ) -> Result<Encapsulation, OQSError> {
+        self.inner.encapsulate(publicKey, random)
+    }
+
+    fn encapsulateWithSeed(
+        &self,
+        publicKey: &[u8],
+        seed: &[u8],
+    ) -> Result<Encapsulation, OQSError> {
+        self.inner.encapsulateWithSeed(publicKey, seed)
+    }
+
+    fn decapsulate(&self, ciphertext: &[u8], secretKey: &[u8]) -> Result<SecretBytes, OQSError> {
+        self.inner.decapsulate(ciphertext, secretKey)
+    }
+}
+
+/// A C scheme that counts its key pairs. The base case and each variation make one.
+struct CountingScheme {
+    inner: OracleSignatureScheme,
+    keyPairCount: AtomicUsize,
+}
+
+impl Signing for CountingScheme {
+    fn description(&self) -> &'static SignatureDescription {
+        self.inner.description()
+    }
+
+    fn generateKeyPair(&self, random: &mut dyn RandomGenerating) -> Result<KeyPair, OQSError> {
+        self.keyPairCount.fetch_add(1, Ordering::SeqCst);
+        self.inner.generateKeyPair(random)
+    }
+
+    fn sign(
+        &self,
+        message: &[u8],
+        secretKey: &[u8],
+        random: &mut dyn RandomGenerating,
+    ) -> Result<Vec<u8>, OQSError> {
+        self.inner.sign(message, secretKey, random)
+    }
+
+    fn signWithContext(
+        &self,
+        message: &[u8],
+        context: &[u8],
+        secretKey: &[u8],
+        random: &mut dyn RandomGenerating,
+    ) -> Result<Vec<u8>, OQSError> {
+        self.inner
+            .signWithContext(message, context, secretKey, random)
+    }
+
+    fn isValidSignature(&self, signature: &[u8], message: &[u8], publicKey: &[u8]) -> bool {
+        self.inner.isValidSignature(signature, message, publicKey)
+    }
+
+    fn isValidSignatureWithContext(
+        &self,
+        signature: &[u8],
+        message: &[u8],
+        context: &[u8],
+        publicKey: &[u8],
+    ) -> bool {
+        self.inner
+            .isValidSignatureWithContext(signature, message, context, publicKey)
+    }
+}
+
+#[test]
+fn parityJobsSplitTheVariationsOfEachAlgorithmIntoBlocksThatTheShardsSplit() {
+    let countingMechanism = CountingMechanism {
+        inner: mechanism("ML-KEM-512"),
+        keyPairCount: AtomicUsize::new(0),
+    };
+    let countingScheme = CountingScheme {
+        inner: scheme("ML-DSA-44"),
+        keyPairCount: AtomicUsize::new(0),
+    };
+    let mechanisms: [&dyn KeyEncapsulating; 1] = [&countingMechanism];
+    let schemes: [&dyn Signing; 1] = [&countingScheme];
+    let keyPairs = || {
+        countingMechanism.keyPairCount.load(Ordering::SeqCst)
+            + countingScheme.keyPairCount.load(Ordering::SeqCst)
+    };
+    let words =
+        |text: &str| -> Vec<String> { text.split_whitespace().map(str::to_string).collect() };
+    let options = ParityOptions::parse(&words("--cases 5 --block-size 2")).expect("valid");
+    let jobs = ParityJob::parityJobs(&mechanisms, &schemes, &options);
+    let names: Vec<&str> = jobs.iter().map(|job| job.name).collect();
+    assert_eq!(
+        names,
+        vec![
+            "ML-KEM-512",
+            "ML-KEM-512",
+            "ML-KEM-512",
+            "ML-DSA-44",
+            "ML-DSA-44",
+            "ML-DSA-44"
+        ]
+    );
+    // The first block checks the base case and its two cases, so it makes three key pairs.
+    let (summaries, keyPairCounts): (Vec<String>, Vec<usize>) = LargeStack::run(|| {
+        jobs.iter()
+            .map(|job| {
+                let before = keyPairs();
+                let summary = (job.check)().expect("the C algorithms are identical");
+                (summary, keyPairs() - before)
+            })
+            .unzip()
+    });
+    let blockSummaries = [
+        "base case and variations 0 to 1 identical",
+        "variations 2 to 3 identical",
+        "variations 4 to 4 identical",
+    ];
+    assert_eq!(summaries, blockSummaries.repeat(2));
+    assert_eq!(keyPairCounts, vec![3, 2, 1, 3, 2, 1]);
+    // The shards take blocks, so the blocks of one algorithm go to different shards.
+    let shard =
+        ParityOptions::parse(&words("--cases 5 --block-size 2 --shard 1/2")).expect("valid");
+    let shardSummaries: Vec<String> = LargeStack::run(|| {
+        ParityJob::parityJobs(&mechanisms, &schemes, &shard)
+            .iter()
+            .map(|job| (job.check)().expect("the C algorithms are identical"))
+            .collect()
+    });
+    assert_eq!(
+        shardSummaries,
+        vec![blockSummaries[1], blockSummaries[0], blockSummaries[2]]
+    );
 }
 
 #[test]

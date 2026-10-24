@@ -74,4 +74,5 @@ jobs:
       - name: Build the C oracle
         run: cargo xtask fetch-oracle
       - name: Parity with 1000 variations of each algorithm
-        run: cargo run --release --locked -p oqs-native-parity -- run --cases 1000 --shard ${{ matrix.shard }}/4 --processes 4
+        # Blocks of 50 variations spread a slow algorithm over every shard and process.
+        run: cargo run --release --locked -p oqs-native-parity -- run --cases 1000 --block-size 50 --shard ${{ matrix.shard }}/4 --processes 4
