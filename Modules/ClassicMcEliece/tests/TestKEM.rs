@@ -510,15 +510,26 @@ fn aCiphertextWithAPaddingBitIsRefusedByThe6960119Sets() {
 fn aPublicKeyWithAPaddingBitIsRefusedByThe6960119SetsAfterTheRandomRequest() {
     // Each row of the public key has 5413 bits and ends in bit 4 of its last byte.
     // `check_pk_padding` refuses the bits 5 to 7 of the last byte of any row, after `encrypt`
-    // has drawn its random bytes.
+    // has drawn its random bytes. It gathers the last bytes of the rows with an or, so the same
+    // padding bit in two rows is refused too, where an exclusive or would cancel the two bits.
     for mechanism in parameterSets {
         let description = mechanism.description();
         let (bits, _, weight) = codeFacts(mechanism);
-        let rowLength = description.publicKeyLength / (bits as usize * weight);
+        let lastRow = bits as usize * weight - 1;
+        let rowLength = description.publicKeyLength / (lastRow + 1);
         let isPadded = description.name.contains("6960119");
-        for (row, bit) in [(0, 4), (0, 5), (7, 6), (bits as usize * weight - 1, 7)] {
+        let cases = [
+            (vec![0], 4),
+            (vec![0], 5),
+            (vec![7], 6),
+            (vec![lastRow], 7),
+            (vec![2, lastRow], 6),
+        ];
+        for (rows, bit) in cases {
             let mut publicKey = vec![0u8; description.publicKeyLength];
-            publicKey[row * rowLength + rowLength - 1] = 1 << bit;
+            for row in &rows {
+                publicKey[row * rowLength + rowLength - 1] = 1 << bit;
+            }
             let mut random = RecordingRandom::default();
             let result = mechanism.encapsulate(&publicKey, &mut random).map(|_| ());
             assert!(!random.requests.is_empty());
@@ -526,10 +537,15 @@ fn aPublicKeyWithAPaddingBitIsRefusedByThe6960119SetsAfterTheRandomRequest() {
                 assert_eq!(
                     result,
                     Err(OQSError::operationFailed),
-                    "row {row} bit {bit}"
+                    "rows {rows:?} bit {bit}"
                 );
             } else {
-                assert_eq!(result, Ok(()), "{} row {row} bit {bit}", description.name);
+                assert_eq!(
+                    result,
+                    Ok(()),
+                    "{} rows {rows:?} bit {bit}",
+                    description.name
+                );
             }
         }
     }
