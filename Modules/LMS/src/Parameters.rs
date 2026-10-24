@@ -195,7 +195,6 @@ pub(crate) const lmsSHA256H20W8H20W8: Parameters = Parameters::new(
 );
 
 /// Every parameter set, in the order of `OQS_SIG_STFL_alg_identifier` of liboqs.
-#[cfg(test)]
 pub(crate) const allParameters: [&Parameters; 33] = [
     &lmsSHA256H5W1,
     &lmsSHA256H5W2,
