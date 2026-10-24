@@ -238,6 +238,47 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn theMinimumIsTheSmallerValueForAnyTwoValuesAsCryptoInt32Min() {
+        // The recursion gives `minimum` only values from 0 up, and the correction of the sign of
+        // the difference matters only for two values of opposite signs, whose difference can
+        // overflow. `crypto_int32_min` of `pqclean_mceliece348864_clean` in liboqs 0.16.0 takes
+        // every ordered pair of the edge values, then 20000 pairs of SplitMix64 of the seed 71,
+        // the low half of each word as the left value. The digest is the `OutputDigest` of the
+        // minimums as little-endian 32-bit values. About half of the pairs have opposite signs,
+        // and about half of those overflow.
+        let edges = [
+            i32::MIN,
+            i32::MIN + 1,
+            -65536,
+            -1,
+            0,
+            1,
+            65535,
+            i32::MAX - 1,
+            i32::MAX,
+        ];
+        let mut pairs: Vec<(i32, i32)> = edges
+            .iter()
+            .flat_map(|left| edges.iter().map(|right| (*left, *right)))
+            .collect();
+        let mut words = FuzzRandom::seeded(71);
+        pairs.extend((0..20_000).map(|_| {
+            let word = words.nextWord();
+            (word as i32, (word >> 32) as i32)
+        }));
+        let mut output = Vec::new();
+        for (left, right) in pairs {
+            let minimum = ControlBits::minimum(left, right);
+            assert_eq!(minimum, left.min(right), "{left} and {right}");
+            output.extend(minimum.to_le_bytes());
+        }
+        assert_eq!(
+            OutputDigest::of(&output),
+            "7798e98bf6d0db0a3faac72af3c09595dcb4b187a138e3c3a4a49f8950eebb9a"
+        );
+    }
+
+    #[test]
     fn theBitsAreTheKnownAnswersOfTheCFunction() {
         // The `OutputDigest` of the control bits of `controlbitsfrompermutation` of
         // `pqclean_mceliece348864_clean` in liboqs 0.16.0 for the permutations of the seeds 0
