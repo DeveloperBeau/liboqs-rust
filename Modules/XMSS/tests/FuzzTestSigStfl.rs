@@ -1,11 +1,16 @@
-//! The fuzz test of liboqs `tests/fuzz_test_sig_stfl_xmss.c`, with seeded cases, and hostile
-//! secret keys: a hostile input gives a defined result or a defined error, and never a panic.
+//! The fuzz test of liboqs `tests/fuzz_test_sig_stfl_xmss.c` through `StatefulSignatureFuzzTest`,
+//! with seeded cases, and hostile secret keys of XMSS and XMSS^MT: a hostile input gives a
+//! defined result or a defined error, and never a panic.
 //!
-//! The C program verifies mutations of the public key, the message and the signature of count 0
-//! of the response files of XMSS-SHA2_10_256 and XMSSMT-SHA2_20/2_256. Each case here makes such
-//! a mutation from a seeded source.
+//! The C program verifies the values of the response files of XMSS-SHA2_10_256 and
+//! XMSSMT-SHA2_20/2_256 with the bytes of a fuzz input written over them. The shared program
+//! runs those cases on each set, and adds hostile signatures, public keys and secret keys. A
+//! hostile secret key of random bytes almost never holds the identifier of a set, so the test of
+//! this file keeps the identifier of the set and forges the index and the BDS states after it.
 
-use OQSNativeAlgorithmTests::{FuzzRandom, ResponseFile, TestVectorFiles};
+use OQSNativeAlgorithmTests::{
+    FuzzRandom, ResponseFile, StatefulSignatureFuzzTest, TestVectorFiles,
+};
 use OQSNativeDomain::{KeyStatePersisting, RandomGenerating, StatefulSigning};
 use OQSNativeEntities::{OQSError, SecretBytes};
 use OQSNativeXMSS::{XMSS, XMSSMT};
@@ -15,6 +20,10 @@ const fuzzSeed: u64 = 0x584D_5353_4655_5A5A;
 
 /// The cases of each target.
 const caseCount: u64 = 24;
+
+/// The two schemes of `fuzz_test_sig_stfl_xmss.c`, which the first byte of its input picks.
+const fuzzTargets: [&dyn StatefulSigning; 2] =
+    [&XMSS::sha2Height10Bits256, &XMSSMT::sha2Height20Layers2];
 
 /// A store that keeps the last saved key.
 #[derive(Default)]
@@ -35,88 +44,46 @@ fn randomBytes(random: &mut FuzzRandom, length: usize) -> Vec<u8> {
     bytes
 }
 
-/// The public key, the secret key, the message and the signature of count 0 of the response
-/// file of a set.
-fn responseVectors(scheme: &dyn StatefulSigning) -> (Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>) {
+/// The response file of a scheme in the liboqs source of the oracle.
+fn responseFile(scheme: &dyn StatefulSigning) -> String {
+    TestVectorFiles::responseFile(scheme.description().name)
+        .unwrap_or_else(|message| panic!("{message}"))
+}
+
+/// The secret key of the response file of a scheme.
+fn responseSecretKey(scheme: &dyn StatefulSigning) -> Vec<u8> {
     let description = scheme.description();
-    let text =
-        TestVectorFiles::responseFile(description.name).unwrap_or_else(|error| panic!("{error}"));
+    let text = responseFile(scheme);
     let file = ResponseFile::new(&text);
-    let (publicKey, position) = file
+    let (_, position) = file
         .value("pk = ", 0, description.publicKeyLength)
         .expect("pk");
-    let (secretKey, position) = file
+    let (secretKey, _) = file
         .value("sk = ", position, description.secretKeyLength)
         .expect("sk");
-    let (message, position) = file.value("msg = ", position, 33).expect("msg");
-    let (signature, _) = file
-        .value("sm = ", position, description.signatureLength)
-        .expect("sm");
-    (publicKey, secretKey, message, signature)
+    secretKey
 }
 
 #[test]
-fn fuzzTestSigStflXMSSRefusesEveryMutationOfTheKnownAnswerVectors() {
-    let schemes: [&dyn StatefulSigning; 2] =
-        [&XMSS::sha2Height10Bits256, &XMSSMT::sha2Height20Layers2];
-    for scheme in schemes {
-        let name = scheme.description().name;
-        let (publicKey, _, message, signature) = responseVectors(scheme);
-        assert!(
-            scheme.isValidSignature(&signature, &message, &publicKey),
-            "{name}"
+fn fuzzTestSigStflXMSSPassesForEverySet() {
+    // The C program fuzzes the two sets of `fuzzTargets`, and the cases of every set take
+    // seconds.
+    for scheme in XMSS::schemes.iter().chain(XMSSMT::schemes) {
+        assert_eq!(
+            StatefulSignatureFuzzTest::run(*scheme, &responseFile(*scheme), fuzzSeed, caseCount),
+            Ok(()),
+            "{}, seed {fuzzSeed:#x}",
+            scheme.description().name
         );
-        for case in 0..caseCount {
-            let mut random = FuzzRandom::forCase(fuzzSeed, case);
-            let (mut key, mut signed, mut text) =
-                (publicKey.clone(), signature.clone(), message.clone());
-            match case % 4 {
-                // `fuzz_sig_stfl_xmss`: the fuzz bytes overwrite the start of the public key,
-                // then of the signature, then of the message.
-                0 => {
-                    let total = key.len() + signed.len() + text.len();
-                    let length = 1 + (random.nextWord() % total as u64) as usize;
-                    let mut bytes = randomBytes(&mut random, length).into_iter();
-                    for target in [&mut key, &mut signed, &mut text] {
-                        for (byte, fuzz) in target.iter_mut().zip(bytes.by_ref()) {
-                            *byte = fuzz;
-                        }
-                    }
-                }
-                // The identifier stays, and random bytes overwrite a part of the signature.
-                1 => {
-                    let start = (random.nextWord() % signed.len() as u64) as usize;
-                    let length = 1 + (random.nextWord() % 64) as usize;
-                    let end = (start + length).min(signed.len());
-                    let bytes = randomBytes(&mut random, end - start);
-                    signed[start..end].copy_from_slice(&bytes);
-                }
-                // A random signature of the right length.
-                2 => signed = randomBytes(&mut random, signed.len()),
-                // Random bytes over the root and the public seed of the public key.
-                _ => {
-                    let bytes = randomBytes(&mut random, key.len() - 4);
-                    key[4..].copy_from_slice(&bytes);
-                }
-            }
-            let isUnchanged = key == publicKey && signed == signature && text == message;
-            assert_eq!(
-                scheme.isValidSignature(&signed, &text, &key),
-                isUnchanged,
-                "{name}, case {case} of seed {fuzzSeed:#x}"
-            );
-        }
     }
 }
 
 #[test]
 fn hostileSecretKeysGiveASignatureOrADefinedErrorAndNeverAPanic() {
-    let schemes: [&dyn StatefulSigning; 2] =
-        [&XMSS::sha2Height10Bits256, &XMSSMT::sha2Height20Layers2];
-    for scheme in schemes {
+    for scheme in fuzzTargets {
         let name = scheme.description().name;
         let description = scheme.description();
-        let (_, secretKey, _, _) = responseVectors(scheme);
+        let secretKey = responseSecretKey(scheme);
         let identifier = &secretKey[..4];
         for case in 0..caseCount {
             let mut random = FuzzRandom::forCase(fuzzSeed, case);
