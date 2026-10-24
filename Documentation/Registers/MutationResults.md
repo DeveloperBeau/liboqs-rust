@@ -638,6 +638,8 @@ The run of 2026-10-23 took the crate in the ten shards of the `Mutants` workflow
 |---|---|---|---|---|---|
 | `oqs-native-cross` | 888 | 795 | 1 | 86 | 6 |
 
+The [second run](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40043895118), on the commit of the new tests and the new join, had 888 mutants: 798 caught, 1 timeout, 86 unviable and 3 missed, the three equivalent mutants below. The timeout is the draw of 1 above. The run of the C oracle missed one mutant of the short signature copy of `verifiedSignature`: `<` replaced with `<=` resizes a signature of the scheme length to the same length, which changes nothing.
+
 The timeout replaces the body of `BitReader::draw` with 1. Seven unit tests failed before the time limit of 26 seconds, among them `drawsTakeTheBitsOfTheBufferFromTheLowEnd` and `rejectionKeepsOnlyTheDrawsBelowTheBound`, so it counts as caught. With each draw 1, the shuffle of the second challenge never ends. At its last place, only a candidate of 0 is below `t - current`, which is 1. Applied by hand, `theSecondChallengeIsTheShuffleOfTheCCode` was still running after 120 seconds.
 
 Of the 6 missed mutants, two are test gaps, one joined two disjoint bit fields with an or, and three are equivalent.
