@@ -29,3 +29,9 @@
 - Trap: a port that reports 32 signatures for an LMS tree of height 5 differs from the C library.
 - Finding: `statefulSigningAdvancesTheSecretKeyThatTheCLibraryPersists` showed that liboqs reports 31. The hash-sigs code stores the highest sequence number, `2^h - 1`, as the total.
 - Rule: the port of a stateful scheme takes its counts from the C library, not from the size of the tree.
+
+## liboqs accepts a raw LMS public key
+
+- Trap: a harness that checks the length of a public key rejects the public key of an LMS response file, which the C program accepts.
+- Finding: the response files of `LMS_SHA256_H5_W1` and `LMS_SHA256_H10_W1` hold a raw LMS public key of 56 bytes and a raw LMS signature, not the HSS form of 60 bytes with the level count. `kat_sig_stfl` reads the key into a buffer of 60 bytes, and the patched hash-sigs code tells the two forms apart by their first words. The signature reads with four zeros in front, the level count of one.
+- Rule: the oracle gives a shorter stateful public key to the C code with zeros after it, and the LMS port reads both forms as the C code does.

@@ -41,7 +41,9 @@ The random sources are:
 - `knownAnswer`: the generator that the liboqs known-answer programs use for an algorithm, the SHAKE256 generator for HQC and the NIST DRBG for the others.
 - `source`: a Rust `RandomGenerating`, which the C code reads through a callback.
 
-`OracleMechanism` and `OracleSignatureScheme` put a C algorithm behind the Rust capability interfaces, with the `source` randomness. The tests of the harnesses run against them before any Rust family exists.
+`OracleMechanism`, `OracleSignatureScheme` and `OracleStatefulScheme` put a C algorithm behind the Rust capability interfaces, with the `source` randomness. The tests of the harnesses run against them before any Rust family exists. The secret key of `OracleStatefulScheme` is the serialized key of liboqs. Each signature deserializes it, and the key advances before the store of the caller runs, as in the C library.
+
+The C verification of a stateful signature reads the public key from a buffer of the length of the scheme. `isValidStatefulSignature` gives a shorter key to the C code with zeros after it, because liboqs accepts a raw LMS public key, four bytes shorter than the HSS key, and reads only its bytes.
 
 ## Edge cases
 

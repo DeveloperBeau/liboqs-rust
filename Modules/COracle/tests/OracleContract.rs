@@ -1,8 +1,12 @@
 //! Contract tests of the oracle: each call reaches the C library and gives the answer that an
 //! independent source states, and each rejection path gives its error without a call.
 
-use OQSNativeCOracle::{COracle, OracleMechanism, OracleRandomness, OracleSignatureScheme};
-use OQSNativeDomain::{KeyEncapsulating, RandomGenerating, Signing};
+use OQSNativeCOracle::{
+    COracle, OracleMechanism, OracleRandomness, OracleSignatureScheme, OracleStatefulScheme,
+};
+use OQSNativeDomain::{
+    KeyEncapsulating, KeyStatePersisting, RandomGenerating, Signing, StatefulSigning,
+};
 use OQSNativeEntities::OQSError;
 
 fn hex(text: &str) -> Vec<u8> {
@@ -352,6 +356,77 @@ fn statefulSigningAdvancesTheSecretKeyThatTheCLibraryPersists() {
     );
     assert!(oracle.isValidStatefulSignature(name, &signature, b"message", &keyPair.publicKey));
     assert!(!oracle.isValidStatefulSignature(name, &signature, b"massage", &keyPair.publicKey));
+}
+
+/// A store that records each saved key, or refuses every save.
+struct RecordingStore {
+    saved: Vec<Vec<u8>>,
+    isRefusing: bool,
+}
+
+impl KeyStatePersisting for RecordingStore {
+    fn persist(&mut self, secretKey: &[u8]) -> Result<(), OQSError> {
+        if self.isRefusing {
+            return Err(OQSError::operationFailed);
+        }
+        self.saved.push(secretKey.to_vec());
+        Ok(())
+    }
+}
+
+#[test]
+fn statefulAdapterSavesTheAdvancedKeyBeforeItReleasesTheSignature() {
+    let scheme = OracleStatefulScheme::named("LMS_SHA256_H5_W1").expect("the C scheme");
+    assert_eq!(scheme.description().name, "LMS_SHA256_H5_W1");
+    assert!(OracleStatefulScheme::named("LMS_NONE").is_none());
+    let keyPair = scheme
+        .generateKeyPair(&mut RecordingSource::default())
+        .expect("key pair");
+    let mut secretKey = keyPair.secretKey;
+    let original = secretKey.bytes().to_vec();
+    let mut store = RecordingStore {
+        saved: Vec::new(),
+        isRefusing: false,
+    };
+    let signature = scheme
+        .sign(b"message", &mut secretKey, &mut store)
+        .expect("signature");
+    assert_ne!(secretKey.bytes(), &original[..]);
+    assert_eq!(store.saved, vec![secretKey.bytes().to_vec()]);
+    assert!(scheme.isValidSignature(&signature, b"message", &keyPair.publicKey));
+    assert!(!scheme.isValidSignature(&signature, b"massage", &keyPair.publicKey));
+    assert_eq!(scheme.remainingSignatureCount(secretKey.bytes()), Ok(30));
+    assert_eq!(scheme.totalSignatureCount(secretKey.bytes()), Ok(31));
+    // A refused save releases no signature. The key in memory still advances, as the C library
+    // advances it before it calls the store.
+    let beforeRefusal = secretKey.bytes().to_vec();
+    store.isRefusing = true;
+    assert_eq!(
+        scheme.sign(b"message", &mut secretKey, &mut store),
+        Err(OQSError::persistenceFailed)
+    );
+    assert_ne!(secretKey.bytes(), &beforeRefusal[..]);
+    assert_eq!(scheme.remainingSignatureCount(secretKey.bytes()), Ok(29));
+    assert_eq!(store.saved.len(), 1);
+}
+
+#[test]
+fn statefulVerificationReadsARawLMSPublicKeyAsTheCLibraryDoes() {
+    let name = "LMS_SHA256_H5_W1";
+    let mut oracle = COracle::new(OracleRandomness::nist(countingEntropy()));
+    let keyPair = oracle.generateStatefulKeyPair(name).expect("key pair");
+    let (signature, _) = oracle
+        .signStateful(name, b"message", keyPair.secretKey.bytes())
+        .expect("signature");
+    // The HSS public key is the level count, 1, before the LMS public key. liboqs also accepts
+    // the LMS key alone, as the response files of the LMS test vectors hold it.
+    assert_eq!(&keyPair.publicKey[..4], &[0, 0, 0, 1]);
+    let rawKey = &keyPair.publicKey[4..];
+    assert!(oracle.isValidStatefulSignature(name, &signature, b"message", rawKey));
+    assert!(!oracle.isValidStatefulSignature(name, &signature, b"massage", rawKey));
+    let mut longerKey = keyPair.publicKey.clone();
+    longerKey.push(0);
+    assert!(!oracle.isValidStatefulSignature(name, &signature, b"message", &longerKey));
 }
 
 #[test]

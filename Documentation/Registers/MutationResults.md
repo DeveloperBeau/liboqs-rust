@@ -195,6 +195,32 @@ The first run of `oqs-native-ml-kem` missed 7 of 350 mutants, and the first run 
 | A wrong length is longer for an even case and shorter for an odd case | `FuzzRandom::wrongLength`, lines 48 and 50: each operator replaced | `wrongLengthsAreLongerForEvenCasesAndShorterForOddCases` |
 | The vector folder is the folder of `OQS_ORACLE_DIR`, or else of the workspace | `TestVectorFiles::folder`: body replaced | `folderIsTheVectorFolderOfTheOracleFolder` |
 
+## Latest result for the known-answer program of the stateful schemes
+
+The runs of 2026-10-23 on the branch `foundation/stateful-known-answers`, on the files that the branch changed, with `OQS_ORACLE_DIR` set to the oracle folder.
+
+| Crate and files | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-algorithm-tests`: `ResponseFile.rs`, `StatefulKnownAnswerDigests.rs`, `StatefulKnownAnswerTest.rs`, `KnownAnswerText.rs`, `TestVectorFiles.rs` | 91 | 87 | 1 | 1 | 2 |
+| `oqs-native-c-oracle`: `OracleStatefulScheme.rs` and `isValidStatefulSignature` | 19 | 16 | 0 | 3 | 0 |
+| `oqs-native-parity`: `ParityJob.rs` | 25 | 22 | 1 | 2 | 0 |
+
+The timeout of the test support stops the position of `ResponseFile::value`, so the reader never ends. The timeout of the parity harness inverts the selection of `ParityJob::cSnapshot`, so its test takes the snapshot of every C algorithm.
+
+### Equivalent mutants
+
+- `oqs-native-algorithm-tests`, `ResponseFile::value`, lines 41 and 43: `|` replaced with `^` where a digit shifts into the value. The left operand is shifted left by four bits, so its low four bits are zero, and the right operand holds only four low bits, the high half of the next byte or the digit. The two operators give the same value.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| A response value takes the last digits of its line, with zeros in front of a short one | `ResponseFile::value`: body replaced with `None` | `aValueKeepsTheLastDigitsWithZerosInFrontOfAShortOne`, `readingSkipsTheCharactersBeforeTheFirstDigitAndStopsAtTheFirstOther` and 1 more |
+| The length of an LMS value counts the characters of its line | `ResponseFile::valueLength`: body replaced with `0` | `lengthsCountTheCharactersOfTheLineAndNumbersReadDecimals` |
+| Each check of the C program fails the run | `StatefulKnownAnswerTest::signedText`: body replaced with `Ok(String::new())` | `signedRunFailsAtEachCheckOfTheCProgram`, `signedRunPrintsTheValuesTheSignatureAndTheCountsOfTheAdvancedKey` |
+| An LMS run prints the values of the file in lower case | `StatefulKnownAnswerTest::verifiedText`: body replaced with `Ok(String::new())` | `verifiedRunOfLMSPrintsTheValuesOfTheFileInLowerCase`, `verifiedRunFailsWithoutAMessageOrAKeyAndOnAFailedVerification` |
+| A response file name writes each `/` as `-` | `TestVectorFiles::responseFilePath`: body replaced | `responseFilesAreInTheLiboqsSourceWithADashForEachSlash` |
+| The stateful adapter saves the advanced key before it releases the signature | `OracleStatefulScheme::sign`: body replaced with `Ok(vec![])` | `statefulAdapterSavesTheAdvancedKeyBeforeItReleasesTheSignature` |
+| The C verification of a stateful signature is the verdict | `COracle::isValidStatefulSignature`: body replaced with `true` | `statefulVerificationReadsARawLMSPublicKeyAsTheCLibraryDoes` and 2 more |
+
 ## History
 
 | Run | Code | Mutants | Caught | Timeout | Unviable | Missed |

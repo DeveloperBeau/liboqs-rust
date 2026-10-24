@@ -58,6 +58,27 @@ fn knownAnswersOfOneAlgorithmPassWithItsLine() {
 }
 
 #[test]
+fn knownAnswersOfStatefulSchemesReadTheirResponseFiles() {
+    let output = runProgram(&[
+        "known-answers",
+        "--only",
+        "XMSS-SHA2_10_256",
+        "--only",
+        "LMS_SHA256_H5_W1",
+    ]);
+    assert_eq!(output.status.code(), Some(0));
+    let text = standardOutput(&output);
+    assert!(
+        text.contains("ok    XMSS-SHA2_10_256 (response file digest identical, "),
+        "{text}"
+    );
+    assert!(
+        text.contains("ok    LMS_SHA256_H5_W1 (response file digest identical, "),
+        "{text}"
+    );
+}
+
+#[test]
 fn processesSplitTheRunAndAllOfThemReport() {
     let output = runProgram(&[
         "known-answers",
