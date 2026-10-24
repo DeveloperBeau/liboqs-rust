@@ -35,3 +35,9 @@
 - **Trap.** A test cannot read memory after it is freed, so the wipe of `SecretBytes` in `Drop` had no test, and the mutant that deletes the body of `drop` survived.
 - **Finding.** A test-only global allocator that inspects each freed block of one unusual size sees whether the block was wiped. A plain vector of the same size is the control, so the test can tell a wipe from no wipe.
 - **Rule.** Prove a wipe on drop with the recording allocator of `SecretBytes.rs`, and keep its control case.
+
+## Disjoint bit fields make `|` and `^` the same
+
+- **Trap.** Code that joins bit fields that cannot overlap, such as `(x & 0x00FF) | (y << 8)`, gives the same value with `^`. The mutant that swaps the two operators survives, and no test can kill it.
+- **Finding.** The first run of the primitives had 25 such survivors in the bitsliced AES and in the choice and majority functions of SHA-2. One more is inside the S-box circuit, where two signals never share a set bit.
+- **Rule.** Join disjoint fields with `+`, which gives the same value with no carry, and whose mutants change the value. Write choice as `g ^ (e & (f ^ g))` and majority as `(a & b) + (c & (a ^ b))`. Where a circuit from a paper has such a line, keep the line as the paper gives it, prove the equivalence with an exhaustive test, and record the mutant as expected in the register.

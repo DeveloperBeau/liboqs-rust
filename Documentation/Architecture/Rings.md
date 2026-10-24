@@ -12,6 +12,9 @@ The workspace root `Cargo.toml` lists the member folders `Modules/*` and `Tools/
 |---|---|---|
 | `oqs-native-entities` | `Modules/Entities` | `entities` |
 | `oqs-native-domain` | `Modules/Domain` | `domain` |
+| `oqs-native-aes` | `Modules/AES` | `sharedComponents` |
+| `oqs-native-sha2` | `Modules/SHA2` | `sharedComponents` |
+| `oqs-native-sha3` | `Modules/SHA3` | `sharedComponents` |
 | `xtask` | `Tools/Xtask` | `tooling` |
 
 Each crate states its ring in its own manifest:

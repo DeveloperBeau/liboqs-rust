@@ -80,6 +80,39 @@ The run of 2026-10-23 on the branch `foundation/entities-domain`.
 
 The `xtask` files that this branch changed (`Command.rs`, `UnsafeCodeCheck.rs`, `lib.rs`) gave 18 mutants: 13 caught, 5 unviable, 0 missed.
 
+## Latest result for `oqs-native-sha3`, `oqs-native-sha2` and `oqs-native-aes`
+
+The run of 2026-10-23 on the branch `foundation/primitives`.
+
+| File | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `Modules/AES/src/AES128.rs` | 3 | 3 | 0 | 0 | 0 |
+| `Modules/AES/src/AES256.rs` | 3 | 3 | 0 | 0 | 0 |
+| `Modules/AES/src/Bitsliced.rs` | 511 | 510 | 0 | 0 | 1 |
+| `Modules/AES/src/ExpandedKey.rs` | 15 | 15 | 0 | 0 | 0 |
+| `Modules/SHA2/src/SHA256.rs` | 53 | 53 | 0 | 0 | 0 |
+| `Modules/SHA2/src/SHA384.rs` | 5 | 5 | 0 | 0 | 0 |
+| `Modules/SHA2/src/SHA512.rs` | 5 | 5 | 0 | 0 | 0 |
+| `Modules/SHA2/src/SHA512Core.rs` | 50 | 49 | 1 | 0 | 0 |
+| `Modules/SHA3/src/KeccakF1600.rs` | 34 | 34 | 0 | 0 | 0 |
+| `Modules/SHA3/src/KeccakSponge.rs` | 30 | 30 | 0 | 0 | 0 |
+| `Modules/SHA3/src/SHA3256.rs`, `SHA3384.rs`, `SHA3512.rs` | 15 | 15 | 0 | 0 | 0 |
+| `Modules/SHA3/src/SHAKE128.rs`, `SHAKE256.rs` | 8 | 4 | 0 | 4 | 0 |
+| `Modules/SHA3/src/SHAKEReader.rs` | 1 | 1 | 0 | 0 | 0 |
+
+### The one equivalent mutant
+
+`Bitsliced.rs`, `substitute`, the line `let t37 = t36 ^ t34;`: `^` replaced with `|` survives. The two signals of the Boyar and Peralta circuit never have a set bit in common, so `^` and `|` give the same value. The proof is the test `bitslicedSubstitutionMatchesTheTableForEveryByte`, which checks all 256 inputs of the S-box against the table of FIPS 197: the mutant passes it, so it is equal to the correct S-box for every input. A later run must show this mutant, and only this one, as missed.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The S-box is the AES S-box | `substitute`: each other operator of the circuit replaced | `bitslicedSubstitutionMatchesTheTableForEveryByte`, `aes128EncryptsTheBlockOfFips197` |
+| The counter is 32 bits, big-endian, and wraps | `ExpandedKey::fillCounterKeystream`: `wrapping_add` operands and the byte swap | `counterWrapsAtThirtyTwoBitsAndKeepsTheFirstTwelveBytes`, `counterKeystreamIsTheEncryptionOfCounterBlocks` |
+| Counter blocks continue the stream | `AES256::fillCounterBlocks`: counter update removed | `counterBlocksContinueTheKeystreamAndAdvanceTheCounter` |
+| Only AES-256 substitutes the fourth key word | `scheduleKey`: `==` replaced with `!=` | `aes256EncryptsTheBlockOfFips197` |
+| SHA-2 pads at each block edge | `SHA256::absorbPadding`: `>=` replaced with `>` | `splitInputGivesTheOneShotDigestAtEveryLength` |
+| The SHAKE stream does not depend on the call sizes | `KeccakSponge::squeeze`: block test replaced | `shake128SmallAbsorbAndSqueezeCallsGiveTheSameStream` |
+
 ## History
 
 | Run | Code | Mutants | Caught | Timeout | Unviable | Missed |
