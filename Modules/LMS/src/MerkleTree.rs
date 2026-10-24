@@ -160,30 +160,29 @@ impl MerkleTree {
 #[cfg(test)]
 mod tests {
     use super::MerkleTree;
+    use crate::testInputs::{identifierAndSeed, sequenceBytes};
     use crate::{LevelType, OneTimeSignature, OneTimeSignatureType, TreeType};
+    use OQSNativeAlgorithmTests::OutputDigest;
     use OQSNativeSHA2::SHA256;
 
-    fn hex(bytes: &[u8]) -> String {
-        bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-    }
-
     fn tree() -> MerkleTree {
+        let (identifier, seed) = identifierAndSeed();
         MerkleTree::new(
             LevelType::new(TreeType::height5, OneTimeSignatureType::winternitz1),
-            core::array::from_fn(|index| index as u8),
-            core::array::from_fn(|index| 32 + index as u8),
+            identifier,
+            seed,
         )
     }
 
     #[test]
     fn internalNodesAreTheNodesOfHashSigs() {
-        // `OQS_LMS_NAMESPACE_hss_combine_internal_nodes` of the C oracle for the node 0x123 of
-        // the tree with I = 0..15, the left child 0xA0..0xBF and the right child 0x40..0x5F.
-        let left: [u8; 32] = core::array::from_fn(|index| 0xA0 + index as u8);
-        let right: [u8; 32] = core::array::from_fn(|index| 0x40 + index as u8);
+        // `OQS_LMS_NAMESPACE_hss_combine_internal_nodes` of the C oracle for the node 0x123,
+        // with the sequences of the seeds 4 and 5 as the left and the right child.
+        let left: [u8; 32] = sequenceBytes(32, 4).try_into().expect("32 bytes");
+        let right: [u8; 32] = sequenceBytes(32, 5).try_into().expect("32 bytes");
         assert_eq!(
-            hex(&tree().internalNode(0x123, &left, &right)),
-            "1ac92d339c6c5f771d3bd2c9a0110fcb5ac33c17437616ee9ebcc861c8e86f69"
+            OutputDigest::of(&tree().internalNode(0x123, &left, &right)),
+            "d9456133c05dc049b18e1e36d0617d691ec90a2d663a69498eeb4c335052098e"
         );
     }
 
@@ -216,10 +215,13 @@ mod tests {
             LevelType::new(TreeType::height10, OneTimeSignatureType::winternitz8),
         );
         assert_eq!(
-            hex(&child.seed),
-            "bf7afd272bc066ac75aa84ede3ec2f07f06d0b67fe242069883cca9c09a33f2a"
+            OutputDigest::of(&child.seed),
+            "9094d27ea43ebf1e50e6efeaff39ed604f752e08fc31a89aa6569fa342be37b0"
         );
-        assert_eq!(hex(&child.identifier), "5f0e0da7f543ed414a89cfbbcb2ed043");
+        assert_eq!(
+            OutputDigest::of(&child.identifier),
+            "a617d9a5b3617474b57cf61e141f108a843d6c1fa6e15483bb956f8ebb4ed7d0"
+        );
         assert_eq!(child.height(), 10);
     }
 }
