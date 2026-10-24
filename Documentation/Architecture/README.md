@@ -11,7 +11,8 @@ Each page describes one subsystem as the code is today: its purpose, its crates,
 | [Randomness.md](Randomness.md) | The random sources | Yes |
 | [Registry.md](Registry.md) | The facade crate and the registry of algorithms | Yes |
 | [Oracle.md](Oracle.md) | The C library as the test oracle, and `cargo xtask fetch-oracle` | Yes |
-| [KnownAnswerPrograms.md](KnownAnswerPrograms.md) | The liboqs known-answer programs on the Rust interfaces | Yes |
+| [KnownAnswerPrograms.md](KnownAnswerPrograms.md) | The liboqs test programs on the Rust interfaces, and the test vector files | Yes |
 | [Parity.md](Parity.md) | The parity checks with the C library and the parity program | Yes |
+| [MLKEM.md](MLKEM.md) | ML-KEM and Kyber | Yes |
 | [RepositoryChecks.md](RepositoryChecks.md) | The `cargo xtask` checks for rings, names, versions, hygiene and unsafe code | Yes |
 | [Versioning.md](Versioning.md) | How the crate version follows the liboqs version | Yes |

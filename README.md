@@ -8,7 +8,14 @@ This project is free and open source. It is an independent port. It is not affil
 
 ## Status
 
-The port is at its start. The repository holds the workspace, the standards, the repository checks, the shared primitives, the random sources and the parity harness. No algorithm is ported yet. `Tools/Parity/NotYetPorted.txt` lists each algorithm of liboqs that the port does not have yet.
+The port is in progress. The repository holds the workspace, the standards, the repository checks, the shared primitives, the random sources and the parity harness, and these families:
+
+| Family | Algorithms | Status |
+|---|---|---|
+| ML-KEM | `ML-KEM-512`, `ML-KEM-768`, `ML-KEM-1024` | Ported, identical to the C library |
+| Kyber | `Kyber512`, `Kyber768`, `Kyber1024` | Ported, identical to the C library |
+
+`Tools/Parity/NotYetPorted.txt` lists each algorithm of liboqs that the port does not have yet.
 
 ## Versions
 

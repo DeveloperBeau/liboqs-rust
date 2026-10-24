@@ -55,6 +55,8 @@ mod rustTokenKind;
 mod rustTokenizer;
 #[path = "SystemProcesses.rs"]
 mod systemProcesses;
+#[path = "TestVector.rs"]
+mod testVector;
 #[path = "TokenTree.rs"]
 mod tokenTree;
 #[path = "UnsafeCodeCheck.rs"]
@@ -106,6 +108,7 @@ use rustTokenizer::RustTokenizer;
 #[cfg(test)]
 use seededGenerator::SeededGenerator;
 pub use systemProcesses::SystemProcesses;
+use testVector::TestVector;
 use tokenTree::TokenTree;
 use unsafeCodeCheck::UnsafeCodeCheck;
 use versionCheck::VersionCheck;
@@ -188,6 +191,22 @@ fn fetchOracle(files: &dyn FileReading, processes: &mut dyn ProcessRunning) -> R
             return failure(standardOutput, message);
         }
         standardOutput.push_str(&format!("ran {step}\n"));
+    }
+    // A download that gave other bytes is an error, so a test never reads wrong vectors.
+    let vectorFolder = build.vectorFolder();
+    for vector in TestVector::load(files).unwrap_or_default() {
+        if !vector.isPresent(files, &vectorFolder) {
+            let actual = vector
+                .digestOfFile(files, &vectorFolder)
+                .unwrap_or_else(|| "missing".to_string());
+            return failure(
+                standardOutput,
+                format!(
+                    "the vector file {} has the SHA-256 {actual}, not {}",
+                    vector.fileName, vector.digest
+                ),
+            );
+        }
     }
     standardOutput.push_str(&format!(
         "the C oracle {version} is ready in {}\n",

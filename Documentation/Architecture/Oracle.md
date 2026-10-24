@@ -18,6 +18,7 @@ The parity tests compare each Rust algorithm with the C algorithm of the same na
 1. When `target/oracle/<version>/source` is missing, it clones liboqs at the tag of the version with `git clone --depth 1`. A source of another version is an error, because the oracle must be the version of the repository.
 2. It configures the build in `target/oracle/<version>/build` with CMake. `OracleBuild::configurationOptions` holds the options: a release build of the portable C code of every algorithm as a static library, with no CPU extension and no OpenSSL, and with key generation and signing of the stateful schemes.
 3. It builds the library. A second run takes a few seconds when nothing changed.
+4. It downloads each test vector file of `Documentation/Registers/TestVectors.md` that is missing from `target/oracle/<version>/vectors/` or that has another SHA-256, and then checks the SHA-256 of every file.
 
 `OracleBuild` decides the steps from the files of the repository, and `ProcessRunning` runs them. The tests use `RecordingProcesses` in place of the real programs.
 

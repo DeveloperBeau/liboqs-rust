@@ -60,6 +60,11 @@ fn cleanRepository() -> MemoryFileSystem {
             "//! Domain.\npub trait KeyEncapsulating { fn encapsulate(&self, publicKey: &[u8]); }\n",
         ),
         ("standards.md", "# Standards\n\nShort sentence.\n"),
+        (
+            "Documentation/Registers/TestVectors.md",
+            "# Test vectors\n\n| File | Address | SHA-256 | Source |\n|---|---|---|---|\n| `a.json` | https://example.org/a | `ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad` | test |\n",
+        ),
+        ("target/oracle/0.16.0/vectors/a.json", "abc"),
     ])
 }
 
@@ -357,6 +362,28 @@ fn fetchOracleRunsEachStepAndNamesTheReadyFolder() {
             .ends_with("the C oracle 0.16.0 is ready in target/oracle/0.16.0\n")
     );
     assert_eq!(report.standardError, "");
+}
+
+#[test]
+fn fetchOracleRejectsAVectorFileWithAnotherDigest() {
+    let mut files = cleanRepository();
+    files.add("target/oracle/0.16.0/vectors/a.json", "abd");
+    let mut processes = RecordingProcesses::default();
+    let report = crate::run(
+        &arguments(&["fetch-oracle"]),
+        &files,
+        None,
+        None,
+        &mut processes,
+    );
+    // The recorder downloads nothing, so the file keeps its other bytes.
+    assert_eq!(processes.steps.len(), 4);
+    assert_eq!(processes.steps[3].program, "curl");
+    assert_eq!(report.exitStatus, 1);
+    assert_eq!(
+        report.standardError,
+        "the vector file a.json has the SHA-256 a52d159f262b2c6ddb724a61840befc36eb30c88877a4030b65cbe86298449c9, not ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\n"
+    );
 }
 
 #[test]

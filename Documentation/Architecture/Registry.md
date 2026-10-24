@@ -12,14 +12,14 @@ The facade crate `oqs-native`, with the library name `OQSNative`, is the composi
 
 ## Data flow
 
-1. Each family crate makes a unit value for each parameter set, such as `MLKEM768`.
+1. Each family crate makes a constant for each parameter set, such as `MLKEM::mlkem768`.
 2. The registry lists those values in three constant lists, one for KEMs, one for signature schemes and one for stateful signature schemes, in the order of the liboqs lists.
 3. `Registry::mechanism("ML-KEM-768")` returns the mechanism whose description has that name, or `None`.
 
 ## Edge cases
 
 - A name is the exact liboqs name. The lookup does not ignore case.
-- The registry holds no algorithm yet. Each family adds its values.
+- The registry holds the families that are ported. Each family adds its values, and `Tools/Parity/NotYetPorted.txt` lists the algorithms that are not ported yet.
 
 ## Tests
 

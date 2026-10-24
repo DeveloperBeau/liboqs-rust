@@ -8,6 +8,7 @@ version = "0.16.0"
 dependencies = [
  "oqs-native-domain",
  "oqs-native-entities",
+ "oqs-native-ml-kem",
  "oqs-native-system-random",
 ]
 
@@ -54,6 +55,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "oqs-native-ml-kem"
+version = "0.16.0"
+dependencies = [
+ "oqs-native-algorithm-tests",
+ "oqs-native-domain",
+ "oqs-native-entities",
+ "oqs-native-kat-random",
+ "oqs-native-sha3",
+]
+
+[[package]]
 name = "oqs-native-parity"
 version = "0.16.0"
 dependencies = [
@@ -86,3 +98,6 @@ dependencies = [
 [[package]]
 name = "xtask"
 version = "0.16.0"
+dependencies = [
+ "oqs-native-sha2",
+]
