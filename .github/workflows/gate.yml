@@ -26,11 +26,15 @@ jobs:
       - name: Install the pinned toolchain
         run: rustup show active-toolchain || rustup toolchain install
       - name: Restore the C oracle
+        id: oracle
         uses: actions/cache@v4
         with:
           path: target/oracle
           key: oracle-${{ runner.os }}-${{ hashFiles('LIBOQS_VERSION', 'Tools/Xtask/src/OracleBuild.rs', 'Tools/Xtask/src/TestVector.rs', 'Documentation/Registers/TestVectors.md') }}
       - name: Build the C oracle
+        # fetch-oracle runs CMake again on a present build, which compiles the library again.
+        # A cache hit holds the whole oracle of the key, the vectors among them.
+        if: steps.oracle.outputs.cache-hit != 'true'
         run: cargo xtask fetch-oracle
       - name: Build the parity program
         run: cargo build --release --locked -p oqs-native-parity

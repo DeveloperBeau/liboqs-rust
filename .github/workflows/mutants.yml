@@ -36,11 +36,15 @@ jobs:
         if: steps.mutants.outputs.cache-hit != 'true'
         run: cargo install cargo-mutants --version 27.1.0 --locked
       - name: Restore the C oracle
+        id: oracle
         uses: actions/cache@v4
         with:
           path: target/oracle
           key: oracle-${{ runner.os }}-${{ hashFiles('LIBOQS_VERSION', 'Tools/Xtask/src/OracleBuild.rs', 'Tools/Xtask/src/TestVector.rs', 'Documentation/Registers/TestVectors.md') }}
       - name: Build the C oracle
+        # fetch-oracle runs CMake again on a present build, which compiles the library again.
+        # A cache hit holds the whole oracle of the key, the vectors among them.
+        if: steps.oracle.outputs.cache-hit != 'true'
         run: cargo xtask fetch-oracle
 
   mutants:
