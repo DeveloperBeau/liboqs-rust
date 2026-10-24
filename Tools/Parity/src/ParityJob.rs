@@ -1,6 +1,7 @@
 use crate::{
     KEMParity, LargeStack, ParityMismatch, ParityOptions, SignatureParity, Snapshot, StatefulParity,
 };
+use OQSNative::Registry;
 use OQSNativeAlgorithmTests::{
     KEMKnownAnswerTest, KnownAnswerDigests, SignatureKnownAnswerTest, StatefulKnownAnswerDigests,
     StatefulKnownAnswerTest, StatefulTreeHeight, TestVectorFiles,
@@ -45,6 +46,30 @@ impl<'check> ParityJob<'check> {
         schemes: &'check [&'check dyn Signing],
         statefulSchemes: &'check [&'check dyn StatefulSigning],
         options: &ParityOptions,
+    ) -> Vec<ParityJob<'check>> {
+        Self::jobs(mechanisms, schemes, statefulSchemes, options, false)
+    }
+
+    /// The jobs of `parityJobs` for the lists of the registry, in which the Rust side signs each
+    /// LMS set with an `LMSWorkingKey`, see `StatefulParity::signingLMSWithAWorkingKey`. The
+    /// jobs of other lists keep `StatefulSigning::sign`, so that a scheme under test with a
+    /// defect signs with its own code.
+    pub fn registryParityJobs(options: &ParityOptions) -> Vec<ParityJob<'static>> {
+        ParityJob::jobs(
+            Registry::mechanisms(),
+            Registry::signatureSchemes(),
+            Registry::statefulSignatureSchemes(),
+            options,
+            true,
+        )
+    }
+
+    fn jobs(
+        mechanisms: &'check [&'check dyn KeyEncapsulating],
+        schemes: &'check [&'check dyn Signing],
+        statefulSchemes: &'check [&'check dyn StatefulSigning],
+        options: &ParityOptions,
+        isRegistry: bool,
     ) -> Vec<ParityJob<'check>> {
         let settings = options.settings;
         let blocks = settings.caseBlocks();
@@ -95,7 +120,13 @@ impl<'check> ParityJob<'check> {
             .map(move |scheme| ParityJob {
                 name: scheme.description().name,
                 check: Box::new(move || {
-                    StatefulParity::new(*scheme, settings.seed)
+                    let parity = StatefulParity::new(*scheme, settings.seed);
+                    let parity = if isRegistry {
+                        parity.signingLMSWithAWorkingKey()
+                    } else {
+                        parity
+                    };
+                    parity
                         .checkEveryCase(settings.caseCount)
                         .map(|variationCount| {
                             Self::statefulSummary(variationCount, settings.caseCount)

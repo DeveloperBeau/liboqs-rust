@@ -668,6 +668,34 @@ fn firstStatefulMismatch(defect: StatefulDefect) -> ParityMismatch {
 }
 
 #[test]
+fn theRustWorkingKeyOfLMSSignsInPlaceOfTheSchemeOnlyWhenTheCheckAsksForIt() {
+    LargeStack::run(|| {
+        // The registered set signs every case of a whole key with one working key.
+        let registered = OQSNative::Registry::statefulSignatureScheme("LMS_SHA256_H5_W8")
+            .expect("a registered set");
+        assert_eq!(
+            StatefulParity::new(registered, ParitySettings::defaultSeed)
+                .signingLMSWithAWorkingKey()
+                .checkEveryCase(1000),
+            Ok(31)
+        );
+        // A scheme with a wrong signature byte fails the plain check, and the working key of
+        // the registered set of its name signs in its place, so the defect does not show.
+        let broken = BrokenStatefulScheme::new("LMS_SHA256_H5_W1", StatefulDefect::signatureByte);
+        let plain = StatefulParity::new(&broken, ParitySettings::defaultSeed)
+            .checkEveryCase(caseCount)
+            .expect_err("a broken scheme fails");
+        assert_eq!((plain.case, plain.step), (Some(0), "signature"));
+        assert_eq!(
+            StatefulParity::new(&broken, ParitySettings::defaultSeed)
+                .signingLMSWithAWorkingKey()
+                .checkEveryCase(caseCount),
+            Ok(caseCount)
+        );
+    });
+}
+
+#[test]
 fn eachStatefulDefectIsReportedAtItsStep() {
     let step = |defect| {
         let mismatch = firstStatefulMismatch(defect);
