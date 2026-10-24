@@ -12,6 +12,7 @@ dependencies = [
  "oqs-native-falcon",
  "oqs-native-frodokem",
  "oqs-native-hqc",
+ "oqs-native-mayo",
  "oqs-native-ml-dsa",
  "oqs-native-ml-kem",
  "oqs-native-system-random",
@@ -102,6 +103,18 @@ version = "0.16.0"
 dependencies = [
  "oqs-native-aes",
  "oqs-native-domain",
+ "oqs-native-sha3",
+]
+
+[[package]]
+name = "oqs-native-mayo"
+version = "0.16.0"
+dependencies = [
+ "oqs-native-aes",
+ "oqs-native-algorithm-tests",
+ "oqs-native-domain",
+ "oqs-native-entities",
+ "oqs-native-kat-random",
  "oqs-native-sha3",
 ]
 

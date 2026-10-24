@@ -161,3 +161,27 @@
 - Trap: a failure check that the documentation calls unreachable has no test, and the mutant that disables the check survives.
 - Finding: `SolverFailure::depthOne` said that no known input reaches it, and `||` replaced with `&&` in its check survived the first mutation run of `oqs-native-falcon`. `solve_NTRU_binary_depth1` with deeper values that no deeper level of a key gives fails for 3 of 15 seeds, and the port fails for the same three. `depthOneGivesTheValuesOfSolveNTRUBinaryDepth1AndFailsWhereItFails` and `intermediateLevelsGiveTheValuesOfSolveNTRUIntermediateAndFailWhereItFails` give such values to each level.
 - Rule: before the documentation calls a failure path unreachable, run its C function on hostile inputs of its own level. A path that such inputs reach gets a known-answer test at that level.
+
+## A search limit needs an input at the limit and one past it
+
+- Trap: the echelon form of MAYO searches for the pivot of a column in at most 33 rows. A port with 32 or 34 rows passes the tests of a random matrix and of a matrix whose first entry is far past the limit.
+- Finding: with the bound changed from 32 to 31 or to 33, every test of the crate passed, also the known-answer signatures of the 100 counts of each set and a crafted matrix whose first column is zero in its first 40 rows. The pivot of a random column is in one of the first rows, and row 40 is past both bounds. Two matrices whose first entry of the first column is at row 32, the last row of the search, and at row 33 caught the two changes, each at its own case.
+- Rule: a test of a search limit puts the input exactly at the limit and one place past it, with the answer of the C code for both. `pivotAtSearchEnd` and `pivotPastSearch` in `EchelonForm.rs` are the template. See also the rejection loop of HQC above.
+
+## A random change cannot see a comparison that skips one element
+
+- Trap: the verification of MAYO compares the m elements of the value of the public map with the m elements of the target. A comparison of m - 1 elements passes every test that changes a signature, a message or a key.
+- Finding: with the last element left out of the comparison, every test of the crate passed. Each changed input gives a value that differs from the target in nearly every element, so the other elements still refuse it. A solver that solves the linear system for a right-hand side with one element changed gives a signature whose value differs from the target in that element alone. With it, the comparisons without the first, the middle or the last element each failed.
+- Rule: the test of a comparison of two vectors gives an input that differs in one element only, at the first, a middle and the last place, and asserts that the difference is at that place alone. `aSignatureWhoseValueDiffersFromTheTargetInOneElementIsRefused` is the template.
+
+## The static functions of the C code give known answers too
+
+- Trap: a unit test of a step of a family, such as the matrix of the linear system of MAYO, needs a known answer, and liboqs does not export the C function, because it is `static`.
+- Finding: `nm` on `liboqs.a` lists `sample_solution`, `m_upper` and the public functions of MAYO, but not `compute_A`, `compute_rhs`, `EF` or `m_calculate_PS_SPS`. A C program that includes `mayo.c` and `arithmetic.c` calls them. Built with `MAYO_BUILD_TYPE_REF` in place of `MAYO_BUILD_TYPE_OPT`, the copy has the names `pqmayo_MAYO_1_ref_*`, which do not clash with the copy in `liboqs.a`. Its `mayo_expand_sk` and `sample_solution` gave the same digests as the exported functions of `liboqs.a`.
+- Rule: when a C function is static, build its source file into the known-answer program with the flags of the oracle build of each set, from the `CMakeLists.txt` of the family, and with another namespace. Check one answer against an exported function of `liboqs.a`, so the program is known to build the same code.
+
+## A copy of a whole buffer agrees with a copy of its part only while the rest is zero
+
+- Trap: `sample_solution` of MAYO copies the k o unknowns of the randomizer into the solution, and the randomizer has one more element, which the signature sets to zero. The port copied the whole randomizer. Every test passed, because every randomizer of the tests ended with a zero.
+- Finding: the mutation run missed a mutant that clears the last column of the matrix only in the first row before the product `A r`. Its change reaches the product only through the last element of the randomizer. A known-answer case of `sample_solution` with the element 9 kills the mutant. The same case also failed on the copy of the whole randomizer, before the port copied only the unknowns.
+- Rule: copy the same range as the C code. Give the known-answer test of an internal function a value that is not zero in each element that the function reads, also in an element that its caller keeps at zero. `randomizerTail` in `EchelonForm.rs` is the template. See also "An input that the caller never gives hides a mutant" in `MutationTesting.md`.

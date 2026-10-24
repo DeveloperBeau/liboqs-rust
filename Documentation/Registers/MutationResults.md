@@ -487,6 +487,45 @@ No test kills them, and no proof shows them equivalent. The evidence:
 | Depth 1 fails where `solve_NTRU_binary_depth1` fails | `NTRUSolver::depthOne`, line 725: `\|\|` replaced with `&&` | `depthOneGivesTheValuesOfSolveNTRUBinaryDepth1AndFailsWhereItFails` |
 | The saturated norm saturates once the sum reaches `2^31` | `SignatureNorm::saturatedSquaredNorm`: each operator of the overflow word replaced, and the start set to 0 | `saturatedSquaredNormIsTheSumBelow2To31AndElseSaturates` |
 
+## Latest result for MAYO
+
+The run of 2026-10-23 is the `Mutants` workflow of CI, in ten shards, on the branch `mutants/oqs-native-mayo.2`, which holds the code of the branch `family/mayo`: [run 40026053155](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40026053155).
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-mayo` | 963 | 948 | 0 | 6 | 9 |
+
+The [second run](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40037053418), on the commit of the new test and the new forms, had 942 mutants: 936 caught, no timeout, 6 unviable and no missed mutant.
+
+The run had no timeout. Five of the six unviable mutants replace a function with `Default::default()` for a type that has no default. The sixth replaces `+` with `-` in `Parameters::publicKeyLength`, and the subtraction then overflows when the compiler evaluates the lengths of the sets.
+
+Of the nine missed mutants, one is a test gap. With `*` replaced with `/` in line 126 of `EchelonForm.rs`, the index of the clearing is `row / columnCount + unknownCount`. In every set m is below k o + 1, so the index is the same for each row, and `sampledSolution` clears the last column of the matrix only in the first row before the product `A r`. The other rows then reach the product only through the element of the randomizer after the k o unknowns, and the unit tests gave only randomizers whose element there is zero, as the signature does. The known-answer program of the unit tests now also calls `sample_solution` with the element 9, in the case `randomizerTail` of `solutionGivesTheSolutionOfTheCCodeOrNone`, and the case kills the mutant. The same case showed that the solution started as a copy of the whole randomizer, where `x <- r` of the C code copies only the k o unknowns. The solution now starts as the unknowns and a zero. The signature sets the element to zero, so its output does not change.
+
+The other eight are equivalent. Each of their lines now has a form whose mutants change the output. The list below gives the proof for each mutant at the lines of the run. Applied by hand, each mutant of the new forms fails at least one unit test. The changed lines have had no second run of the workflow.
+
+With the new case, the known-answer program and the unit tests of the crate moved to the shared contract of `Documentation/Learnings/COracle.md`. The inputs come from `LinearCongruentialSequence` and the digests from `OutputDigest`, as its rule "The internal C functions give known answers for the arithmetic" asks. Before, each input was SHAKE256 of a label.
+
+### Equivalent mutants
+
+- `EchelonForm.rs`, `echelonForm`, line 66: `|` replaced with `^` in `isPivotRow | (isBelowPivotRow & pivotIsZero)`. Line 64 sets `isPivotRow` to all ones only for the pivot row, and line 65 sets `isBelowPivotRow` to all ones only for a row below it. So at most one of the two terms is not zero, and the or and the exclusive or give the same mask. The line now joins the two masks with `+`.
+- `EchelonForm.rs`, `sampledSolution`, line 149: `^=` replaced with `|=` in `columnBytes ^= u64::from(...) << (8 * offset)`, the word of the elements of a column in eight rows. Line 147 sets the word to zero, and the step `offset` writes the byte `offset` alone, because each element is one byte. So each byte is zero before its write. The word is now one assignment with `u64::from_le_bytes`.
+- `LinearSystem.rs`, `rightHandSide`, line 41: `%` replaced with `+` in `((sum[last] >> topShift) % 16) as u8`. `top` is only the first factor of `field::product` (line 48), which reads only the bits 0 to 3 of that factor (`Field.rs`, lines 8 to 11). Adding 16 does not change those bits. The line now takes the bits with `& 0x0F`.
+- `LinearSystem.rs`, `rightHandSide`, line 44: `^=` replaced with `|=` in `sum[limb + 1] ^= sum[limb] >> 60`. The shift of line 42, or of line 45 in the step before, leaves the low nibble of `sum[limb + 1]` zero, and `sum[limb] >> 60` is below 16. So the two operators give the same word. The line now adds the carry with `+=`.
+- `LinearSystem.rs`, `systemMatrix`, line 183: `-` replaced with `+` or with `/` in `(0..columnCount - 1).step_by(16)`. The starts are the multiples of 16 below the end of the range, and the mutants raise the end from k o to k o + 2 or k o + 1. k o is 80, 68, 110 and 144 in the four sets, so the only new start is k o, in `MAYO-1` and `MAYO-5`. For that start, line 185 gives the count 0, so the step writes nothing. Its read of line 184 takes a word of the next 16 rows, and `words` has room for them (line 116).
+- `LinearSystem.rs`, `systemMatrix`, line 185: `-` replaced with `/` in `16.min(columnCount - 1 - start)`. The count then grows by one at the last start when k o is not a multiple of 16, in `MAYO-2` and `MAYO-3`. So the step also writes the column k o, from the nibble of the column k o in the word. That element is zero. Lines 133 and 135 write only the columns below k o, the transposition of line 150 changes only the layout of the elements, and the reduction of lines 159 to 176 adds to an element only multiples of an element of the same column. Line 177 already set the last column to zero.
+- `MatrixProducts.rs`, `quadraticForms`, line 309: `+` replaced with `*` in `accumulator[start..start + limbCount]`, where line 306 sets `start` to an element of the signature times `limbCount`. Each element is below 16, because the only caller decodes the signature with `field::decode` (`InternalAlgorithms.rs`, line 255). For the element 0 the range is empty, so the bin 0 misses the entry, but `multiplyBins` never reads the bin 0 (`PackedVectors.rs`, lines 57 to 72 and line 87). For an element from 1 to 15 the range starts at the same word and is at least as long, because `limbCount` is at least 4. `add` zips the range with the entry of `limbCount` words (`PackedVectors.rs`, line 18), so it changes the same words. The longest range ends at word `15 limbCount^2`, inside the accumulator of `16 limbCount n` words. Each bin is now `mutableEntry` of the accumulator.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The solution does not depend on the element of the randomizer after the k o unknowns, as in the C code | `sampledSolution`, line 126: `*` replaced with `/` | `solutionGivesTheSolutionOfTheCCodeOrNone`, case `randomizerTail` |
+| The solution starts as the k o unknowns of the randomizer and a zero | `sampledSolution`: the copy of the unknowns deleted, by hand | `solutionGivesTheSolutionOfTheCCodeOrNone` |
+| The back substitution reads the elements of a column in eight rows at a time | `sampledSolution`: `+` replaced with `*` in `first + offset`, and with `-` before `column`, by hand | `solutionGivesTheSolutionOfTheCCodeOrNone` |
+| The pivot search joins the mask of the pivot row and the mask of a lower row while the pivot is zero | `echelonForm`: `+` of the two masks replaced with `-` or `*`, and `&` replaced with `\|` or `^`, by hand | `echelonFormGivesTheMatrixOfTheCCode`, `solutionGivesTheSolutionOfTheCCodeOrNone` |
+| The top element of the right-hand side is the low nibble above `topShift` | `rightHandSide`: `& 0x0F` replaced with `\| 0x0F` or `^ 0x0F`, by hand | `rightHandSideGivesTheAnswerOfTheCFunction` |
+| The shift of the right-hand side carries the top nibble of each word into the next word | `rightHandSide`: `+=` of the carry replaced with `-=` or `*=`, by hand | `rightHandSideGivesTheAnswerOfTheCFunction` |
+| The matrix of the system holds the k o unknowns of each row and a zero last column | `systemMatrix`: `-` replaced with `+` or `/` in `columnCount - 1`, and `*` replaced with `+` or `/` in `16 * block`, by hand | `systemMatrixGivesTheAnswerOfTheCFunction` |
+| Each bin of `S P S^T` is the bin of its row and its element | `quadraticForms`: each operator of `bin` replaced, by hand | `publicMapGivesTheValueOfTheCCode` |
+
 ## History
 
 | Run | Code | Mutants | Caught | Timeout | Unviable | Missed |
