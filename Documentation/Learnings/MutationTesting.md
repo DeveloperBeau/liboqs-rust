@@ -77,3 +77,15 @@
 - **Trap.** A mutant that skips a term in one step of an iterative algorithm can be equivalent, because a later step adds the term back.
 - **Finding.** In `ReedSolomon::errorLocator`, `step + 1` replaced with `step * 1` skips the term `a x^(mu0 + 1)` at the first step `mu0` whose discrepancy is not zero. Words of every weight, and words whose first syndromes are zero, did not kill it. The degree cannot grow up to step `2 mu0 + 1`, and the discrepancy of that step differs by `a^2`, which adds the term back.
 - **Rule.** When the tests of an iterative algorithm cannot kill a mutant, run the two forms side by side on many inputs before writing more tests, and write the proof of the equivalence when no input differs.
+
+## A large crate needs the shards of CI
+
+- **Trap.** Each mutant of a family crate builds the crate and its test programs again and runs the whole suite of the crate. On the shared development machine, other builds share the four processors.
+- **Finding.** `oqs-native-falcon` has 2486 mutants. With three jobs at a load average of about 30, each mutant took 150 to 190 seconds to build and up to 126 seconds to test, so the run would have taken about 70 hours.
+- **Rule.** Run a crate with more than a few hundred mutants in the `Mutants` workflow, whose ten shards run on runners of their own.
+
+## An endless loop that fills a list takes the memory of the machine
+
+- **Trap.** A mutant can make a loop endless while the loop adds to a list in each turn. The list then takes the memory of the machine before the time limit of the test stops the test, and the machine stops in place of the test.
+- **Finding.** The first CI runs of two families each lost a shard to "The runner has received a shutdown signal". In each, a mutant made a loop endless while the loop wrote into a list: the byte loop of a radix encoding, whose changed condition held for every range, and a loop of signing attempts whose count stayed at 0 while its test recorded each attempt. Applied by hand under a cap of 4 GiB on the address space, each test program stopped within 6 seconds with "memory allocation of ... bytes failed".
+- **Rule.** Run the tests of a mutation run under a cap on the address space of each test program, above the largest test program of the workspace. The `Mutants` workflow starts each test program through `prlimit`, so a failed allocation stops the test program, and the mutant counts as caught.
