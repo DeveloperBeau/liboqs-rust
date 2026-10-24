@@ -170,39 +170,40 @@ impl WOTS {
 #[cfg(test)]
 mod tests {
     use super::WOTS;
-    use crate::testInputs::{address, coreHashes, digest, pattern};
+    use crate::testInputs::{address, coreHashes, sequenceBytes};
     use crate::{KeyedHash, Parameters, Variant};
+    use OQSNativeAlgorithmTests::OutputDigest;
 
-    /// The SHA-256 of the outputs of `wots_pkgen`, `wots_sign` and `wots_pk_from_sig` of the C
-    /// program for each core hash, in the order of `coreHashes`.
+    /// The digests of the outputs of `wots_pkgen` and `wots_sign` of the C program for each core
+    /// hash, in the order of `coreHashes`. `wots_pk_from_sig` gives the public key again.
     const answers: [[&str; 2]; 7] = [
         [
-            "bdd2b79eeadfbbdc2f00b1718756aa118872da7d99f6f69e463ddfaa06994d66",
-            "edbd92866a5c8f99b83488ac827ed66da28cc7debf9be332a1321e41c28ffc5c",
+            "29d609b363ca4fe1ff1e4892ab5ae3630bc3d8c611212a2776c42b3a58e2e3e2",
+            "885abeb19f8c1eda83c9025f3389912e6b64233759f0a8c833f1aa831456f0aa",
         ],
         [
-            "87834a0c79687f4718a48defe95d48f880ab363dce18c8556cc7bb49e6fd3668",
-            "aa029e957fdf67d1976d2eb9eb03751ee25439c6f16e2843553224fd9b4a8631",
+            "1fcc01864d271123772fd0761133fe63333d06e37aab41a9a11cb7226725244c",
+            "7165fef4947a31faaf78b0d937a5ccaff1bc8a73f7ccd17a42011b2e00a6c6ed",
         ],
         [
-            "69cd5bbea81915ab5384368d9709cd28d170ecc7a395a6dc560f8c6c6c1eae1e",
-            "52fc835d63bf630eef6aa1703b6c855c2b865d91acc22f9e0920d16d935ced71",
+            "beb32342230aea683e579df2a30ea4e9121f3c885aea6f77897f0b125852443e",
+            "1c146d7379513f6e4081fd700fe34dc589790106e228dca4104ac55cfe9a1c4c",
         ],
         [
-            "5eb0b3747c66357d4ce5a8196a1aeb134aad96d70c15ff0ad01d53136965e858",
-            "f778c03f84d4e44c581bebc581a063968bb933f8e78ffed53a4aa3feb9804056",
+            "a1ca08bb848a2d5972a1e46c252fe05de3a076d0c3f3a00ea9138d001d7444af",
+            "5ea8aab773884ccc00b571487976d76a539d67fe99030bf5db0bf7c151b55e95",
         ],
         [
-            "776d00d1cf6dc503428b03a1cc5219a8e144924093e0d9f588c6cce89d465ab1",
-            "e24c444583c27b3710bc9d982355379a9bc37d3228442751e546108623f67449",
+            "1b41613f2a0c26c93f66287bbc70a8f5a129690c326d644109b1c054a3d840d1",
+            "aa33e907c319133b1a8339094fcf6e767d956c7a59f2a6b09437715ab2ba991a",
         ],
         [
-            "3f6c4ea6ae0a510739b7ecd70372395a814192a5f3b27a133b3f50ed56f86b76",
-            "b51601d337eff5542714cddab14e069c90e1b2247dbbc781fb9a4a47c37b7e19",
+            "d532dae1ad48f4e4d861c8e87d2f1df050dc27979f222722a0e2ca070543f88b",
+            "f88a8b4a49210557a3d271569cdb7e735d6fb19564e536e3cc429f6b7a98fe91",
         ],
         [
-            "aa389866a092d57986f23eb6baef137f2ee3aadc908b82553275f97ad4099c2d",
-            "b406ff3ba6e621d070dce38a0c58a0b476982163e74d203126e7ceb0cde92bb0",
+            "4b3c46e2b106cc216bd42869db69289232335a92ce1e8068f53efe1be31a911f",
+            "fd4e29978938213b3af56dc5558e9f39497277962b9dbba700a3c3359210887f",
         ],
     ];
 
@@ -215,14 +216,18 @@ mod tests {
             let hashLength = parameters.hashLength;
             let length = parameters.wotsSignatureLength;
             let name = alloc::format!("{function:?}");
-            let hash = KeyedHash::new(&parameters, *function, &pattern(hashLength, 12));
-            let secretSeed = pattern(hashLength, 11);
+            let hash = KeyedHash::new(&parameters, *function, &sequenceBytes(hashLength, 12));
+            let secretSeed = sequenceBytes(hashLength, 11);
             // The OTS address of layer 1, tree 2 and key pair 3.
             let otsAddress = address([1, 0, 2, 0, 3, 0, 0, 0]);
             let mut publicKey = alloc::vec![0u8; length];
             let mut keyAddress = otsAddress;
             WOTS::publicKey(&hash, &mut publicKey, &secretSeed, &mut keyAddress);
-            assert_eq!(digest(&publicKey), publicKeyDigest, "{name} wots_pkgen");
+            assert_eq!(
+                OutputDigest::of(&publicKey),
+                publicKeyDigest,
+                "{name} wots_pkgen"
+            );
             // The address leaves at the last chain, its last step and the mask selector.
             let lastChain = parameters.chainCount as u32 - 1;
             assert_eq!(
@@ -230,7 +235,7 @@ mod tests {
                 address([1, 0, 2, 0, 3, lastChain, 14, 1]),
                 "{name}"
             );
-            let message = pattern(hashLength, 13);
+            let message = sequenceBytes(hashLength, 13);
             let mut signature = alloc::vec![0u8; length];
             WOTS::sign(
                 &hash,
@@ -239,7 +244,11 @@ mod tests {
                 &secretSeed,
                 &mut otsAddress.clone(),
             );
-            assert_eq!(digest(&signature), signatureDigest, "{name} wots_sign");
+            assert_eq!(
+                OutputDigest::of(&signature),
+                signatureDigest,
+                "{name} wots_sign"
+            );
             let mut recovered = alloc::vec![0u8; length];
             WOTS::publicKeyFromSignature(
                 &hash,
@@ -249,7 +258,7 @@ mod tests {
                 &mut otsAddress.clone(),
             );
             assert_eq!(
-                digest(&recovered),
+                OutputDigest::of(&recovered),
                 publicKeyDigest,
                 "{name} wots_pk_from_sig"
             );
@@ -259,7 +268,7 @@ mod tests {
                 &hash,
                 &mut other,
                 &signature,
-                &pattern(hashLength, 14),
+                &sequenceBytes(hashLength, 14),
                 &mut otsAddress.clone(),
             );
             assert_ne!(other, recovered, "{name}");
