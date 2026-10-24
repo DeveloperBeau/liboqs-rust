@@ -11,9 +11,6 @@ Classic-McEliece-6960119
 Classic-McEliece-6960119f
 Classic-McEliece-8192128
 Classic-McEliece-8192128f
-HQC-1
-HQC-3
-HQC-5
 NTRU-HPS-2048-509
 NTRU-HPS-2048-677
 NTRU-HPS-4096-821

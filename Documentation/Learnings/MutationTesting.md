@@ -47,3 +47,33 @@
 - **Trap.** Code that joins bit fields that cannot overlap, such as `(x & 0x00FF) | (y << 8)`, gives the same value with `^`. The mutant that swaps the two operators survives, and no test can kill it.
 - **Finding.** The first run of the primitives had 25 such survivors in the bitsliced AES and in the choice and majority functions of SHA-2. One more is inside the S-box circuit, where two signals never share a set bit.
 - **Rule.** Join disjoint fields with `+`, which gives the same value with no carry, and whose mutants change the value. Write choice as `g ^ (e & (f ^ g))` and majority as `(a & b) + (c & (a ^ b))`. Where a circuit from a paper has such a line, keep the line as the paper gives it, prove the equivalence with an exhaustive test, and record the mutant as expected in the register.
+
+## A timeout can be a slow suite and not an endless loop
+
+- **Trap.** On a loaded machine, a mutant that changes nothing can pass the time limit of the suite, and the run counts it as caught.
+- **Finding.** The first run of `oqs-native-hqc` had nine timeouts at 36 seconds. Seven left the three tests of the rejection sampler unfinished, which is an endless loop. One had already failed `derivedValuesAreTheValuesOfParametersHeader` and was still in a test that loops up to the threshold that the mutant made larger. The last one, a smaller `savedSigma` in `ReedSolomon::errorLocator`, passed every test that ended, and it is equivalent.
+- **Rule.** Read the log of each timeout. An endless loop leaves the tests of the loop unfinished. A timeout whose finished tests all pass is a missed mutant until a test or a proof closes it.
+
+## An input that the caller never gives hides a mutant
+
+- **Trap.** A mutant that changes the output of a function only for inputs that its caller never gives survives every test through the caller.
+- **Finding.** The Reed-Solomon decoder of HQC gives the FFT a locator whose coefficients above `delta` are zero and whose value at 0 is 1, and the FFT never asks `radix` for two coefficients. Five mutants of `AdditiveFFT.rs` changed the output only for other inputs, and every decoder test passed. `evaluationsGiveTheValuesOfTheCFunctionForEveryCount` and `errorPositionsGiveThePositionsOfTheCFunctionForAnyValues` compare the functions with `fft` and `fft_retrieve_error_poly` for any inputs, and `radixConversionIsTheSplitOfItsDefinitionAtEverySize` converts every size. They kill the five.
+- **Rule.** The known-answer test of an internal function feeds it every kind of input that the C function or the definition accepts, not only the inputs of its caller.
+
+## Writes into zeroed or unused space give equivalent mutants
+
+- **Trap.** An exclusive or into a word that is zero gives the same value as an or, and a region that is larger than its content changes nothing. A mutant of such a write survives, and no test can kill it.
+- **Finding.** Ten of the 18 equivalent mutants of `oqs-native-hqc` are of this kind: `^=` into the zeroed positions of `errorPositions` and into the zeroed result of `karatsubaProduct`, the split of the scratch of `karatsubaProduct`, an extra entry of `gammas` and `deltas` that no line reads, and a smaller `savedSigma` whose last entry no line uses.
+- **Rule.** Write a value into a zeroed buffer with an assignment or a copy where the form of the C code allows it. Where the port keeps the form of the C code, the register names the line that zeroed each word or the lines that read the region.
+
+## A special case that equals the general path gives an equivalent mutant
+
+- **Trap.** A function with its own cases for small sizes and a general path for the other sizes gives an equivalent mutant for each deleted case, because the general path also handles the small sizes.
+- **Finding.** `radix` of `AdditiveFFT.rs` has cases for 2, 4, 8 and 16 coefficients, as the C code has. A deleted case of 4, 8 or 16 coefficients sends that size to `radixOfManyCoefficients`, which gives the same split.
+- **Rule.** Keep the cases of the C code. Prove with a test that each case and the general path give the same output at each size, and record each such mutant as equivalent.
+
+## A later step can repair the change of a mutant
+
+- **Trap.** A mutant that skips a term in one step of an iterative algorithm can be equivalent, because a later step adds the term back.
+- **Finding.** In `ReedSolomon::errorLocator`, `step + 1` replaced with `step * 1` skips the term `a x^(mu0 + 1)` at the first step `mu0` whose discrepancy is not zero. Words of every weight, and words whose first syndromes are zero, did not kill it. The degree cannot grow up to step `2 mu0 + 1`, and the discrepancy of that step differs by `a^2`, which adds the term back.
+- **Rule.** When the tests of an iterative algorithm cannot kill a mutant, run the two forms side by side on many inputs before writing more tests, and write the proof of the equivalence when no input differs.

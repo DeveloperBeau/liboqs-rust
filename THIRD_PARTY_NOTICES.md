@@ -99,6 +99,14 @@ You are solely responsible for determining the appropriateness of using and dist
 - FrodoKEM in liboqs: the reference code of the FrodoKEM team, [PQCrypto-LWEKE](https://github.com/microsoft/PQCrypto-LWEKE) of Microsoft, commit `a2f9dec8917ccc3464b3378d46b140fa7353320d`, in `src/kem/frodokem`. License: MIT, the SPDX identifier that liboqs gives the upstream code in `docs/algorithms/kem/frodokem.yml` and in the headers of its FrodoKEM files.
 - Use in this repository: `Modules/FrodoKEM` translates the portable C code of FrodoKEM and eFrodoKEM, and gives its bytes. The port is under MIT, the license of the upstream code, so the crate keeps the license of the workspace.
 
+## HQC
+
+- Algorithm: HQC, Hamming Quasi-Cyclic, by Philippe Gaborit, with Carlos Aguilar-Melchor, Nicolas Aragon, Slim Bettaieb, Loïc Bidoux, Olivier Blazy, Jean-Christophe Deneuville, Edoardo Persichetti, Gilles Zémor, Jurjen Bos, Arnaud Dion, Jérôme Lacan, Jean-Marc Robert, Pascal Véron, Paulo L. Barreto, Santosh Ghosh, Shay Gueron, Tim Güneysu, Rafael Misoczki, Jan Richter-Brokmann, Nicolas Sendrier, Jean-Pierre Tillich and Valentin Vasseur. NIST selected HQC for standardization. See https://pqc-hqc.org/.
+- HQC in liboqs: the reference code of the HQC team, [pqc-hqc/hqc](https://gitlab.com/pqc-hqc/hqc), commit `161cd4fdf6b4a5198cf40b3a1243f9f27f13e03d` with the liboqs patches, for the specification of 2025-08-22.
+- License: public domain. liboqs states it as `spdx-license-identifier: Public domain` in `docs/algorithms/kem/hqc.yml`. The folders `src/kem/hqc/pqc-hqc_*` have no license file and no license header. The liboqs wrappers `src/kem/hqc/kem_hqc.h` and `kem_hqc_1.c` to `kem_hqc_5.c` are MIT, as liboqs is.
+- The C code cites Algorithm 5 of ePrint 2021/1631 for its fixed-weight sampler of encryption, and Shuhong Gao and Todd Mateer, with the radix conversion of Bernstein, Chou and Schwabe, for its additive FFT.
+- Use in this repository: `Modules/HQC` translates the reference code and gives its bytes. The port is under MIT, which a public domain upstream allows.
+
 ## Test vectors
 
 - [NIST ACVP-Server](https://github.com/usnistgov/ACVP-Server), tag `v1.1.0.41`: the ML-KEM vectors. Works of the United States government are not subject to copyright in the United States.

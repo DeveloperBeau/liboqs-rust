@@ -47,10 +47,10 @@ Each row names one mutant of a rule and the tests that fail under it. The test n
 | A local dependency is one with a path | `RingCheck::findings`, line 138: operator replaced with `&&` | `allowedEdgeHasNoFinding`, `everyRingPairMatchesTheHandWrittenTable` and 12 more |
 | A crate depends only on the rings of its register row | `RingCheck::findings`, line 102: operator deleted | `allowedEdgeHasNoFinding`, `crateWithoutRingAndCrateWithUnknownRingAreFindings` and 16 more |
 | Each kind of name has its own casing rule | `NamingCheck::problem`, line 154: match arm deleted | `libraryNameMustBeUpperCamelCaseAndALibraryMustSetIt`, `mixedAcronymIsAFinding` and 7 more |
-| A mixed acronym such as Kem is found | `titleCaseWords`, line 32: operator replaced with `||` | `titleCaseWordsSplitsMixedAcronymsAndSkipsWholeAcronyms`, `swiftCasingHasNoFinding` |
-| Each part of a version is digits only | `VersionCheck::isReleaseVersion`, line 93: operator replaced with `||` | `malformedOrMissingVersionIsAFinding`, `versionWithAnEmptyOrNonNumericPartIsAFinding` |
+| A mixed acronym such as Kem is found | `titleCaseWords`, line 32: operator replaced with `\|\|` | `titleCaseWordsSplitsMixedAcronymsAndSkipsWholeAcronyms`, `swiftCasingHasNoFinding` |
+| Each part of a version is digits only | `VersionCheck::isReleaseVersion`, line 93: operator replaced with `\|\|` | `malformedOrMissingVersionIsAFinding`, `versionWithAnEmptyOrNonNumericPartIsAFinding` |
 | The workspace version equals LIBOQS_VERSION | `VersionCheck::findings`, line 37: match guard replaced with `false` | `agreeingVersionsHaveNoFinding`, `crateWithItsOwnVersionIsAFinding` and 5 more |
-| A semicolon is a finding in prose only | `HygieneCheck::textFindings`, line 129: operator replaced with `||` | `absolutePathIsAFinding`, `cleanProseHasNoFinding` and 11 more |
+| A semicolon is a finding in prose only | `HygieneCheck::textFindings`, line 129: operator replaced with `\|\|` | `absolutePathIsAFinding`, `cleanProseHasNoFinding` and 11 more |
 | An empty word variable falls back to the local file | `HygieneCheck::forbiddenWords`, line 32: operator deleted | `forbiddenWordIsAFindingInTextAndInPathsInAnyLetterCase`, `forbiddenWordsComeFromTheVariableFirstAndElseFromTheLocalFile` and 4 more |
 | A character literal is told apart from a lifetime | `RustTokenizer::readQuote`, line 124: operator replaced with `!=` | `characterLiteralsAndLifetimesAreToldApart`, `quoteInsideACharacterLiteralDoesNotStartAString` and 4 more |
 | Block comments nest | `RustTokenizer::skipBlockComment`, line 80: operator replaced with `+=` | `blockCommentsNestAndEndAtTheirOwnClose`, `linesAreCountedThroughCommentsStringsAndRawStrings` and 3 more |
@@ -77,7 +77,7 @@ The run of 2026-10-23 on the branch `foundation/entities-domain`.
 | The wipe writes zero over every byte | `wipe`: body replaced with `()` | `wipeWritesZeroOverEveryByte`, `dropWipesTheBytesBeforeTheMemoryIsFreed` |
 | Debug text never shows secret bytes | `<impl fmt::Debug for SecretBytes>::fmt`: body replaced | `debugTextShowsTheLengthButNeverTheBytes` |
 | Inputs have the exact length | `InputLength::checked`: `==` replaced with `!=` | `checkedRejectsAShorterAndALongerInputWithBothLengths`, `checkedReturnsAnInputOfTheExpectedLength` |
-| A scheme without context support accepts only an empty context | `Signing::isValidSignatureWithContext`: `&&` replaced with `||` | `verificationWithContextAcceptsOnlyAnEmptyContext` |
+| A scheme without context support accepts only an empty context | `Signing::isValidSignatureWithContext`: `&&` replaced with `\|\|` | `verificationWithContextAcceptsOnlyAnEmptyContext` |
 
 The `xtask` files that this branch changed (`Command.rs`, `UnsafeCodeCheck.rs`, `lib.rs`) gave 18 mutants: 13 caught, 5 unviable, 0 missed.
 
@@ -154,8 +154,8 @@ The second run of `oqs-native-parity` covered the four files that changed after 
 | HQC uses the SHAKE256 generator | `KnownAnswerRandom::generator`: the condition replaced | `hqcUsesTheSHAKEGeneratorAndEveryOtherNameTheNISTGenerator` |
 | Each layout of `kat_sig` joins its parts in its order | `SignedMessageForm::signedMessage`: each arm replaced | `signedMessagesJoinThePartsInTheOrderOfTheForm`, `falconFormMovesTheSaltBeforeTheMessageAndTheHeaderAfterIt` |
 | A failure on one side only is a mismatch | `agreeOnFailure`: body replaced with `Ok(())` | `aFailureOnOneSideIsAMismatchThatNamesTheSide` |
-| A changed input changes exactly one bit | `VariationGenerator::withChangedBit`: `^=` replaced with `|=` or `&=`, `/` replaced with `%` | `aChangedBitChangesExactlyOneBitAndReachesEveryBit` |
-| A non-empty context always uses the context form | `VariationGenerator::usesContextForm`: `||` replaced with `&&`, `>` replaced | `aNonEmptyContextAlwaysUsesTheContextFormAndAnEmptyOneUsesBoth` |
+| A changed input changes exactly one bit | `VariationGenerator::withChangedBit`: `^=` replaced with `\|=` or `&=`, `/` replaced with `%` | `aChangedBitChangesExactlyOneBitAndReachesEveryBit` |
+| A non-empty context always uses the context form | `VariationGenerator::usesContextForm`: `\|\|` replaced with `&&`, `>` replaced | `aNonEmptyContextAlwaysUsesTheContextFormAndAnEmptyOneUsesBoth` |
 | The variations reach each message length range | `VariationGenerator::messageLength`: `+` replaced with `*` | `messageLengthsCoverEachRangeAndStayInTheLimit` |
 | A snapshot check counts each failure | `ParityJob::snapshotCheck`: `+=` replaced | `snapshotCheckCountsEachFailureAndEachMissedDigest` |
 | The oracle build clones only a missing source | `OracleBuild::steps`: the clone condition replaced | `missingSourceIsClonedAtTheVersionTagAndThenBuilt`, `presentSourceOfTheVersionIsBuiltWithoutAClone` |
@@ -278,6 +278,46 @@ The run of 2026-10-23 on the branch `foundation/parity-blocks`, of the functions
 | Only the first block checks the base case | `ParityJob::checkBlock`: `==` replaced with `!=` | `parityJobsSplitTheVariationsOfEachAlgorithmIntoBlocksThatTheShardsSplit` |
 | A block size is a count above zero | `ParityOptions::parse`: `>` replaced | `wrongOptionsAreErrorsThatNameTheOption` |
 | A whole run keeps the summary of one job for each algorithm | `parityJobs`: the guard of the whole range replaced with `true` or `false` | `parityJobsSplitTheVariationsOfEachAlgorithmIntoBlocksThatTheShardsSplit`, `parityJobsReportExactlyTheBrokenAlgorithms` |
+
+## Latest result for HQC
+
+The runs of 2026-10-23 on the branch `family/hqc`, with `OQS_ORACLE_DIR` set to the oracle folder. The second run took the 38 missed and timed-out mutants of the first run again with `--iterate`, after the new tests, with a timeout of 600 seconds. The facade ran with the tests of `oqs-native-parity` as well.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-hqc`, first run | 864 | 793 | 9 | 33 | 29 |
+| `oqs-native-hqc`, second run of the 38 | 38 | 13 | 7 | 0 | 18 |
+| `oqs-native-hqc`, both runs | 864 | 806 | 7 | 33 | 18 |
+| `oqs-native`, with the tests of `oqs-native-parity` | 21 | 6 | 0 | 7 | 8 |
+
+The 18 missed mutants of the second run are the equivalent mutants below, and the 7 timeouts are the endless loops of the rejection sampler. The 8 missed mutants of the facade replace the signature list or the stateful list, which stay empty until the first signature family, as in the FrodoKEM run.
+
+Seven of the nine timeouts stop the rejection loop of key generation, `rejectionSupport`: the deleted `!` of line 154, `barrettReduced` replaced with 0 or with 1, and four mutants of `Parameters::rejectionThreshold`, which replace the body with 0 or with 1, `*` with `/`, or `<<` with `>>`. With each of them no candidate gives a new position, so the loop never ends. The mutant of `rejectionThreshold` that replaces `/` with `%` ends. Its threshold is above every candidate, `derivedValuesAreTheValuesOfParametersHeader` fails at once, and `barrettReductionIsTheRemainderForEveryCandidateBelowTheThreshold` then reduces about 1.7 billion candidates in place of 50 million. The ninth timeout, `ReedSolomon::errorLocator` line 96, is an equivalent mutant. Every test that ended passed, and the suite did not end in 36 seconds on a loaded machine. It is in the list below.
+
+The decoder tests of the first run decoded words with at most `delta` errors. The new tests compare the decoders and the FFT with the internal C functions of liboqs 0.16.0, also for words that the code cannot correct, for ties of the Reed-Muller peak and for any values. They kill 12 of the 29 missed mutants. The other 17 are equivalent.
+
+### Equivalent mutants
+
+- `AdditiveFFT.rs`, `errorPositions`, line 68: `^=` replaced with `|=`. Line 67 sets every entry to zero, and line 68 is the first write of entry 0. An or and an exclusive or with zero give the same value.
+- `AdditiveFFT.rs`, `errorPositions`, lines 72 and 74: `^=` replaced with `|=`. For the indices from 1 to 127, the points `sums[index]` and `sums[index] ^ 1` are the 254 field elements other than 0 and 1, each once. `evaluationsAreTheValuesAtEveryFieldElement` checks that the points of the FFT are every element once. The logarithm takes these points to 254 different entries from 1 to 254, so each entry is written once, after line 67 set it to zero.
+- `AdditiveFFT.rs`, `errorPositions`, line 73: `^` replaced with `|` in `sums[index] ^ 1`. The basis of line 17 holds 128, 64, 32, 16, 8, 4 and 2, so bit 0 of each subset sum is zero, and the two operators give the same value.
+- `AdditiveFFT.rs`, `radix`, lines 102, 120 and 130: the match arm of 16, 8 or 4 coefficients deleted. That size then takes the general conversion of line 140, `radix_big` of the C code. The split `f(x) = f0(x^2 + x) + x f1(x^2 + x)`, with `f0` and `f1` of half the size of `f`, has one solution, because `f0(x^2 + x)` has an even degree and `x f1(x^2 + x)` has an odd degree. Both conversions only add coefficients. `radixConversionIsTheSplitOfItsDefinitionAtEverySize` checks the case and the general conversion of each size against the definition for each polynomial with a single coefficient 1, so the two give the same split for every polynomial. The test passes with each of the three mutants.
+- `AdditiveFFT.rs`, `recursiveEvaluations`, line 225: `-` replaced with `/` in `basisLength - 1`. The loop of line 226 then also writes the entry `basisLength - 1` of `gammas` and `deltas` when that entry is below 6. Lines 231 and 240 read only the first `basisLength - 1` entries, and the two arrays belong to the call.
+- `BinaryVector.rs`, `supportWithoutRejection`, line 177: `|` replaced with `^`. The fold tells whether a later position equals the position at `index`. The later positions are distinct, so at most one term is 1, and the two operators give the same value. Each position is at least its own index: line 171 adds a number of at least 0 to the index, and line 179 sets a position to its own index. The loop goes down from the second last index. Before the step of an index, the positions after it are distinct. The step keeps the position when it equals none of them, or sets it to the index, which is below each of them. So the positions from the index on are distinct after the step. The proof needs `n` below `2^32`, so that the cast of line 171 keeps the number, and `n` is at most 57637.
+- `CarrylessMultiplication.rs`, `karatsubaProduct`, lines 46, 47 and 48: `*` replaced with `+` in `2 * count`. The split happens only for more than 16 words (line 40). Then the mutant gives the low, high or middle product `count + 2` words in place of `2 count`, which still holds the `2 lowCount` or `2 highCount` words of that product. The regions stay apart, and only the scratch of the next level grows. The lines after the split read the words of each product only after the product wrote them, and each product first sets its whole result to zero (lines 79 and 101). So the result depends only on the factors.
+- `CarrylessMultiplication.rs`, `karatsubaProduct`, lines 81 and 87: `^=` replaced with `|=`. Line 79 sets the result to zero. The loop of line 80 writes the words below `2 lowCount`, and the loop of line 83 writes the words from `2 lowCount` to `2 count`, each word once. So each word is zero before its write.
+- `ReedMuller.rs`, `peakPosition`, line 96: `>` replaced with `>=` in `value > 0`. The mask changes only for the value 0, where `value` and `-value` are both 0, so line 97 gives the absolute value 0 either way.
+- `ReedMuller.rs`, `peakPosition`, line 103: `+` replaced with `-`. The peak position is from 0 to 127, and the cast to `u8` keeps the number modulo 256, where `p + 128` and `p - 128` are equal.
+- `ReedSolomon.rs`, `errorLocator`, line 96: `+` replaced with `*` in the size of `savedSigma`. The array then has 29 entries in place of 30. Lines 108 and 135 use only the first `delta` entries, and `delta` is at most 29. The first run reported this mutant as a timeout.
+- `ReedSolomon.rs`, `errorLocator`, line 111: `+` replaced with `*` in `step + 1`. Step `mu` then adds the shifted polynomial and sums the discrepancy up to the coefficient `mu`, in place of `mu + 1`. Let `mu0` be the first step whose discrepancy is not zero, and `a` that discrepancy, `S_(mu0 + 1)`. Before `mu0` the shifted polynomial is `x^(mu + 1)`, but its factor is zero. After `mu0` the shifted polynomial is `x^(mu - rho)` times the locator before step `rho`, whose degree is at most `rho`, and after a step `mu` above `mu0` the degree of the locator is at most `mu`. So each coefficient `mu + 1` that the mutant leaves out is zero, except the term `a x^(mu0 + 1)` of step `mu0` and the discrepancy term `sigma_1 S_1` after step 0. For `mu0` of `delta` or more, both forms stop at `delta`. For `mu0 = 0`, the degree cannot grow at step 1, and step 1 gives the same `sigma_1` in both forms. For `mu0` from 1 to `delta - 1`, `S_1` is zero. The degree is `mu0 + 1` after step `mu0`, and a later step `mu` up to `2 mu0 + 1` has the candidate degree `mu - mu0`, so the degree does not grow and the shifted polynomial is `x^(mu - mu0)`. The discrepancies of the two forms agree up to step `2 mu0`. At step `2 mu0 + 1` the discrepancy of the mutant differs by `a^2`, so that step adds `a x^(mu0 + 1)` to the locator of the mutant, and from there on the two forms are the same. `decodingOfWordsWhoseFirstSyndromesAreZeroGivesTheMessageOfTheCFunction` feeds words whose discrepancies are zero before each step `m` from 1 to `2 delta`, and it passes with the mutant.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The Reed-Solomon decoder gives the message of the C code for a word that it cannot correct | `ReedSolomon::errorLocator`, line 130: `^=` replaced with `\|=` or `&=`, and `^` replaced with `&`, line 137: `&` replaced with `\|` or `^` | `decodingOfEveryWeightGivesTheMessageOfTheCFunction`, `decodingOfWordsWhoseFirstSyndromesAreZeroGivesTheMessageOfTheCFunction`, `decodingOfAnyWordGivesTheMessageOfTheCFunction` |
+| The Reed-Muller peak is the first largest absolute value | `ReedMuller::peakPosition`, line 101: `^=` replaced with `\|=`, and `^` replaced with `\|` | `peakFollowsEachLargerAbsoluteValueInTurn`, `decodingOfManyErrorsAndTiesGivesTheBytesOfTheCFunction`, `decodingOfAnyWordGivesTheMessageOfTheCFunction` |
+| The FFT gives the values of the C code also for coefficients at and above the count | `AdditiveFFT::evaluations`, line 48, and `recursiveEvaluations`, line 255: `/` replaced with `*` | `evaluationsGiveTheValuesOfTheCFunctionForEveryCount` |
+| The error positions take the zero tests of the C code for any values | `AdditiveFFT::errorPositions`, line 68: `^=` replaced with `&=`, line 69: `^=` replaced with `\|=` | `errorPositionsGiveThePositionsOfTheCFunctionForAnyValues` |
+| The radix conversion of two coefficients is the split of its definition | `radix`, line 136: match arm 1 deleted | `radixConversionIsTheSplitOfItsDefinitionAtEverySize` |
 
 ## History
 

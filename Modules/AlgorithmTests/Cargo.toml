@@ -22,6 +22,7 @@ oqs-native-domain = { path = "../Domain", default-features = false }
 oqs-native-entities = { path = "../Entities", default-features = false }
 oqs-native-kat-random = { path = "../KATRandom", default-features = false }
 oqs-native-sha2 = { path = "../SHA2", default-features = false }
+oqs-native-sha3 = { path = "../SHA3", default-features = false }
 
 [features]
 default = ["std"]
@@ -31,6 +32,7 @@ std = [
     "oqs-native-entities/std",
     "oqs-native-kat-random/std",
     "oqs-native-sha2/std",
+    "oqs-native-sha3/std",
 ]
 
 [lints]
