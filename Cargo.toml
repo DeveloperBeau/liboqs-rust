@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["Tools/*"]
+members = ["Modules/*", "Tools/*"]
 
 [workspace.package]
 version = "0.16.0"
@@ -12,7 +12,7 @@ repository = "https://github.com/DeveloperBeau/liboqs-rust"
 
 # Swift casing in every crate: see standards.md, section "Names and casing".
 [workspace.lints.rust]
-unsafe_code = "forbid"
+unsafe_code = "deny"
 missing_docs = "deny"
 non_snake_case = "allow"
 non_upper_case_globals = "allow"
@@ -21,3 +21,14 @@ non_camel_case_types = "allow"
 [workspace.lints.clippy]
 all = { level = "deny", priority = -1 }
 upper_case_acronyms = "allow"
+
+# The tests run thousands of cryptographic operations. The first optimization level makes
+# them fast and keeps the overflow checks and the debug assertions of a test build.
+[profile.dev]
+opt-level = 1
+
+# Keccak dominates the signature tests, and SHAKE is seven to nine times faster at the third
+# level. The override changes only the optimization, so the overflow checks and the debug
+# assertions stay on. See Documentation/Learnings/Families.md.
+[profile.dev.package.oqs-native-sha3]
+opt-level = 3

@@ -1,5 +1,7 @@
 # Settings for `cargo mutants`. Documentation/Registers/MutationResults.md holds the results.
 
-# The suite ends in about one second, so a mutant that makes a loop run forever is stopped
-# after ten seconds. The run reports it as a timeout, which counts as caught.
+# The run derives the time limit of each mutant from the time of the unmutated suite, and never
+# uses less than ten seconds. A mutant that makes a loop run forever is stopped at the limit and
+# reported as a timeout, which counts as caught. On a loaded machine a slow suite can pass the
+# limit too, so the register records how each timeout was checked by hand.
 minimum_test_timeout = 10

@@ -1,0 +1,39 @@
+[package]
+name = "oqs-native-algorithm-tests"
+description = "Test support for the algorithm families: the liboqs known-answer procedures and digests."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+# Test-only: the family crates use it in their tests.
+publish = false
+
+[package.metadata]
+ring = "infrastructure"
+
+[lib]
+name = "OQSNativeAlgorithmTests"
+path = "src/lib.rs"
+
+[dependencies]
+oqs-native-domain = { path = "../Domain", default-features = false }
+oqs-native-entities = { path = "../Entities", default-features = false }
+oqs-native-kat-random = { path = "../KATRandom", default-features = false }
+oqs-native-sha2 = { path = "../SHA2", default-features = false }
+oqs-native-sha3 = { path = "../SHA3", default-features = false }
+
+[features]
+default = ["std"]
+# Without `std` the crate builds with `core` and `alloc` only.
+std = [
+    "oqs-native-domain/std",
+    "oqs-native-entities/std",
+    "oqs-native-kat-random/std",
+    "oqs-native-sha2/std",
+    "oqs-native-sha3/std",
+]
+
+[lints]
+workspace = true

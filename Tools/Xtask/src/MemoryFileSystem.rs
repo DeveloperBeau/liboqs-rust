@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 #[derive(Default)]
 pub struct MemoryFileSystem {
     files: BTreeMap<PathBuf, String>,
+    links: BTreeMap<PathBuf, PathBuf>,
 }
 
 impl MemoryFileSystem {
@@ -23,6 +24,12 @@ impl MemoryFileSystem {
     pub fn add(&mut self, path: &str, text: &str) {
         self.files.insert(PathBuf::from(path), text.to_string());
     }
+
+    /// Adds a link at a path to another path, which `resolvedPath` follows.
+    pub fn addLink(&mut self, path: &str, target: &str) {
+        self.links
+            .insert(PathBuf::from(path), PathBuf::from(target));
+    }
 }
 
 impl FileReading for MemoryFileSystem {
@@ -35,5 +42,16 @@ impl FileReading for MemoryFileSystem {
 
     fn filePaths(&self) -> io::Result<Vec<PathBuf>> {
         Ok(self.files.keys().cloned().collect())
+    }
+
+    fn resolvedPath(&self, path: &Path) -> PathBuf {
+        let mut resolved = PathBuf::new();
+        for component in path.components() {
+            resolved.push(component);
+            if let Some(target) = self.links.get(&resolved) {
+                resolved = target.clone();
+            }
+        }
+        resolved
     }
 }

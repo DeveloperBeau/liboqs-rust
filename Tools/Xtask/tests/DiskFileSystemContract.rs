@@ -121,6 +121,37 @@ fn textReadsAFileAndFailsForAMissingFile() {
     });
 }
 
+#[cfg(unix)]
+#[test]
+fn resolvedPathFollowsALinkAndKeepsTheEndThatDoesNotExistYet() {
+    withinDeadline(
+        "resolvedPathFollowsALinkAndKeepsTheEndThatDoesNotExistYet",
+        || {
+            let repository = TemporaryRepository::new("resolvedPath", false);
+            let shared = TemporaryRepository::new("resolvedPathShared", false);
+            shared.write("0.16.0/build/CMakeCache.txt", "cache\n");
+            fs::create_dir_all(repository.root.join("target")).expect("the folder is made");
+            std::os::unix::fs::symlink(&shared.root, repository.root.join("target/oracle"))
+                .expect("the link is made");
+            let files = repository.files();
+            let sharedRoot = shared.root.canonicalize().expect("the folder exists");
+            let repositoryRoot = repository.root.canonicalize().expect("the folder exists");
+            assert_eq!(
+                files.resolvedPath(Path::new("target/oracle/0.16.0/build")),
+                sharedRoot.join("0.16.0/build")
+            );
+            assert_eq!(
+                files.resolvedPath(Path::new("target/oracle/0.17.0/source")),
+                sharedRoot.join("0.17.0/source")
+            );
+            assert_eq!(
+                files.resolvedPath(Path::new("Missing/Folder")),
+                repositoryRoot.join("Missing/Folder")
+            );
+        },
+    );
+}
+
 #[test]
 fn localGitFileTextReadsTheGitFolderAndIsNoneWithoutTheFile() {
     withinDeadline(

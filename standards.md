@@ -23,7 +23,7 @@ Code lives in rings. A crate depends only on a ring further in. `cargo xtask che
 | `entities` | Plain data types: algorithm identifiers, sizes, key and ciphertext containers, the error type | Nothing |
 | `domain` | The interface for each capability, and the logic that uses the interfaces | Entities |
 | `sharedComponents` | Primitives that more than one family uses, such as SHA-3, SHA-2 and AES | Entities, other shared components |
-| `infrastructure` | Adapters for outside services, such as OS randomness, and the test-only C oracle | Entities, the interfaces that it implements, shared components |
+| `infrastructure` | Adapters for outside services, such as OS randomness, the test-only C oracle and the test support of the families | Entities, the interfaces that it implements, shared components, other infrastructure |
 | `features` | One crate for each algorithm family | Entities, domain interfaces, shared components |
 | `composition` | The facade crate. It is the only place that builds concrete objects and wires them. | Everything except tooling |
 | `tooling` | Repository tools and test-only crates | Everything. No ring may depend on tooling. |
@@ -33,8 +33,9 @@ The project is a library. It has no UI ring. The facade crate is the composition
 Exceptions to the general rule, each with its reason:
 
 - `infrastructure` may use `sharedComponents`. The NIST KAT random generator is built on AES.
+- `infrastructure` may use another infrastructure crate. The known-answer programs of the test support build on the known-answer random generators.
 - `sharedComponents` may use another shared component. A primitive can build on another primitive.
-- A `features` crate may use `infrastructure` in its tests only. The KAT random generator is the test double for randomness.
+- A `features` crate may use `infrastructure` in its tests only. The KAT random generator is the test double for randomness, and the test support runs the known-answer programs.
 
 ### 2.2 Placement
 
@@ -50,10 +51,11 @@ Ask these questions in order:
 - Each crate declares every crate that it uses, and builds and tests alone.
 - No hidden global state. The composition root builds objects and passes them in. Write each exception where it is declared, with its reason.
 - Required dependencies are arguments. Do not give them default values.
+- Each crate below the composition ring builds without the standard library. It has a `std` feature, on by default, and its root says `#![cfg_attr(not(feature = "std"), no_std)]`. CI builds the workspace and each crate alone with `--no-default-features`. See `Documentation/Learnings/MutationTesting.md` for why `std` is on by default.
 - Randomness, time, the file system and every other outside service are reached only through an interface. Tests use doubles. The one exception is the contract test of an adapter crate, which must call the real service to prove the adapter.
 - When the same decision is written in two places, move it to one owner. Copies that agree today are still a finding.
 - No new third-party dependency without the owner's approval. `Documentation/Registers/ApprovedDependencies.md` lists each approval, and `cargo xtask check-rings` rejects every other crate.
-- `unsafe` code is forbidden in every crate. The only exceptions are listed here, each with its reason. There are none yet.
+- `unsafe` code is forbidden, except in the files that `Documentation/Registers/UnsafeCode.md` lists, each with its reason. The workspace lint `unsafe_code` is `deny`, so each use also needs `#[allow(unsafe_code)]` at its site. `cargo xtask check-unsafe` rejects `unsafe` code in any other file.
 
 ## 3. API design and code style
 

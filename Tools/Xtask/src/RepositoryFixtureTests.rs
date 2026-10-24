@@ -3,6 +3,7 @@
 
 use crate::Command;
 use crate::MemoryFileSystem;
+use crate::RecordingProcesses;
 use crate::RingCheck;
 use crate::WorkspaceLayout;
 use crate::findings;
@@ -13,6 +14,8 @@ const approvedRegister: &str =
 const acronymRegister: &str = include_str!("../../../Documentation/Registers/Acronyms.md");
 const exceptionRegister: &str =
     include_str!("../../../Documentation/Registers/NamingExceptions.md");
+const unsafeRegister: &str =
+    "| File | Reason |\n|---|---|\n| `Modules/Entities/src/Wipe.rs` | volatile writes |\n";
 
 fn cleanRepository() -> MemoryFileSystem {
     MemoryFileSystem::withFiles(&[
@@ -30,6 +33,11 @@ fn cleanRepository() -> MemoryFileSystem {
         (
             "Documentation/Registers/NamingExceptions.md",
             exceptionRegister,
+        ),
+        ("Documentation/Registers/UnsafeCode.md", unsafeRegister),
+        (
+            "Modules/Entities/src/Wipe.rs",
+            "/// Wipes.\npub fn wipe() {\n    unsafe { clear() }\n}\n",
         ),
         (
             "Modules/Entities/Cargo.toml",
@@ -52,6 +60,11 @@ fn cleanRepository() -> MemoryFileSystem {
             "//! Domain.\npub trait KeyEncapsulating { fn encapsulate(&self, publicKey: &[u8]); }\n",
         ),
         ("standards.md", "# Standards\n\nShort sentence.\n"),
+        (
+            "Documentation/Registers/TestVectors.md",
+            "# Test vectors\n\n| File | Address | SHA-256 | Source |\n|---|---|---|---|\n| `a.json` | https://example.org/a | `ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad` | test |\n",
+        ),
+        ("target/oracle/0.16.0/vectors/a.json", "abc"),
     ])
 }
 
@@ -130,7 +143,7 @@ fn realRingRegisterAllowsExactlyTheHandWrittenEdges() {
         ("sharedComponents", &["entities", "sharedComponents"], &[]),
         (
             "infrastructure",
-            &["entities", "domain", "sharedComponents"],
+            &["entities", "domain", "sharedComponents", "infrastructure"],
             &[],
         ),
         (
@@ -209,6 +222,7 @@ fn runPassesWithStatusZeroAndThePassLine() {
         &cleanRepository(),
         Some("zorblat"),
         None,
+        &mut RecordingProcesses::default(),
     );
     assert_eq!(
         report,
@@ -229,6 +243,7 @@ fn runReportsEachFindingWithStatusOneAndTheCount() {
         &files,
         None,
         Some("zorblat\n"),
+        &mut RecordingProcesses::default(),
     );
     assert_eq!(
         report,
@@ -248,18 +263,32 @@ fn runPrintsTheWordListNoteOnlyForAHygieneScanWithoutWords() {
         &cleanRepository(),
         Some(""),
         None,
+        &mut RecordingProcesses::default(),
     );
     assert_eq!(withoutWords.standardError, note);
     assert_eq!(withoutWords.exitStatus, 0);
-    let everyCheckWithoutWords = crate::run(&arguments(&["check"]), &cleanRepository(), None, None);
+    let everyCheckWithoutWords = crate::run(
+        &arguments(&["check"]),
+        &cleanRepository(),
+        None,
+        None,
+        &mut RecordingProcesses::default(),
+    );
     assert_eq!(everyCheckWithoutWords.standardError, note);
-    let ringsOnly = crate::run(&arguments(&["check-rings"]), &cleanRepository(), None, None);
+    let ringsOnly = crate::run(
+        &arguments(&["check-rings"]),
+        &cleanRepository(),
+        None,
+        None,
+        &mut RecordingProcesses::default(),
+    );
     assert_eq!(ringsOnly.standardError, "");
     let withLocalWords = crate::run(
         &arguments(&["check-hygiene"]),
         &cleanRepository(),
         None,
         Some("zorblat"),
+        &mut RecordingProcesses::default(),
     );
     assert_eq!(withLocalWords.standardError, "");
 }
@@ -273,6 +302,7 @@ fn runUsesTheWordListToFindAForbiddenWord() {
         &files,
         Some("zorblat"),
         None,
+        &mut RecordingProcesses::default(),
     );
     assert_eq!(
         report.standardOutput,
@@ -283,11 +313,137 @@ fn runUsesTheWordListToFindAForbiddenWord() {
 
 #[test]
 fn runRejectsAWrongCommandWithStatusTwoAndTheUsage() {
-    let report = crate::run(&arguments(&["build"]), &cleanRepository(), None, None);
+    let report = crate::run(
+        &arguments(&["build"]),
+        &cleanRepository(),
+        None,
+        None,
+        &mut RecordingProcesses::default(),
+    );
     assert_eq!(report.exitStatus, 2);
     assert!(report.standardOutput.is_empty());
     assert_eq!(
         report.standardError,
         format!("unknown command `build`\n\n{}\n", crate::Command::usage)
     );
+}
+
+#[test]
+fn checkCommandsRunNoProgram() {
+    let mut processes = RecordingProcesses::default();
+    crate::run(
+        &arguments(&["check"]),
+        &cleanRepository(),
+        Some("zorblat"),
+        None,
+        &mut processes,
+    );
+    assert!(processes.steps.is_empty());
+}
+
+#[test]
+fn fetchOracleRunsEachStepAndNamesTheReadyFolder() {
+    let mut processes = RecordingProcesses::default();
+    let report = crate::run(
+        &arguments(&["fetch-oracle"]),
+        &cleanRepository(),
+        None,
+        None,
+        &mut processes,
+    );
+    assert_eq!(report.exitStatus, 0, "{report:?}");
+    assert_eq!(processes.steps.len(), 3);
+    assert_eq!(processes.steps[0].program, "git");
+    let ranLines = report.standardOutput.matches("ran ").count();
+    assert_eq!(ranLines, 3);
+    assert!(
+        report
+            .standardOutput
+            .ends_with("the C oracle 0.16.0 is ready in target/oracle/0.16.0\n")
+    );
+    assert_eq!(report.standardError, "");
+}
+
+#[test]
+fn fetchOracleRejectsAVectorFileWithAnotherDigest() {
+    let mut files = cleanRepository();
+    files.add("target/oracle/0.16.0/vectors/a.json", "abd");
+    let mut processes = RecordingProcesses::default();
+    let report = crate::run(
+        &arguments(&["fetch-oracle"]),
+        &files,
+        None,
+        None,
+        &mut processes,
+    );
+    // The recorder downloads nothing, so the file keeps its other bytes.
+    assert_eq!(processes.steps.len(), 4);
+    assert_eq!(processes.steps[3].program, "curl");
+    assert_eq!(report.exitStatus, 1);
+    assert_eq!(
+        report.standardError,
+        "the vector file a.json has the SHA-256 a52d159f262b2c6ddb724a61840befc36eb30c88877a4030b65cbe86298449c9, not ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\n"
+    );
+}
+
+#[test]
+fn fetchOracleStopsAtTheFirstFailedStep() {
+    let mut processes = RecordingProcesses {
+        failingStep: Some(1),
+        ..RecordingProcesses::default()
+    };
+    let report = crate::run(
+        &arguments(&["fetch-oracle"]),
+        &cleanRepository(),
+        None,
+        None,
+        &mut processes,
+    );
+    assert_eq!(report.exitStatus, 1);
+    assert_eq!(processes.steps.len(), 2);
+    assert_eq!(report.standardOutput.matches("ran ").count(), 1);
+    assert!(
+        report
+            .standardError
+            .starts_with("`cmake -S target/oracle/0.16.0/source"),
+        "{}",
+        report.standardError
+    );
+}
+
+#[test]
+fn fetchOracleNeedsTheVersionFileAndASourceOfThatVersion() {
+    let mut processes = RecordingProcesses::default();
+    let noVersion = crate::run(
+        &arguments(&["fetch-oracle"]),
+        &MemoryFileSystem::withFiles(&[]),
+        None,
+        None,
+        &mut processes,
+    );
+    assert_eq!(noVersion.exitStatus, 1);
+    assert!(
+        noVersion
+            .standardError
+            .starts_with("LIBOQS_VERSION cannot be read")
+    );
+    let mut otherSource = cleanRepository();
+    otherSource.add(
+        "target/oracle/0.16.0/source/CMakeLists.txt",
+        "set(OQS_VERSION_MAJOR 0)\nset(OQS_VERSION_MINOR 15)\nset(OQS_VERSION_PATCH 0)\n",
+    );
+    let wrongSource = crate::run(
+        &arguments(&["fetch-oracle"]),
+        &otherSource,
+        None,
+        None,
+        &mut processes,
+    );
+    assert_eq!(wrongSource.exitStatus, 1);
+    assert!(
+        wrongSource
+            .standardError
+            .contains("holds liboqs 0.15.0, not 0.16.0")
+    );
+    assert!(processes.steps.is_empty());
 }

@@ -6,7 +6,27 @@ The rings keep each crate small and testable. A crate depends only on a ring fur
 
 ## Crates
 
-The workspace root `Cargo.toml` lists the member folders. Today the only member is `Tools/Xtask`, in the `tooling` ring. Later crates go in `Modules/<Name>/`.
+The workspace root `Cargo.toml` lists the member folders `Modules/*` and `Tools/*`.
+
+| Crate | Folder | Ring |
+|---|---|---|
+| `oqs-native-entities` | `Modules/Entities` | `entities` |
+| `oqs-native-domain` | `Modules/Domain` | `domain` |
+| `oqs-native-aes` | `Modules/AES` | `sharedComponents` |
+| `oqs-native-sha2` | `Modules/SHA2` | `sharedComponents` |
+| `oqs-native-sha3` | `Modules/SHA3` | `sharedComponents` |
+| `oqs-native-kat-random` | `Modules/KATRandom` | `infrastructure` |
+| `oqs-native-system-random` | `Modules/SystemRandom` | `infrastructure` |
+| `oqs-native-c-oracle` | `Modules/COracle` | `infrastructure` |
+| `oqs-native-algorithm-tests` | `Modules/AlgorithmTests` | `infrastructure` |
+| `oqs-native-bike` | `Modules/BIKE` | `features` |
+| `oqs-native-hqc` | `Modules/HQC` | `features` |
+| `oqs-native-ml-kem` | `Modules/MLKEM` | `features` |
+| `oqs-native-frodokem` | `Modules/FrodoKEM` | `features` |
+| `oqs-native-ml-dsa` | `Modules/MLDSA` | `features` |
+| `oqs-native` | `Modules/OQSNative` | `composition` |
+| `oqs-native-parity` | `Tools/Parity` | `tooling` |
+| `xtask` | `Tools/Xtask` | `tooling` |
 
 Each crate states its ring in its own manifest:
 
