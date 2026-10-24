@@ -1,0 +1,5 @@
+# Settings for `cargo mutants`. Documentation/Registers/MutationResults.md holds the results.
+
+# The suite ends in about one second, so a mutant that makes a loop run forever is stopped
+# after ten seconds. The run reports it as a timeout, which counts as caught.
+minimum_test_timeout = 10
