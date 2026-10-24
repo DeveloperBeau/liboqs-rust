@@ -667,6 +667,8 @@ The run of 2026-10-23 on the branch `family/uov`, before the new tests below, in
 |---|---|---|---|---|---|
 | `oqs-native-uov`, in CI | 435 | 411 | 0 | 19 | 5 |
 
+The [second run](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40041021297), on the commit of the new tests, had 435 mutants: 412 caught, no timeout, 19 unviable and 4 missed, the four equivalent mutants below.
+
 The earlier run [40026767322](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40026767322), on an earlier commit, lost shard 9 when the runner ran out of memory, because the mutant that replaces `+=` with `*=` in `Signer::firstSolution` keeps the attempt count at 0 while `theFirstSuccessGivesItsResultExceptAtTheLastAttempt` records each attempt in a list, and in this run the cap stops that test program with a failed allocation, so the mutant counts as caught. The cap also stops the unit tests of the mutant that replaces `+` with `*` in the length of P1 and P2 in `KeyGenerator::expandedPublicKey`, line 128, which asks for 13589233152 bytes.
 
 The run had no timeouts. Of the five missed mutants, one is a test gap. No caller gives `BatchedMatrix::checkShapes` a target or a triangle of another shape, so the mutant that replaces its body with `()` passed every test. `aTargetOfAnotherShapeIsRefused` and `aTriangleOfAnotherShapeIsRefused` now break each of its two assertions alone, and both fail with the mutant. The other four are equivalent.
