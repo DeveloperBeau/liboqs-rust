@@ -7,6 +7,7 @@ name = "oqs-native"
 version = "0.16.0"
 dependencies = [
  "oqs-native-bike",
+ "oqs-native-classic-mceliece",
  "oqs-native-cross",
  "oqs-native-domain",
  "oqs-native-entities",
@@ -56,6 +57,18 @@ version = "0.16.0"
 dependencies = [
  "oqs-native-domain",
  "oqs-native-entities",
+]
+
+[[package]]
+name = "oqs-native-classic-mceliece"
+version = "0.16.0"
+dependencies = [
+ "oqs-native-algorithm-tests",
+ "oqs-native-domain",
+ "oqs-native-entities",
+ "oqs-native-kat-random",
+ "oqs-native-sha3",
+ "oqs-native-sorting-network",
 ]
 
 [[package]]
