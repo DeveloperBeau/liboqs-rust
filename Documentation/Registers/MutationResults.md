@@ -495,6 +495,8 @@ The run of 2026-10-23 is the `Mutants` workflow of CI, in ten shards, on the bra
 |---|---|---|---|---|---|
 | `oqs-native-mayo` | 963 | 948 | 0 | 6 | 9 |
 
+The [second run](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40037053418), on the commit of the new test and the new forms, had 942 mutants: 936 caught, no timeout, 6 unviable and no missed mutant.
+
 The run had no timeout. Five of the six unviable mutants replace a function with `Default::default()` for a type that has no default. The sixth replaces `+` with `-` in `Parameters::publicKeyLength`, and the subtraction then overflows when the compiler evaluates the lengths of the sets.
 
 Of the nine missed mutants, one is a test gap. With `*` replaced with `/` in line 126 of `EchelonForm.rs`, the index of the clearing is `row / columnCount + unknownCount`. In every set m is below k o + 1, so the index is the same for each row, and `sampledSolution` clears the last column of the matrix only in the first row before the product `A r`. The other rows then reach the product only through the element of the randomizer after the k o unknowns, and the unit tests gave only randomizers whose element there is zero, as the signature does. The known-answer program of the unit tests now also calls `sample_solution` with the element 9, in the case `randomizerTail` of `solutionGivesTheSolutionOfTheCCodeOrNone`, and the case kills the mutant. The same case showed that the solution started as a copy of the whole randomizer, where `x <- r` of the C code copies only the k o unknowns. The solution now starts as the unknowns and a zero. The signature sets the element to zero, so its output does not change.
