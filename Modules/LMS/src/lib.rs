@@ -45,6 +45,10 @@ mod treeState;
 #[path = "TreeType.rs"]
 mod treeType;
 
+#[cfg(test)]
+#[path = "TestInputs.rs"]
+mod testInputs;
+
 use auxiliaryData::AuxiliaryData;
 use levelType::LevelType;
 pub use lms::LMS;

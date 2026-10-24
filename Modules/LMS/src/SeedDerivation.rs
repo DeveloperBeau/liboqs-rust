@@ -76,15 +76,9 @@ impl<'tree> SeedDerivation<'tree> {
 #[cfg(test)]
 mod tests {
     use super::SeedDerivation;
+    use crate::testInputs::identifierAndSeed;
+    use OQSNativeAlgorithmTests::OutputDigest;
     use OQSNativeSHA2::SHA256;
-
-    /// The identifier and the seed of the tests: the bytes 0 to 15, and 32 to 63.
-    fn identifierAndSeed() -> ([u8; 16], [u8; 32]) {
-        (
-            core::array::from_fn(|index| index as u8),
-            core::array::from_fn(|index| 32 + index as u8),
-        )
-    }
 
     #[test]
     fn valuesHashTheLayoutOfRFC8554AppendixA() {
@@ -102,31 +96,29 @@ mod tests {
 
     #[test]
     fn valuesGiveTheKnownAnswersOfHashSigs() {
-        // `OQS_LMS_NAMESPACE_hss_seed_derive` and `hss_generate_child_seed_I_value` of the C
-        // oracle, for I = 0..15, SEED = 32..63 and the leaf q = 5.
+        // `OQS_LMS_NAMESPACE_hss_seed_derive`, `hss_generate_child_seed_I_value` and
+        // `lm_ots_generate_randomizer` of the C oracle, for the leaf q = 5.
         let (identifier, seed) = identifierAndSeed();
         let derivation = SeedDerivation::new(&identifier, &seed);
-        let hex =
-            |bytes: &[u8]| -> String { bytes.iter().map(|byte| format!("{byte:02x}")).collect() };
         assert_eq!(
-            hex(&derivation.valueOf(5, 0)),
-            "09b9bb4731fb235f52aa5ab4ce59dac47a845741c6015c61cd6dafadf7f4df07"
+            OutputDigest::of(&derivation.valueOf(5, 0)),
+            "8bbfc3db36b71c2a1f448619db59a37ea1ebfc47a486d95f57b924bef0e50200"
         );
         assert_eq!(
-            hex(&derivation.valueOf(5, 264)),
-            "0c61c863f5b7fdd39330246e37cf2f182e27d7ffb18111b4795eb3905d8c79b6"
+            OutputDigest::of(&derivation.valueOf(5, 264)),
+            "ee97c1e77b1047f7752ac9d90aeb9f0d47dbda472278c2acb092de006e8f78db"
         );
         assert_eq!(
-            hex(&derivation.childSeed(5)),
-            "bf7afd272bc066ac75aa84ede3ec2f07f06d0b67fe242069883cca9c09a33f2a"
+            OutputDigest::of(&derivation.childSeed(5)),
+            "9094d27ea43ebf1e50e6efeaff39ed604f752e08fc31a89aa6569fa342be37b0"
         );
         assert_eq!(
-            hex(&derivation.childIdentifier(5)),
-            "5f0e0da7f543ed414a89cfbbcb2ed043"
+            OutputDigest::of(&derivation.childIdentifier(5)),
+            "a617d9a5b3617474b57cf61e141f108a843d6c1fa6e15483bb956f8ebb4ed7d0"
         );
         assert_eq!(
-            hex(&derivation.randomizer(5)),
-            "4d700088a6b38f5554da983d187ee3ccff2d4d052c29180b38e51804d98324bb"
+            OutputDigest::of(&derivation.randomizer(5)),
+            "9a5bdacd6600bb2233c79b2f395b970d28eadf708d62011a37782e80dae604e8"
         );
     }
 }
