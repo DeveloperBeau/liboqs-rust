@@ -107,6 +107,13 @@ You are solely responsible for determining the appropriateness of using and dist
 - The C code cites Algorithm 5 of ePrint 2021/1631 for its fixed-weight sampler of encryption, and Shuhong Gao and Todd Mateer, with the radix conversion of Bernstein, Chou and Schwabe, for its additive FFT.
 - Use in this repository: `Modules/HQC` translates the reference code and gives its bytes. The port is under MIT, which a public domain upstream allows.
 
+## BIKE
+
+- Algorithm: BIKE, Bit Flipping Key Encapsulation, by Nicolas Aragon, Paulo Barreto, Slim Bettaieb, Loïc Bidoux, Olivier Blazy, Jean-Christophe Deneuville, Philippe Gaborit, Santosh Ghosh, Shay Gueron, Tim Güneysu, Carlos Aguilar Melchor, Rafael Misoczki, Edoardo Persichetti, Nicolas Sendrier, Jean-Pierre Tillich, Valentin Vasseur and Gilles Zémor. See https://bikesuite.org.
+- BIKE in liboqs: the additional implementation of round 4 by Nir Drucker, Shay Gueron and Dusan Kostic of the AWS Cryptographic Algorithms Group, from [awslabs/bike-kem](https://github.com/awslabs/bike-kem), in `src/kem/bike/additional_r4`. liboqs names the branch `master` and no commit.
+- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. License: Apache-2.0, in the `LICENSE` file of that folder and in the `SPDX-License-Identifier` line of each file. The liboqs wrapper `src/kem/bike/kem_bike.c` is MIT.
+- Use in this repository: `Modules/BIKE` translates the portable files of that folder into Rust. The port is a modified work: it takes its random bytes as an argument, and it computes the carry-less products by another method that gives the same bytes. The crate is under MIT AND Apache-2.0.
+
 ## Test vectors
 
 - [NIST ACVP-Server](https://github.com/usnistgov/ACVP-Server), tag `v1.1.0.41`: the ML-KEM vectors. Works of the United States government are not subject to copyright in the United States.

@@ -71,3 +71,33 @@
 - Trap: the decoders of HQC give a defined output for every word, and the decapsulation of an honest ciphertext with a decryption failure depends on it. A test that decodes only words with at most `delta` errors cannot see a change of that output.
 - Finding: five mutants of the Berlekamp algorithm of `ReedSolomon::errorLocator` and two of `ReedMuller::peakPosition` passed every test of the first mutation run. They change the tracking of the degree and the choice between peaks, and every correctable word of the tests still decoded. `decodingOfEveryWeightGivesTheMessageOfTheCFunction`, `decodingOfManyErrorsAndTiesGivesTheBytesOfTheCFunction` and `decodingOfAnyWordGivesTheMessageOfTheCFunction` compare words of every weight, ties and noise with `reed_solomon_decode`, `reed_muller_decode` and `code_decode`, and kill all seven.
 - Rule: a decoder test also compares words that the code cannot correct with the C function, from no error to every symbol wrong. For a decoder that picks a peak, the words include ties.
+
+## A position of an invalid key can count as another position
+
+- Trap: a test that expects an out-of-range position of a secret key to break the decoding fails, because the decapsulation accepts the ciphertext.
+- Finding: `aChangedSecretKeyGivesTheSecretOfSigma` first set a position of `h0` of a BIKE-L1 key to `r`. A rotation by `r` coefficients reads the copies of the syndrome at their start, so the position counted as position 0, and one wrong position of 71 did not stop the decoder. The C code rotates in the same way.
+- Rule: a test of an invalid input takes its expected result from the C library or from the rule of the C code, not from the idea that an invalid input fails.
+
+## A test with a decodable ciphertext cannot see most steps of a decoder
+
+- Trap: the known answers of valid ciphertexts, and of simple hostile ones, pass with a decoder that skips a step.
+- Finding: a BIKE decoder without the gray step, or with a delta of 2 in place of 3, passed every known-answer test and the decoder tests for a ciphertext of ones and for a key with positions out of range. The later iterations repair a missing step for a decodable ciphertext, and the simple hostile inputs give the same output with or without the step. A valid ciphertext with 40 more errors gives an output that changes with each step.
+- Rule: the tests of a decoder include an input beyond its reach, with the answer of the C code. Run each step of the decoder once as deliberately wrong code against the tests.
+
+## A test of a rare path must prove that its input takes the path
+
+- Trap: a test passes for wrong code, because its input never takes the path that the test is about.
+- Finding: the reduction of BIKE drops the coefficients of a product from `2 r` up. The first test of that rule used factors whose exact product had no coefficient at `2 r` or above. The test of the mask of the error vector used one seed whose error vector had no position in the last word of `e0`, so the sampler passed without the mask.
+- Rule: a test of a rare path asserts that its input reaches the path, for example that the exact product has a coefficient from `2 r` up, or that a count of the cases over many seeds is above zero.
+
+## A loop that the release build unrolls stays a loop in the test build
+
+- Trap: the tests of a family are slow, although the release build is fast.
+- Finding: the carry-less product of BIKE first looped over the five classes of the bit positions. A product of two BIKE-L5 polynomials took 4.7 ms in the test build, and 1.6 ms with the 25 integer products written out. The `all` known-answer run of BIKE-L5 fell from about 20 seconds to 7 seconds.
+- Rule: write the innermost arithmetic of a family out in full, and measure it in the test build as well as in the release build.
+
+## A test of a word that is not zero must reach its top bit
+
+- Trap: the comparison of decapsulation of BIKE gathers the differences of two error vectors in one 64-bit word and tests the word with `(x | -x) >> 63`. The mutant `(x ^ -x) >> 63` gives the same answer for every value but `2^63`, so every test passed with it.
+- Finding: a ciphertext whose decoded error differs from the rebuilt error only in the coefficients 63 and 127 gathers the difference `2^63` alone. The C code compares bytes and rejects it, and the mutant accepted it.
+- Rule: a rejection test of a comparison that gathers into a word also puts the whole difference in the top bit of the word. `aDecodedErrorThatDiffersOnlyInTheTopBitOfTwoWordsIsRejected` is the template.
