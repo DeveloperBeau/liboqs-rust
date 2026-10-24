@@ -221,3 +221,15 @@
 - **Trap.** A test that passes against a deliberate defect looks too weak, when the defect changes nothing.
 - **Finding.** The first defect of the 3-bit padding check of CROSS used the mask `(0xFF << (n * 3)) & 0xFF`. For the 3 or 7 values after the last group of 8 in the RSDP sets, the shift is 9 or 21 bits, so this mask is zero as well, and every test passed. The mask `0xFF << (3 n mod 8)` of the real padding bits failed three tests.
 - **Rule.** Before a deliberate defect judges a test, check that the defect changes what the code computes, for example with the values of the changed expression for the inputs of the tests.
+
+## A guard that no caller trips needs a test that trips it
+
+- **Trap.** An assertion that checks the shapes of the arguments of an internal function never fails in a test, because every caller passes the right shapes. The mutant that replaces the body of the check with `()` passes every test.
+- **Finding.** The CI run of `oqs-native-uov` missed `BatchedMatrix::checkShapes` replaced with `()`. Without the check, `addTriangleProduct` takes a triangle that is one entry short and a target that is one entry long with no panic. `aTargetOfAnotherShapeIsRefused` and `aTriangleOfAnotherShapeIsRefused` each break one of the two assertions alone, and both failed with the mutant.
+- **Rule.** Give each assertion of a guard a test with `#[should_panic(expected = ...)]`, the message of that assertion and an input that breaks that assertion alone. The message keeps a panic of another kind, such as an index out of range, from passing the test. `bytesOfAnotherShapeAreRefused` in `OilMatrix.rs` of UOV is the template.
+
+## A capacity request outside `with_capacity` gives equivalent mutants
+
+- **Trap.** A mutant of the size that `reserve_exact` requests changes only the capacity of the vector. The bytes stay the same, and every test passes.
+- **Finding.** The CI run of `oqs-native-uov` missed `+` replaced with `*` and with `-` in `signature.reserve_exact(oilValues.len() + saltLength)` of `Signer::signature`. By default cargo-mutants 27.1.0 makes no mutant in the arguments of a call named `with_capacity`, through its setting `skip_calls`, so `Vec::with_capacity(publicSeedLength + oilBlock.len())` in `KeyGenerator::compressedPublicKey` gave no mutant. The tool mutates the arguments of `reserve_exact`.
+- **Rule.** Make a new vector of a known length with `Vec::with_capacity`. For a request that grows a vector that exists, check that no changed request can panic, with no subtraction below zero in the test build and no request above the cap of the test program, and record the mutants as equivalent with the values on both sides.
