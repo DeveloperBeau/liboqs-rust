@@ -155,3 +155,9 @@
 - Trap: a fuzz test of signing with hostile keys hangs when a key passes every check of the C code and reaches a loop that never ends.
 - Finding: a `Falcon-512` secret key with `F = 0` decodes, and its `G` is 0, so it passes the checks of `do_sign`. The C library did not return in 120 seconds, and the port did not return in 300 seconds. In the fuzz tests, every random secret key fails the checks, because it has a forbidden value or a `G` out of range.
 - Rule: the fuzz tests of a scheme with a retry loop use hostile inputs that the checks refuse, and the architecture page of the family names the inputs that reach the loop. A guard that the C code does not have is a decision for the owner.
+
+## A failure that no key reaches can be reachable at its own level
+
+- Trap: a failure check that the documentation calls unreachable has no test, and the mutant that disables the check survives.
+- Finding: `SolverFailure::depthOne` said that no known input reaches it, and `||` replaced with `&&` in its check survived the first mutation run of `oqs-native-falcon`. `solve_NTRU_binary_depth1` with deeper values that no deeper level of a key gives fails for 3 of 15 seeds, and the port fails for the same three. `depthOneGivesTheValuesOfSolveNTRUBinaryDepth1AndFailsWhereItFails` and `intermediateLevelsGiveTheValuesOfSolveNTRUIntermediateAndFailWhereItFails` give such values to each level.
+- Rule: before the documentation calls a failure path unreachable, run its C function on hostile inputs of its own level. A path that such inputs reach gets a known-answer test at that level.

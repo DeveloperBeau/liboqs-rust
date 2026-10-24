@@ -125,3 +125,33 @@
 - **Trap.** Each shard of a workflow ran the same setup before its own part: the build of the C oracle, the release build of the parity program, and the install of cargo-mutants.
 - **Finding.** A shard of the parity gate spent about three minutes on the build of the C oracle before 40 seconds of parity, and the shards of a mutation run each spent about as long on the oracle. When fifteen shards start at once, they race to save the same cache key, so most of them miss it and build the oracle again.
 - **Rule.** One job builds what every shard needs. The shards depend on it, restore the oracle with `fail-on-cache-miss`, and take a program from its artifact, so a shard builds only what is its own, such as the mutants of its part.
+
+## The diff of a mutant, not its name, gives its value
+
+- **Trap.** A copy of a mutant in another language, written from the name of the mutant, can compute another value than the mutant.
+- **Finding.** cargo-mutants replaces the text of the operator. For "replace `*` with `+`" in `average - 6 * deviation` of `NTRUSolver::reduce`, the mutated line reads `average - 6 + deviation`, which is `(average - 6) + deviation`. The first C copy of the mutant computed `average - (6 + deviation)`, which moves the start of the scale of k the other way.
+- **Rule.** Write the copy of a mutant from the text of its diff in the `diff` folder of `mutants.out`.
+
+## A path that random inputs never take needs an input built from its condition
+
+- **Trap.** A mutant of a rare path of an approximate algorithm survives millions of random inputs.
+- **Finding.** `zint_bezout` negates a only when the top words of the two values put a above b while a is below b. 20 million pairs of random and of nearly equal values never negated a in a pair whose GCD is 1, so two mutants of the negation of the factors of a survived. The condition of the second step gives the pair `x = 2^k (3 b + 2) + 1` and `y = 2^k b + 2^k - 1`, whose first reduction negates a. A C copy of `zint_bezout` that counts the negations confirmed it for each of the 28 such pairs of `bezoutGivesTheCoefficientsOfZintBezoutForEveryKindOfPair`.
+- **Rule.** When random inputs do not take a path, write down the condition of the path and build the input from it. Prove with a counting copy of the C function that the input takes the path.
+
+## A mutant that only slows a loop down needs the slowest inputs
+
+- **Trap.** A mutant that makes an algorithm with a fixed count of steps converge more slowly gives the same result for every input that converges early, which is nearly every random input.
+- **Finding.** The mutant of `BigInteger::bezout` that skips the top words where a and b are equal gave the result of `zint_bezout` for 400000 random pairs. A hill climb over pairs, which maximizes the last reduction after which a is not 1, found pairs with top words of all ones that need the whole count of reductions of the mutant. A seed search of `LinearCongruentialSequence` then found three seeds whose pairs of that shape kill it. The climb also measures the margin of the mutants that it cannot push over the count: the copies that drop the second top word need at most 2 length of the 2 length + 1 reductions.
+- **Rule.** When a mutant only changes the speed of a loop with a fixed count of steps, climb on the count of steps. Kill the mutant with the slowest inputs, or record the margin that the climb found.
+
+## A copy of a shared decision keeps the mutants of the copy
+
+- **Trap.** A decision that one function owns, written again inside another function, needs its own tests of each path. The tests of the owner do not reach the copy.
+- **Finding.** The saturated squared norm of `poly_small_sqnorm`, `is_short` and `do_sign_dyn` was written three times, in `SignatureNorm`, in `KeyGenerator::isNormBelowBound` and in `Signer::shortVector`. No test reached the saturation of the two copies, and three of their mutants survived. `SignatureNorm::saturatedSquaredNorm` is now the one owner, and `saturatedSquaredNormIsTheSumBelow2To31AndElseSaturates` tests both sides of the saturation.
+- **Rule.** A survivor in a copy of a decision is the finding of section 2.3 of `standards.md`. Move the decision to one owner and test the owner.
+
+## A sticky bit differs from its mutant only at a tie
+
+- **Trap.** An or of two words, or of a word and its negation, that sets a sticky bit or tests for zero gives the same bit as an exclusive or, except when the two words are equal or the word is `2^31`. Random operands never meet these ties.
+- **Finding.** In `FloatingPoint.rs`, the sticky bit of a product, `z0 | z1`, and the sticky bit of the dropped bits of a rounding, at lines 117 and 118 of the first Falcon run, survived 20000 random products and conversions. Products whose low limbs are equal, which a C search found, and values with one dropped bit at each position kill the three mutants. The limb comparisons of `GaussianSampler::halfGaussian` survived in the same way, and values next to each table value kill them.
+- **Rule.** For each sticky bit, zero test and limb comparison, the tests include the inputs at its ties: equal limbs, a single set bit at each position, and the values next to each bound.
