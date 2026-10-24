@@ -17,13 +17,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  mutants:
+  prepare:
+    # The one build of the C oracle and the one install of cargo-mutants. The shards take
+    # both from the caches that this job fills.
     runs-on: ubuntu-latest
-    timeout-minutes: 360
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
       - name: Install the pinned toolchain
@@ -44,6 +42,31 @@ jobs:
           key: oracle-${{ runner.os }}-${{ hashFiles('LIBOQS_VERSION', 'Tools/Xtask/src/OracleBuild.rs') }}
       - name: Build the C oracle
         run: cargo xtask fetch-oracle
+
+  mutants:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Restore cargo-mutants of the prepare job
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cargo/bin/cargo-mutants
+          key: cargo-mutants-27.1.0-${{ runner.os }}
+          fail-on-cache-miss: true
+      - name: Restore the C oracle of the build job
+        uses: actions/cache/restore@v4
+        with:
+          path: target/oracle
+          key: oracle-${{ runner.os }}-${{ hashFiles('LIBOQS_VERSION', 'Tools/Xtask/src/OracleBuild.rs') }}
+          fail-on-cache-miss: true
       - name: Mutation tests of the shard
         run: |
           # A branch `mutants/<package>.<label>` runs the package again on another commit.

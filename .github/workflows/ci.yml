@@ -10,7 +10,34 @@ permissions:
   contents: read
 
 jobs:
+  build:
+    # The one build of the C oracle and of the release parity program. The jobs after it take
+    # the oracle from the cache that this job fills and the program from its artifact, so no
+    # shard builds either of them again.
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Restore the C oracle
+        uses: actions/cache@v4
+        with:
+          path: target/oracle
+          key: oracle-${{ runner.os }}-${{ hashFiles('LIBOQS_VERSION', 'Tools/Xtask/src/OracleBuild.rs') }}
+      - name: Build the C oracle
+        run: cargo xtask fetch-oracle
+      - name: Build the parity program
+        run: cargo build --release --locked -p oqs-native-parity
+      - name: Keep the parity program
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity
+          path: target/release/parity
+          retention-days: 1
+
   checks:
+    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -19,13 +46,12 @@ jobs:
         run: rustup show active-toolchain || rustup toolchain install
       - name: Format
         run: cargo fmt --all --check
-      - name: Restore the C oracle
-        uses: actions/cache@v4
+      - name: Restore the C oracle of the build job
+        uses: actions/cache/restore@v4
         with:
           path: target/oracle
           key: oracle-${{ runner.os }}-${{ hashFiles('LIBOQS_VERSION', 'Tools/Xtask/src/OracleBuild.rs') }}
-      - name: Build the C oracle
-        run: cargo xtask fetch-oracle
+          fail-on-cache-miss: true
       - name: Lint
         run: cargo clippy --workspace --all-targets --locked
       - name: Build without the standard library
@@ -50,12 +76,19 @@ jobs:
             if [ -n "$word" ]; then echo "::add-mask::$word"; fi
           done
           cargo xtask check
+      - name: Fetch the parity program of the build job
+        uses: actions/download-artifact@v4
+        with:
+          name: parity
+      - name: Make the parity program executable
+        run: chmod +x parity
       - name: Known answers of the C library through the Rust harness
-        run: cargo run --release --locked -p oqs-native-parity -- known-answers --all --processes 4
+        run: ./parity known-answers --all --processes 4
       - name: Snapshot of the C library
-        run: cargo run --release --locked -p oqs-native-parity -- snapshot --check --processes 4
+        run: ./parity snapshot --check --processes 4
 
   parity:
+    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 360
     strategy:
@@ -63,17 +96,13 @@ jobs:
       matrix:
         shard: [0, 1, 2, 3]
     steps:
-      - uses: actions/checkout@v5
-      - name: Install the pinned toolchain
-        run: rustup show active-toolchain || rustup toolchain install
-      - name: Restore the C oracle
-        uses: actions/cache@v4
+      - name: Fetch the parity program of the build job
+        uses: actions/download-artifact@v4
         with:
-          path: target/oracle
-          key: oracle-${{ runner.os }}-${{ hashFiles('LIBOQS_VERSION', 'Tools/Xtask/src/OracleBuild.rs') }}
-      - name: Build the C oracle
-        run: cargo xtask fetch-oracle
+          name: parity
+      - name: Make the parity program executable
+        run: chmod +x parity
       - name: Parity with 100 variations of each algorithm
         # The gate workflow runs the 1000 variations. Blocks of 10 variations spread a slow
         # algorithm over every shard and process.
-        run: cargo run --release --locked -p oqs-native-parity -- run --cases 100 --block-size 10 --shard ${{ matrix.shard }}/4 --processes 4
+        run: ./parity run --cases 100 --block-size 10 --shard ${{ matrix.shard }}/4 --processes 4
