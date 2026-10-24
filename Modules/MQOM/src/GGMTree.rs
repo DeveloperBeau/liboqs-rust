@@ -130,9 +130,11 @@ impl GGMTree {
                 isKnown[left + 1] = true;
             }
         }
-        let mut leaves = nodes.split_off(leafCount * seedLength);
-        leaves[hiddenLeaf * seedLength..(hiddenLeaf + 1) * seedLength].fill(0);
-        leaves
+        // No line writes the hidden leaf, so it keeps the zero of `nodes`. Its ancestors are
+        // never known: the path holds their siblings, and a child is known only when its
+        // parent is. The C code clears the hidden leaf because its array of nodes is not
+        // initialized.
+        nodes.split_off(leafCount * seedLength)
     }
 }
 
