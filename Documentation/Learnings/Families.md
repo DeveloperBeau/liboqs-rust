@@ -443,3 +443,9 @@
 - Trap: LMS hashes millions of inputs of 55 bytes for one tree, so the port of a key pair was slower than the C code with the shared SHA-256.
 - Finding: 10 million hashes of 55 bytes took 5.3 to 5.8 s with the byte loop of `SHA256::absorb`, 4.0 to 4.2 s with copies of whole pieces, and 4.0 to 5.2 s in the C code, on the same busy machine.
 - Rule: a shared hash function copies whole pieces of its input. A family that hashes short inputs measures the shared function on its own input size against the C code.
+
+## A parity run of a stateful scheme needs a working key on both sides
+
+- Trap: `parity run --only` over the LMS sets of trees of height 10 took six to eleven minutes for each set, and a set of height 15 would take about a day.
+- Finding: the C side signed the 1000 variations with one `OracleWorkingKey`, but the Rust side signed each one with `StatefulSigning::sign`, which loads the private key of LMS for each signature, at the cost of about one key generation: 0.4 s for each variation of `LMS_SHA256_H10_W1` and about 85 s for `LMS_SHA256_H15_W8`.
+- Rule: the parity check of a registered LMS set signs on the Rust side with an `LMSWorkingKey` too, through `StatefulParity::signingLMSWithAWorkingKey`. The tests of the crate prove that the working key and `sign` give the same bytes at each count, and the harness tests keep the plain check for schemes with defects.

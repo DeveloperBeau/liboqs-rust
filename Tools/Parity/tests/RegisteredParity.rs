@@ -96,6 +96,7 @@ fn statefulFailures(isSelected: fn(&str) -> bool) -> Vec<String> {
         .map(|scheme| {
             Box::new(move || {
                 StatefulParity::new(*scheme, settings.seed)
+                    .signingLMSWithAWorkingKey()
                     .checkEveryCase(settings.caseCount)
                     .map(|_| ())
                     .map_err(|mismatch| mismatch.to_string())

@@ -1,5 +1,6 @@
 use crate::kemParity::{agree, countingEntropy};
 use crate::{ParityMismatch, VariationGenerator};
+use OQSNative::{LMS, LMSWorkingKey};
 use OQSNativeCOracle::{COracle, OracleRandomness, OracleWorkingKey};
 use OQSNativeDomain::{KeyStatePersisting, StatefulSigning};
 use OQSNativeEntities::{KeyPair, OQSError, SecretBytes};
@@ -18,16 +19,35 @@ use OQSNativeKATRandom::NISTKATRandom;
 /// A case needs the key of the case before it, so a scheme is one check from its base case to
 /// its last variation, and the run signs at most the remaining count of the key. The C side
 /// signs LMS with an `OracleWorkingKey`, because `OQS_SIG_STFL_sign` loads a new working key for
-/// each LMS signature at the cost of about one key generation.
+/// each LMS signature at the cost of about one key generation. The Rust side signs with
+/// `StatefulSigning::sign`, or, after `signingLMSWithAWorkingKey`, signs a registered LMS set with
+/// an `LMSWorkingKey` for the same reason.
 pub struct StatefulParity<'scheme> {
     scheme: &'scheme dyn StatefulSigning,
     seed: u64,
+    workingKeyScheme: Option<LMS>,
 }
 
 impl<'scheme> StatefulParity<'scheme> {
     /// Makes the check of a scheme with the seed of a run.
     pub fn new(scheme: &'scheme dyn StatefulSigning, seed: u64) -> Self {
-        StatefulParity { scheme, seed }
+        StatefulParity {
+            scheme,
+            seed,
+            workingKeyScheme: None,
+        }
+    }
+
+    /// The same check, in which the Rust side signs an LMS set with an `LMSWorkingKey` of the
+    /// registered set of the name of the scheme, loaded once from the key of the base case.
+    /// `StatefulSigning::sign` of LMS loads the key for each signature at the cost of about one
+    /// key generation, and the tests of the LMS crate prove that both give the same signature
+    /// and the same advanced key at each count. A scheme of any other name signs as before. Use
+    /// it only for the registered schemes: a scheme under test with a defect would sign through
+    /// the registered set and hide the defect.
+    pub fn signingLMSWithAWorkingKey(mut self) -> Self {
+        self.workingKeyScheme = LMS::named(self.scheme.description().name);
+        self
     }
 
     /// The key pair of the base case of the C scheme of a name.
@@ -75,9 +95,11 @@ impl<'scheme> StatefulParity<'scheme> {
             .remainingSignatureCount()
             .map_err(|error| mismatch("C base case", error.to_string()))?;
         let variationCount = caseCount.min(remaining);
-        let mut rustKey = rustKeys.secretKey;
+        let mut rustSigner =
+            RustSigner::new(self.scheme, self.workingKeyScheme, rustKeys.secretKey)
+                .map_err(|error| mismatch("Rust base case", error.to_string()))?;
         for case in 0..variationCount {
-            self.checkCase(case, &mut cSigner, &mut rustKey, &cKeys.publicKey)?;
+            self.checkCase(case, &mut cSigner, &mut rustSigner, &cKeys.publicKey)?;
         }
         Ok(variationCount)
     }
@@ -88,7 +110,7 @@ impl<'scheme> StatefulParity<'scheme> {
         &self,
         case: u64,
         cSigner: &mut CSigner,
-        rustKey: &mut SecretBytes,
+        rustSigner: &mut RustSigner,
         publicKey: &[u8],
     ) -> Result<(), ParityMismatch> {
         let name = self.scheme.description().name;
@@ -112,7 +134,7 @@ impl<'scheme> StatefulParity<'scheme> {
 
         let cSignature = cSigner.sign(&message);
         let mut saved = SavedKeys::default();
-        let rustSignature = self.scheme.sign(&message, rustKey, &mut saved);
+        let rustSignature = rustSigner.sign(&message, &mut saved);
         let (cSignature, rustSignature) = match (cSignature, rustSignature) {
             (Ok(cSignature), Ok(rustSignature)) => (cSignature, rustSignature),
             (cResult, rustResult) => {
@@ -128,7 +150,11 @@ impl<'scheme> StatefulParity<'scheme> {
             ));
         };
         compare("advanced key", cSigner.secretKey(), savedKey)?;
-        compare("key in memory", cSigner.secretKey(), rustKey.bytes())?;
+        compare(
+            "key in memory",
+            cSigner.secretKey(),
+            rustSigner.secretKey().bytes(),
+        )?;
 
         let cVerifies = |signature: &[u8], message: &[u8]| {
             COracle::new(OracleRandomness::nist([0; 48]))
@@ -184,7 +210,9 @@ impl<'scheme> StatefulParity<'scheme> {
         }
 
         let cRemaining = cSigner.remainingSignatureCount();
-        let rustRemaining = self.scheme.remainingSignatureCount(rustKey.bytes());
+        let rustRemaining = self
+            .scheme
+            .remainingSignatureCount(rustSigner.secretKey().bytes());
         agreeOnCount(&cRemaining, &rustRemaining)
             .map_err(|detail| mismatch("remaining count", detail))
     }
@@ -258,6 +286,54 @@ impl CSigner {
             CSigner::serializedKey { name, secretKey } => {
                 oracle.totalSignatureCount(name, secretKey.bytes())
             }
+        }
+    }
+}
+
+/// The Rust side of the variations of a key.
+///
+/// With a working key scheme, an LMS key signs with an `LMSWorkingKey`, which loads once. Its
+/// signature at each count is the signature of `StatefulSigning::sign` at that count, which loads
+/// the key for each signature. Any other key signs with `StatefulSigning::sign`.
+enum RustSigner<'scheme> {
+    workingKey(LMSWorkingKey),
+    serializedKey {
+        scheme: &'scheme dyn StatefulSigning,
+        secretKey: SecretBytes,
+    },
+}
+
+impl<'scheme> RustSigner<'scheme> {
+    fn new(
+        scheme: &'scheme dyn StatefulSigning,
+        workingKeyScheme: Option<LMS>,
+        secretKey: SecretBytes,
+    ) -> Result<Self, OQSError> {
+        match workingKeyScheme {
+            Some(lms) => Ok(RustSigner::workingKey(lms.workingKey(secretKey.bytes())?)),
+            None => Ok(RustSigner::serializedKey { scheme, secretKey }),
+        }
+    }
+
+    /// Signs a message, saves the advanced key and then releases the signature.
+    fn sign(
+        &mut self,
+        message: &[u8],
+        persisting: &mut dyn KeyStatePersisting,
+    ) -> Result<Vec<u8>, OQSError> {
+        match self {
+            RustSigner::workingKey(workingKey) => workingKey.sign(message, persisting),
+            RustSigner::serializedKey { scheme, secretKey } => {
+                scheme.sign(message, secretKey, persisting)
+            }
+        }
+    }
+
+    /// The serialized key after the last signature.
+    fn secretKey(&self) -> SecretBytes {
+        match self {
+            RustSigner::workingKey(workingKey) => workingKey.secretKey(),
+            RustSigner::serializedKey { secretKey, .. } => secretKey.clone(),
         }
     }
 }

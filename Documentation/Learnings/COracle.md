@@ -81,7 +81,7 @@
 | `XMSSMT-SHA2_40/2_256` | about 3900 | about 0.005 | | |
 | `XMSSMT-SHA2_60/3_256` | about 5800 | about 0.008 | | |
 
-- Rule: `SuiteSample` keeps the default test suite to the stateful sets whose largest tree has a height of 10 or less, and `parity run` skips a set of a tree of height 20 or more unless `--large-trees` includes it. A parity run of a large tree costs one key generation on the C side, and for an LMS tree of height 20 or more a second one, the first load of the working key. The Rust side adds the key generation of the port.
+- Rule: `SuiteSample` keeps the default test suite to the stateful sets whose largest tree has a height of 10 or less, and `parity run` skips a set of a tree of height 20 or more unless `--large-trees` includes it. A parity run of a large tree costs one key generation on the C side, and for an LMS tree of height 20 or more a second one, the first load of the working key. The Rust side adds the key generation of the port, and for LMS one load of its `LMSWorkingKey`, which costs about one more.
 
 ## The serialized LMS key is longer than the key length of liboqs
 

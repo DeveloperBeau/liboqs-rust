@@ -47,12 +47,7 @@ fn printLine(line: String) {
 }
 
 fn run(options: &ParityOptions) -> usize {
-    let jobs = ParityJob::parityJobs(
-        Registry::mechanisms(),
-        Registry::signatureSchemes(),
-        Registry::statefulSignatureSchemes(),
-        options,
-    );
+    let jobs = ParityJob::registryParityJobs(options);
     let skippedLines = ParityJob::skippedLines(Registry::statefulSignatureSchemes(), options);
     let algorithmCount = jobs
         .iter()

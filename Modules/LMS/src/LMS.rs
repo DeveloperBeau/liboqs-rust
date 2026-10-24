@@ -137,6 +137,15 @@ impl LMS {
         &LMS::lmsSHA256H20W8H20W8,
     ];
 
+    /// The set of a liboqs name, such as `LMS_SHA256_H10_W4_H5_W8`, or `None` for a name that
+    /// is not an LMS set.
+    pub fn named(name: &str) -> Option<LMS> {
+        parameters::allParameters
+            .iter()
+            .find(|parameters| parameters.description.name == name)
+            .map(|parameters| LMS::of(parameters))
+    }
+
     /// The scheme of a parameter set.
     pub(crate) const fn of(parameters: &'static Parameters) -> LMS {
         LMS { parameters }
@@ -224,5 +233,27 @@ impl StatefulSigning for LMS {
         Ok(PrivateKey::ofSecretKey(secretKey)?
             .parameterSet()
             .maximumCount())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LMS;
+    use crate::parameters::allParameters;
+    use OQSNativeDomain::StatefulSigning;
+
+    #[test]
+    fn theSchemesAndTheNamesGiveEverySetInTheOrderOfLiboqs() {
+        assert_eq!(LMS::schemes.len(), allParameters.len());
+        for (scheme, parameters) in LMS::schemes.iter().zip(allParameters) {
+            let name = parameters.description.name;
+            assert_eq!(scheme.description().name, name);
+            assert_eq!(
+                LMS::named(name).map(|named| named.description().name),
+                Some(name)
+            );
+        }
+        assert!(LMS::named("LMS_SHA256_H5_W3").is_none());
+        assert!(LMS::named("XMSS-SHA2_10_256").is_none());
     }
 }
