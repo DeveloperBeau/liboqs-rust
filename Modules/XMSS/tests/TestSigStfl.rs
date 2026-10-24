@@ -1,5 +1,7 @@
-//! The tests of liboqs `tests/test_sig_stfl.c` for XMSS and XMSS^MT: the key pairs, the key after
-//! each signature, the counts, the store of the advanced key, and each rejection path.
+//! The correctness test of liboqs `tests/test_sig_stfl.c` through
+//! `StatefulSignatureCorrectnessTest`, and the tests of XMSS and XMSS^MT: the key pairs, the key
+//! after each signature, the edges of the index and of the identifier, the store of the advanced
+//! key, the counts and each rejection path.
 //!
 //! The known answers come from the C library of the oracle. A C program made the key pair of each
 //! response file with the NIST generator seeded with the bytes 0 to 47, signed sequences of
@@ -7,12 +9,16 @@
 //! each key. Valgrind reported no access outside the buffers of the C code for any of these
 //! cases. The program is not part of the repository.
 
-use OQSNativeAlgorithmTests::{ResponseFile, TestVectorFiles};
+use OQSNativeAlgorithmTests::{
+    FuzzRandom, ResponseFile, StatefulSignatureCorrectnessTest, StatefulTreeHeight, TestVectorFiles,
+};
 use OQSNativeDomain::{KeyStatePersisting, RandomGenerating, StatefulSigning};
 use OQSNativeEntities::{OQSError, SecretBytes};
 use OQSNativeKATRandom::NISTKATRandom;
 use OQSNativeSHA2::SHA256;
 use OQSNativeXMSS::{XMSS, XMSSMT};
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// A store that records each saved key, or refuses each save.
 struct RecordingStore {
@@ -102,6 +108,66 @@ fn withIndex(key: &[u8], indexLength: usize, index: u64) -> SecretBytes {
     let mut bytes = key.to_vec();
     bytes[4..4 + indexLength].copy_from_slice(&index.to_be_bytes()[8 - indexLength..]);
     SecretBytes::new(bytes)
+}
+
+// The correctness program.
+
+/// The seed of the random source of the correctness program. A failure message names it.
+const correctnessSeed: u64 = 0x5445_5354_5354_464C;
+
+/// Runs the correctness program of `tests/test_sig_stfl.c` on each set whose name passes a
+/// filter, with the response file of the set, as `test_cmdline.py` of liboqs runs it, on every
+/// processor. Returns the failures.
+fn correctnessFailures(isSelected: fn(&str) -> bool) -> Vec<String> {
+    let schemes: Vec<&dyn StatefulSigning> = XMSS::schemes
+        .iter()
+        .chain(XMSSMT::schemes)
+        .copied()
+        .filter(|scheme| isSelected(scheme.description().name))
+        .collect();
+    let next = AtomicUsize::new(0);
+    let failures = Mutex::new(Vec::new());
+    let workers = std::thread::available_parallelism().map_or(1, usize::from);
+    std::thread::scope(|scope| {
+        for _ in 0..workers.min(schemes.len()) {
+            scope.spawn(|| {
+                while let Some(scheme) = schemes.get(next.fetch_add(1, Ordering::SeqCst)) {
+                    let name = scheme.description().name;
+                    let file = TestVectorFiles::responseFile(name)
+                        .unwrap_or_else(|message| panic!("{message}"));
+                    let mut random = FuzzRandom::seeded(correctnessSeed);
+                    if let Err(message) =
+                        StatefulSignatureCorrectnessTest::run(*scheme, &mut random, Some(&file))
+                    {
+                        let failure = format!("{message}, seed {correctnessSeed:#x}");
+                        failures.lock().expect("the failure list").push(failure);
+                    }
+                }
+            });
+        }
+    });
+    failures.into_inner().expect("the failure list")
+}
+
+/// True for a set whose key pairs in the correctness program build no tree above height 5. The
+/// program reads the key pairs of the sets of large trees from the response file, and the
+/// XMSS^MT sets of 4, 8 and 12 layers have trees of height 5.
+fn buildsNoTreeAboveHeight5(name: &str) -> bool {
+    StatefulSignatureCorrectnessTest::responseFileKeyPairSchemes.contains(&name)
+        || StatefulTreeHeight::largest(name).is_some_and(|height| height <= 5)
+}
+
+#[test]
+fn testSigStflPassesForEachSetThatBuildsNoTreeAboveHeight5() {
+    let failures = correctnessFailures(buildsNoTreeAboveHeight5);
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+#[ignore = "the correctness program makes three key pairs of each set, and the key pairs of the 13 sets with trees of height 10 take four minutes of processor time"]
+fn testSigStflPassesForEverySet() {
+    let failures = correctnessFailures(|_| true);
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
 // Key pairs.
@@ -1153,16 +1219,12 @@ fn verificationRefusesEachInputOfAnotherLengthOrIdentifierAndAcceptsTheRightOnes
         assert!(!scheme.isValidSignature(&signature, b"message", &longerKey));
         assert!(!scheme.isValidSignature(&[], b"message", &publicKey));
         assert!(!scheme.isValidSignature(&signature, b"message", &[]));
-        // `test_invalid_sig` of test_sig_stfl.c: the identifier of another set in the public
-        // key, as in GHSA-2wxh-55qf-c7wg, is refused before the signature is read.
+        // The identifier of another set in the public key, as in GHSA-2wxh-55qf-c7wg, is refused
+        // before the signature is read, so the valid signature fails with it.
         let mut otherIdentifier = publicKey.clone();
         otherIdentifier[3] ^= 0x03;
         assert!(
             !scheme.isValidSignature(&signature, b"message", &otherIdentifier),
-            "{name}"
-        );
-        assert!(
-            !scheme.isValidSignature(&[0u8; 10], b"test", &otherIdentifier),
             "{name}"
         );
         assert!(!scheme.isValidSignature(&vec![0u8; signature.len()], b"test", &publicKey));
