@@ -18,12 +18,28 @@ name = "oqs-native-entities"
 version = "0.16.0"
 
 [[package]]
+name = "oqs-native-kat-random"
+version = "0.16.0"
+dependencies = [
+ "oqs-native-aes",
+ "oqs-native-domain",
+ "oqs-native-sha3",
+]
+
+[[package]]
 name = "oqs-native-sha2"
 version = "0.16.0"
 
 [[package]]
 name = "oqs-native-sha3"
 version = "0.16.0"
+
+[[package]]
+name = "oqs-native-system-random"
+version = "0.16.0"
+dependencies = [
+ "oqs-native-domain",
+]
 
 [[package]]
 name = "xtask"
