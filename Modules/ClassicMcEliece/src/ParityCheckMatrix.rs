@@ -368,12 +368,29 @@ mod tests {
     }
 
     #[test]
-    fn twoEqualOrderValuesGiveNoKey() {
+    fn twoEqualOrderValuesGiveNoKeyAlsoWhenTheirOrderGivesAKey() {
+        // `pk_gen` of liboqs 0.16.0 gives a key of 348864 for the Goppa polynomial of the element
+        // of the seed 100 and the order values of the seed 201. The indices 283 and 991 follow each
+        // other in the order of the values, so the value of 283 at the index 991 keeps the order
+        // of the indices, and with it the matrix of the key. Only the check of equal values can
+        // refuse the changed values, and `pk_gen` returns -1 for them.
         let parameters = &classicMcEliece348864;
-        let mut words = FuzzRandom::seeded(31);
-        let goppa: Vec<u16> = (0..64).map(|_| words.nextWord() as u16 & 0xFFF).collect();
+        let mut words = FuzzRandom::seeded(100);
+        let element: Vec<u16> = (0..64).map(|_| words.nextWord() as u16 & 0xFFF).collect();
+        let goppa = GoppaPolynomial::new(parameters)
+            .minimalPolynomial(&element)
+            .expect("a Goppa polynomial");
+        let mut words = FuzzRandom::seeded(201);
         let mut values: Vec<u32> = (0..4096).map(|_| words.nextWord() as u32).collect();
-        values[4095] = values[17];
+        let order = |values: &[u32]| {
+            let mut order: Vec<i16> = (0..4096).collect();
+            order.sort_by_key(|index| (values[*index as usize], *index));
+            order
+        };
+        let key = ParityCheckMatrix::generatedKey(parameters, &goppa, &values).expect("a key");
+        assert_eq!(key.permutation, order(&values));
+        values[991] = values[283];
+        assert_eq!(key.permutation, order(&values));
         assert!(ParityCheckMatrix::generatedKey(parameters, &goppa, &values).is_none());
     }
 
