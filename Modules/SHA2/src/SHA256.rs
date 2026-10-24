@@ -51,14 +51,23 @@ impl SHA256 {
     /// Absorbs more input.
     pub fn absorb(&mut self, input: &[u8]) {
         self.totalLength = self.totalLength.wrapping_add(input.len() as u64);
-        for byte in input {
-            self.block[self.blockLength] = *byte;
-            self.blockLength += 1;
-            if self.blockLength == Self::blockLength {
-                compress(&mut self.state, &self.block);
-                self.blockLength = 0;
-            }
+        // The input first fills the buffered block. Whole blocks after it are compressed in
+        // place, and the rest waits in the buffer. The copies of whole pieces keep the millions
+        // of short hashes of LMS as fast as the C code.
+        let fill = (Self::blockLength - self.blockLength).min(input.len());
+        self.block[self.blockLength..self.blockLength + fill].copy_from_slice(&input[..fill]);
+        self.blockLength += fill;
+        if self.blockLength < Self::blockLength {
+            return;
         }
+        compress(&mut self.state, &self.block);
+        let mut blocks = input[fill..].chunks_exact(Self::blockLength);
+        for block in &mut blocks {
+            compress(&mut self.state, block.try_into().expect("64 bytes"));
+        }
+        let rest = blocks.remainder();
+        self.block[..rest.len()].copy_from_slice(rest);
+        self.blockLength = rest.len();
     }
 
     /// Returns the digest of all absorbed input.

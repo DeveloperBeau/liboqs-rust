@@ -29,6 +29,7 @@ A name writes each acronym in this table as one unit: all upper case (`MLKEM768`
 | `HPS` | Hoffstein, Pipher and Silverman, the NTRU-HPS parameter sets |
 | `HQC` | Hamming Quasi-Cyclic |
 | `HRSS` | Hülsing, Rijneveld, Schanck and Schwabe, the NTRU-HRSS parameter sets |
+| `HSS` | Hierarchical Signature System |
 | `ID` | Identifier |
 | `IEEE` | Institute of Electrical and Electronics Engineers |
 | `IND` | Indistinguishability |

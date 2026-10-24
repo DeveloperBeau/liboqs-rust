@@ -81,7 +81,7 @@
 | `XMSSMT-SHA2_40/2_256` | about 3900 | about 0.005 | | |
 | `XMSSMT-SHA2_60/3_256` | about 5800 | about 0.008 | | |
 
-- Rule: `SuiteSample` keeps the default test suite to the stateful sets whose largest tree has a height of 10 or less, and `parity run` skips a set of a tree of height 20 or more unless `--large-trees` includes it. A parity run of a large tree costs one key generation on the C side, and for an LMS tree of height 20 or more a second one, the first load of the working key. The Rust side adds the key generation of the port.
+- Rule: `SuiteSample` keeps the default test suite to the stateful sets whose largest tree has a height of 10 or less, and `parity run` skips a set of a tree of height 20 or more unless `--large-trees` includes it. A parity run of a large tree costs one key generation on the C side, and for an LMS tree of height 20 or more a second one, the first load of the working key. The Rust side adds the key generation of the port, and for LMS one load of its `LMSWorkingKey`, which costs about one more.
 
 ## The serialized LMS key is longer than the key length of liboqs
 
@@ -94,6 +94,12 @@
 - Trap: a harness that checks the length of a public key rejects the public key of an LMS response file, which the C program accepts.
 - Finding: the response files of `LMS_SHA256_H5_W1` and `LMS_SHA256_H10_W1` hold a raw LMS public key of 56 bytes and a raw LMS signature, not the HSS form of 60 bytes with the level count. `kat_sig_stfl` reads the key into a buffer of 60 bytes, and the patched hash-sigs code tells the two forms apart by their first words. The signature reads with four zeros in front, the level count of one.
 - Rule: the oracle gives a shorter stateful public key to the C code with zeros after it, and the LMS port reads both forms as the C code does.
+
+## A C key object signs after its last signature
+
+- Trap: a test that signs with a C secret key object after its last signature expects an error.
+- Finding: a probe got `OQS_SUCCESS` and a signature of zero bytes for the 33rd signature of one key object of `LMS_SHA256_H5_W8`. `oqs_sig_stfl_lms_sign` returns 0 when `hss_load_private_key` fails on the private key of `0xFF` bytes that the last signature leaves. The serialized key of that state does not deserialize, so the oracle, which deserializes the key for each call, returns `OQS_ERROR`.
+- Rule: the oracle and the port refuse a used key. A test of a long-lived C key object checks the length of each signature, not only the status.
 
 ## The internal C functions give known answers for the arithmetic
 
