@@ -102,6 +102,8 @@ The run of 2026-10-23 on the branch `foundation/primitives`.
 | `Modules/SHA3/src/SHAKE128.rs`, `SHAKE256.rs` | 8 | 4 | 0 | 4 | 0 |
 | `Modules/SHA3/src/SHAKEReader.rs` | 1 | 1 | 0 | 0 | 0 |
 
+The run of 2026-10-24 of `oqs-native-aes`, with Rijndael-256 added for MQOM, is the `Mutants` workflow of CI, in ten shards, on the branch `mutants/oqs-native-aes`: [run 40045151722](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40045151722). It had 618 mutants: 617 caught, no timeout, no unviable mutant and 1 missed. The missed mutant is `Bitsliced.rs`, `substitute`, line 95, `^` replaced with `|` in `let t37 = t36 ^ t34;`, the one equivalent mutant below, as this section requires of a later run. The other 617 mutants, those of `Rijndael256.rs` among them, are caught.
+
 ### The one equivalent mutant
 
 `Bitsliced.rs`, `substitute`, the line `let t37 = t36 ^ t34;`: `^` replaced with `|` survives. The two signals of the Boyar and Peralta circuit never have a set bit in common, so `^` and `|` give the same value. The proof is the test `bitslicedSubstitutionMatchesTheTableForEveryByte`, which checks all 256 inputs of the S-box against the table of FIPS 197: the mutant passes it, so it is equal to the correct S-box for every input. A later run must show this mutant, and only this one, as missed.
