@@ -211,7 +211,7 @@ The timeout of the test support stops the position of `ResponseFile::value`, so 
 
 ### Equivalent mutants
 
-- `oqs-native-algorithm-tests`, `ResponseFile::value`, lines 41 and 43: `|` replaced with `^` where a digit shifts into the value. The left operand is shifted left by four bits, so its low four bits are zero, and the right operand holds only four low bits, the high half of the next byte or the digit. The two operators give the same value.
+- `oqs-native-algorithm-tests`, `ResponseFile::value`, lines 41 and 43: `|` replaced with `^` where a digit shifts into the value. The left operand is shifted left by four bits, so its low four bits are zero, and the right operand holds only four low bits, the high half of the next byte or the digit. The two operators give the same value. The two lines now join the fields with `+`, see the section of the stateful test programs below.
 
 | Rule | Mutant | Killed by |
 |---|---|---|
@@ -763,6 +763,45 @@ The other 25 are equivalent. The list below gives the proof for each mutant at t
 | A window of a row adds its two parts | `ParityCheckMatrix::window`: each operator of the two parts replaced, by hand | `windowsReadAndWriteSixtyFourBitsFromAnyColumn`, `thePivotSearchOrsTheOldBitsIntoTheFirstByteOfAWindowInsideAByte` and 2 more |
 | The trailing zeros count the places below the first set bit | `ParityCheckMatrix::trailingZeroCount`: each operator of the loop replaced, by hand | `trailingZerosAndSameMasksFollowTheCFunctions`, `aWindowOfRank32MovesOnlyAPivotOutsideTheDiagonal` and 2 more |
 | A shifted byte of a 6960119 public key adds its two parts | `ParityCheckMatrix::publicKey`, line 281: each operator replaced, by hand | `generatedKeysGiveTheKnownAnswersOfTheCFunction` |
+
+## Latest result for the stateful test programs and the stateful parity
+
+The runs of 2026-10-23 are the `Mutants` workflow of CI, in ten shards, on the commit `a9da132` of the branch `foundation/stateful-parity`, before the new tests below: [`oqs-native-algorithm-tests`](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40038683831), [`oqs-native-c-oracle`](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40038683841) and [`oqs-native-parity`](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40038683197).
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-algorithm-tests` | 423 | 392 | 6 | 21 | 4 |
+| `oqs-native-c-oracle` | 175 | 143 | 0 | 30 | 2 |
+| `oqs-native-parity` | 249 | 230 | 0 | 18 | 1 |
+
+The six timeouts of the test support are endless loops of a reader. Each log shows the unit tests of the reader still running after 60 seconds, and every other test of the program passed. Applied by hand, the unit test program of each mutant ran under the cap of the address space until the limit of 300 seconds, ten times the time of the whole suite of the crate, and did not end. The same tests were still running.
+
+- `JSONValue.rs`, `Reader::skipSpace`, line 96, and `Reader::number`, line 186: `+=` replaced with `*=`. The position stays where it is, so the loop reads the same space or digit for ever.
+- `JSONValue.rs`, `Reader::string`, line 202: the arm of `"` deleted. A quote goes to the arm of the plain text, whose run ends at the quote itself, so the position stays at the quote.
+- `JSONValue.rs`, `Reader::string`, line 203: the arm of `\` deleted. A backslash goes to the arm of the plain text in the same way, and the position stays at the backslash.
+- `JSONValue.rs`, `Reader::string`, line 239: `+` replaced with `*` in `start + offset`. A run of one character before a quote gives the end `start`, so the position goes back to the start of the run, and the same run comes again.
+- `ResponseFile.rs`, `ResponseFile::value`, line 36: `+=` replaced with `*=`. The position stays where it is, so the reader shifts the same digit into the value for ever.
+
+The lines of `JSONValue.rs` came with the port of ML-KEM, and the lines of `ResponseFile.rs` with the known-answer program of the stateful schemes.
+
+Of the 7 missed mutants, three were test gaps, two joined disjoint bit fields with an or, and two are equivalent.
+
+- `StatefulTreeHeight::largest`, line 25: `>` replaced with `>=` in `layers > 0`. `total.is_multiple_of(0)` is true only for a total of 0, so the mutant divides by zero only for a name of 0 layers and a total of 0. `theNameGivesTheHeightOfTheLargestTree` now also refuses `XMSSMT-SHA2_20/0_256` and `XMSSMT-SHA2_0/0_256`, which are not names of liboqs. The mutant panics on the second.
+- `StatefulSignatureFuzzTest::run`, line 67: `%` replaced with `/` in `bytes(1)[0] % 3`. Each quotient picks an order too, and the property of every order holds for a correct scheme, so `run` gave the same result. `fuzz_test_sig_stfl_lms.c` takes the field selector `fuzz_data[0] % 3`. The test now gives the selector byte to `overwritten`, which takes it modulo 3, and `theFuzzBytesFillTheFieldsInTheOrderThatTheSelectorPicksModulo3` checks the selectors 3, 5, 7 and 255 by hand. The mutant fails it, because 3 / 3 is 1 and 5 / 3 is 1.
+- `ResponseFile::value`, lines 41 and 43: `|` replaced with `^` where a digit shifts into the value. The equivalence is in the section of the known-answer program of the stateful schemes above. The lines now join the fields with `+`, as the rule of disjoint bit fields in `Documentation/Learnings/MutationTesting.md` says. Applied by hand, `+` replaced with `-` or with `*` on either line fails at least two of the three tests of the values of `ResponseFile`.
+- `COracle.rs`, `Drop for OracleWorkingKey`, line 1225: the body replaced with `()`. The working key of hash-sigs then stays in the memory of the C library, and no output shows it. The shim now counts the working keys that each thread loaded and did not free, and `COracle::liveWorkingKeyCount` reads the count. `aDroppedWorkingKeyReleasesItsMemoryInTheCLibrary` checks that a load adds one, that the drop takes it away, and that a refused load adds none. Applied by hand, the mutant fails it with the count 1 in place of 0. `aTwoLevelWorkingKeySignsAcrossItsBottomTreesAsTheCLibraryDoes` checks that each new load at a boundary frees the working key that it replaces.
+
+### Equivalent mutants
+
+- `oqs-native-c-oracle`, `verifiedSignature`, line 327: `<` replaced with `<=`. The CROSS section records it. For a signature of the scheme length, the mutant resizes the buffer to the length that it already has, which changes nothing.
+- `oqs-native-parity`, `VariationGenerator::usesContextForm`: the fair coin that the section of the oracle, the known-answer programs, the registry and the parity harness records.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| A name of zero layers has no height | `StatefulTreeHeight::largest`, line 25: `>` replaced with `>=` | `theNameGivesTheHeightOfTheLargestTree` |
+| The LMS fuzz program picks the order of the fields with the selector byte modulo 3 | `StatefulSignatureFuzzTest::overwritten`: `%` replaced with `/`, by hand | `theFuzzBytesFillTheFieldsInTheOrderThatTheSelectorPicksModulo3` |
+| A response value shifts each digit in from the low end | `ResponseFile::value`: `+` replaced with `-` or `*`, by hand | `aValueKeepsTheLastDigitsWithZerosInFrontOfAShortOne`, `valuesFollowTheirMarkersInFileOrder` and 1 more |
+| The drop of a working key frees it in the C library | `Drop for OracleWorkingKey`: body replaced with `()` | `aDroppedWorkingKeyReleasesItsMemoryInTheCLibrary` |
 
 ## History
 
