@@ -415,17 +415,33 @@ int oracleStatefulSignatureCount(const char *name, const uint8_t *secretKey, siz
 // boundaries and loads again less often. The signatures are the same for any target.
 #define WORKING_KEY_MEMORY_TARGET ((size_t)64 << 20)
 
+// The number of working keys that this thread loaded and did not free. The contract test of the
+// release of a working key reads it. It is per thread, so the tests of other threads, which load
+// and free their own working keys at the same time, do not change it.
+static _Thread_local long long liveWorkingKeyCount = 0;
+
 // Loads a working key from a serialized secret key, with the aux data that the key carries. Returns
 // NULL when hash-sigs refuses the key.
 void *oracleLMSWorkingKeyLoad(uint8_t *secretKey, size_t secretKeyLength) {
 	if (secretKeyLength < PRIVATE_KEY_LEN) {
 		return NULL;
 	}
-	return hss_load_private_key(NULL, secretKey, WORKING_KEY_MEMORY_TARGET, secretKey + PRIVATE_KEY_LEN, secretKeyLength - PRIVATE_KEY_LEN, NULL);
+	void *workingKey = hss_load_private_key(NULL, secretKey, WORKING_KEY_MEMORY_TARGET, secretKey + PRIVATE_KEY_LEN, secretKeyLength - PRIVATE_KEY_LEN, NULL);
+	if (workingKey != NULL) {
+		liveWorkingKeyCount += 1;
+	}
+	return workingKey;
 }
 
 void oracleLMSWorkingKeyFree(void *workingKey) {
+	if (workingKey != NULL) {
+		liveWorkingKeyCount -= 1;
+	}
 	hss_free_working_key(workingKey);
+}
+
+long long oracleLMSLiveWorkingKeyCount(void) {
+	return liveWorkingKeyCount;
 }
 
 // One signature with a working key: the steps of oqs_sig_stfl_lms_sign after its load of the
@@ -472,7 +488,7 @@ int oracleLMSWorkingKeySign(const char *name, void **workingKey, uint8_t *secret
 	bool isSigned = signWithWorkingKey(*workingKey, secretKey, signature, sig->length_signature, signatureLength, message, messageLength);
 	if (!isSigned || OQS_SIG_STFL_verify(sig, message, messageLength, signature, *signatureLength, publicKey) != OQS_SUCCESS) {
 		memcpy(secretKey, privateKey, PRIVATE_KEY_LEN);
-		hss_free_working_key(*workingKey);
+		oracleLMSWorkingKeyFree(*workingKey);
 		*workingKey = oracleLMSWorkingKeyLoad(secretKey, secretKeyLength);
 		isSigned = signWithWorkingKey(*workingKey, secretKey, signature, sig->length_signature, signatureLength, message, messageLength);
 	}

@@ -573,8 +573,9 @@ fn theFuzzProgramReportsEachAcceptedHostileInputWithTheCaseAndTheSeed() {
         fuzz(Fault::rejectsEverySignature),
         Err("LMS_SHA256_H5_W1: the signature of the response file does not verify".to_string())
     );
-    // Case 0 writes zeros in the order 0, over the public key of 56 bytes, the signature of 8688
-    // bytes and the message, as far as the length of its input reaches.
+    // Case 0 has the field selector 0 and writes zeros in the order 0, over the public key of 56
+    // bytes, the signature of 8688 bytes and the message, as far as the length of its input
+    // reaches.
     let file = responseFile(fastScheme);
     let messageLength = file
         .lines()
@@ -587,7 +588,7 @@ fn theFuzzProgramReportsEachAcceptedHostileInputWithTheCaseAndTheSeed() {
     assert_eq!(
         fuzz(Fault::acceptsEverySignature),
         Err(format!(
-            "LMS_SHA256_H5_W1, fuzz case 0 of seed 0x5eed: the verification accepts the values of the file with {length} fuzz bytes written over them in order 0"
+            "LMS_SHA256_H5_W1, fuzz case 0 of seed 0x5eed: the verification accepts the values of the file with {length} fuzz bytes written over them with the field selector 0"
         ))
     );
     let wrongLength = FuzzRandom::wrongLength(0, 8688);

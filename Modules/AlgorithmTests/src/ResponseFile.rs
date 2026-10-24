@@ -37,10 +37,12 @@ impl<'text> ResponseFile<'text> {
             match (character as char).to_digit(16) {
                 Some(digit) => {
                     hasStarted = true;
+                    // Each shift clears the low 4 bits, and the added value is below 16, so
+                    // the sum is the join of the two fields with no carry.
                     for index in 0..length - 1 {
-                        value[index] = (value[index] << 4) | (value[index + 1] >> 4);
+                        value[index] = (value[index] << 4) + (value[index + 1] >> 4);
                     }
-                    value[length - 1] = (value[length - 1] << 4) | digit as u8;
+                    value[length - 1] = (value[length - 1] << 4) + digit as u8;
                 }
                 None if hasStarted || character == b'\n' => break,
                 None => {}
