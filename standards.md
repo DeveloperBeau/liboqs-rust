@@ -23,7 +23,7 @@ Code lives in rings. A crate depends only on a ring further in. `cargo xtask che
 | `entities` | Plain data types: algorithm identifiers, sizes, key and ciphertext containers, the error type | Nothing |
 | `domain` | The interface for each capability, and the logic that uses the interfaces | Entities |
 | `sharedComponents` | Primitives that more than one family uses, such as SHA-3, SHA-2 and AES | Entities, other shared components |
-| `infrastructure` | Adapters for outside services, such as OS randomness, and the test-only C oracle | Entities, the interfaces that it implements, shared components |
+| `infrastructure` | Adapters for outside services, such as OS randomness, the test-only C oracle and the test support of the families | Entities, the interfaces that it implements, shared components, other infrastructure |
 | `features` | One crate for each algorithm family | Entities, domain interfaces, shared components |
 | `composition` | The facade crate. It is the only place that builds concrete objects and wires them. | Everything except tooling |
 | `tooling` | Repository tools and test-only crates | Everything. No ring may depend on tooling. |
@@ -33,8 +33,9 @@ The project is a library. It has no UI ring. The facade crate is the composition
 Exceptions to the general rule, each with its reason:
 
 - `infrastructure` may use `sharedComponents`. The NIST KAT random generator is built on AES.
+- `infrastructure` may use another infrastructure crate. The known-answer programs of the test support build on the known-answer random generators.
 - `sharedComponents` may use another shared component. A primitive can build on another primitive.
-- A `features` crate may use `infrastructure` in its tests only. The KAT random generator is the test double for randomness.
+- A `features` crate may use `infrastructure` in its tests only. The KAT random generator is the test double for randomness, and the test support runs the known-answer programs.
 
 ### 2.2 Placement
 

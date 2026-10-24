@@ -1,0 +1,36 @@
+[package]
+name = "oqs-native-parity"
+description = "Parity of every Rust algorithm with the C algorithm of the same name."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish = false
+
+[package.metadata]
+ring = "tooling"
+
+[lib]
+name = "OQSNativeParity"
+path = "src/lib.rs"
+
+[[bin]]
+name = "parity"
+path = "src/main.rs"
+
+[dependencies]
+oqs-native = { path = "../../Modules/OQSNative" }
+oqs-native-algorithm-tests = { path = "../../Modules/AlgorithmTests" }
+oqs-native-c-oracle = { path = "../../Modules/COracle" }
+oqs-native-domain = { path = "../../Modules/Domain" }
+oqs-native-entities = { path = "../../Modules/Entities" }
+oqs-native-kat-random = { path = "../../Modules/KATRandom" }
+oqs-native-sha2 = { path = "../../Modules/SHA2" }
+
+[dev-dependencies]
+oqs-native-aes = { path = "../../Modules/AES" }
+oqs-native-sha3 = { path = "../../Modules/SHA3" }
+
+[lints]
+workspace = true

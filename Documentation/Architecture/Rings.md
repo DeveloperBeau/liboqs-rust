@@ -17,6 +17,10 @@ The workspace root `Cargo.toml` lists the member folders `Modules/*` and `Tools/
 | `oqs-native-sha3` | `Modules/SHA3` | `sharedComponents` |
 | `oqs-native-kat-random` | `Modules/KATRandom` | `infrastructure` |
 | `oqs-native-system-random` | `Modules/SystemRandom` | `infrastructure` |
+| `oqs-native-c-oracle` | `Modules/COracle` | `infrastructure` |
+| `oqs-native-algorithm-tests` | `Modules/AlgorithmTests` | `infrastructure` |
+| `oqs-native` | `Modules/OQSNative` | `composition` |
+| `oqs-native-parity` | `Tools/Parity` | `tooling` |
 | `xtask` | `Tools/Xtask` | `tooling` |
 
 Each crate states its ring in its own manifest:

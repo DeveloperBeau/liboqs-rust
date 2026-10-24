@@ -1,9 +1,11 @@
-//! Repository checks for the native liboqs port: rings, names, versions and hygiene.
+//! Repository tools for the native liboqs port: the checks of rings, names, versions, hygiene
+//! and unsafe code, and the build of the C oracle.
 //!
 //! Each check reads its rule list from a register in `Documentation/Registers`, so that the
-//! register is the one owner of the rule. The checks read files through `FileReading`, so that
-//! tests run against `MemoryFileSystem` and never touch the disk. `main.rs` is the composition
-//! root: it builds `DiskFileSystem` and calls `run`.
+//! register is the one owner of the rule. The tools read files through `FileReading` and run
+//! programs through `ProcessRunning`, so that tests run against `MemoryFileSystem` and
+//! `RecordingProcesses` and never touch the disk. `main.rs` is the composition root: it builds
+//! `DiskFileSystem` and `SystemProcesses` and calls `run`.
 
 #[path = "CargoManifest.rs"]
 mod cargoManifest;
@@ -35,6 +37,12 @@ mod markdownTable;
 mod memberCrate;
 #[path = "NamingCheck.rs"]
 mod namingCheck;
+#[path = "OracleBuild.rs"]
+mod oracleBuild;
+#[path = "ProcessRunning.rs"]
+mod processRunning;
+#[path = "ProcessStep.rs"]
+mod processStep;
 #[path = "Report.rs"]
 mod report;
 #[path = "RingCheck.rs"]
@@ -45,6 +53,8 @@ mod rustToken;
 mod rustTokenKind;
 #[path = "RustTokenizer.rs"]
 mod rustTokenizer;
+#[path = "SystemProcesses.rs"]
+mod systemProcesses;
 #[path = "TokenTree.rs"]
 mod tokenTree;
 #[path = "UnsafeCodeCheck.rs"]
@@ -57,6 +67,9 @@ mod workspaceLayout;
 #[cfg(test)]
 #[path = "MemoryFileSystem.rs"]
 mod memoryFileSystem;
+#[cfg(test)]
+#[path = "RecordingProcesses.rs"]
+mod recordingProcesses;
 #[cfg(test)]
 #[path = "RepositoryFixtureTests.rs"]
 mod repositoryFixtureTests;
@@ -80,6 +93,11 @@ use memberCrate::MemberCrate;
 #[cfg(test)]
 use memoryFileSystem::MemoryFileSystem;
 use namingCheck::NamingCheck;
+use oracleBuild::OracleBuild;
+pub use processRunning::ProcessRunning;
+pub use processStep::ProcessStep;
+#[cfg(test)]
+use recordingProcesses::RecordingProcesses;
 pub use report::Report;
 use ringCheck::RingCheck;
 use rustToken::RustToken;
@@ -87,6 +105,7 @@ use rustTokenKind::RustTokenKind;
 use rustTokenizer::RustTokenizer;
 #[cfg(test)]
 use seededGenerator::SeededGenerator;
+pub use systemProcesses::SystemProcesses;
 use tokenTree::TokenTree;
 use unsafeCodeCheck::UnsafeCodeCheck;
 use versionCheck::VersionCheck;
@@ -96,12 +115,13 @@ use workspaceLayout::WorkspaceLayout;
 ///
 /// The forbidden words for the hygiene check come from two places outside the repository:
 /// the comma-separated value of the `HYGIENE_WORDS` variable, and else the lines of the local
-/// word file. Each is `None` when it does not exist.
+/// word file. Each is `None` when it does not exist. Only `fetch-oracle` runs programs.
 pub fn run(
     arguments: &[String],
     files: &dyn FileReading,
     environmentWords: Option<&str>,
     localWords: Option<&str>,
+    processes: &mut dyn ProcessRunning,
 ) -> Report {
     let command = match Command::parse(arguments) {
         Ok(command) => command,
@@ -113,6 +133,9 @@ pub fn run(
             };
         }
     };
+    if command == Command::fetchOracle {
+        return fetchOracle(files, processes);
+    }
     let words = HygieneCheck::forbiddenWords(environmentWords, localWords);
     let mut standardError = String::new();
     if words.is_empty() && command.includes(Command::hygiene) {
@@ -134,6 +157,46 @@ pub fn run(
         standardOutput,
         standardError,
         exitStatus: u8::from(!findings.is_empty()),
+    }
+}
+
+/// Runs the steps of the oracle build for the version in `LIBOQS_VERSION`, and stops at the
+/// first step that fails.
+fn fetchOracle(files: &dyn FileReading, processes: &mut dyn ProcessRunning) -> Report {
+    let failure = |standardOutput: String, message: String| Report {
+        standardOutput,
+        standardError: format!("{message}\n"),
+        exitStatus: 1,
+    };
+    let version = match files.text(std::path::Path::new("LIBOQS_VERSION")) {
+        Ok(text) => text.trim().to_string(),
+        Err(error) => {
+            return failure(
+                String::new(),
+                format!("LIBOQS_VERSION cannot be read: {error}"),
+            );
+        }
+    };
+    let build = OracleBuild::new(&version);
+    let steps = match build.steps(files) {
+        Ok(steps) => steps,
+        Err(message) => return failure(String::new(), message),
+    };
+    let mut standardOutput = String::new();
+    for step in &steps {
+        if let Err(message) = processes.run(step) {
+            return failure(standardOutput, message);
+        }
+        standardOutput.push_str(&format!("ran {step}\n"));
+    }
+    standardOutput.push_str(&format!(
+        "the C oracle {version} is ready in {}\n",
+        build.folder().display()
+    ));
+    Report {
+        standardOutput,
+        standardError: String::new(),
+        exitStatus: 0,
     }
 }
 
