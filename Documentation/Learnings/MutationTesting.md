@@ -263,3 +263,21 @@
 - **Trap.** An and of two bits gives the same value as its first factor when an earlier line makes the second factor 1 wherever the first one is 1. A mutant that makes the second factor always 1 survives.
 - **Finding.** `ctz` of `pk_gen.c` sets `m |= b` and adds `(m ^ 1) & (b ^ 1)` at each bit `b`. A set bit sets `m` first, so `b ^ 1` is 1 wherever `m ^ 1` is 1. The mutant that replaces `^` with `|` in `b ^ 1` survived the first mutation run of Classic McEliece.
 - **Rule.** Drop a factor that an earlier line fixes, and say in a comment why the shorter form gives the same value. `trailingZeroCount` of `ParityCheckMatrix.rs` adds `m ^ 1`.
+
+## A guard against a zero divisor shows only with a zero dividend
+
+- **Trap.** `layers > 0 && total.is_multiple_of(layers)` guards `total / layers`. `is_multiple_of(0)` is false for every total but 0, so the mutant `layers >= 0` divides by zero only for a total of 0 and 0 layers. A test of 0 layers with any other total passes.
+- **Finding.** In `StatefulTreeHeight::largest` of the test support, the mutant survived the first run of `oqs-native-algorithm-tests`. The name `XMSSMT-SHA2_0/0_256` kills it.
+- **Rule.** A test of a guard of a divisor gives the zero divisor with a zero dividend as well.
+
+## A reduction in the caller hides when every result picks a valid branch
+
+- **Trap.** `byte % 3` in the caller picks one of three orders, and `byte / 3` picks one of the same three orders through the default arm. A property that holds for every order cannot tell the two apart.
+- **Finding.** In `StatefulSignatureFuzzTest::run`, `%` replaced with `/` survived the first run of `oqs-native-algorithm-tests`. Every order of a correct scheme refuses a changed value.
+- **Rule.** Give the function under test the raw input of the C program, here the selector byte, and reduce it inside, where a test of the raw values sees each order.
+
+## A drop that frees C memory has no output to check
+
+- **Trap.** A drop that calls a free function of the C library changes no value that a test reads. The mutant that deletes the body only leaks memory, and it survives.
+- **Finding.** The drop of `OracleWorkingKey` survived the first run of `oqs-native-c-oracle`. The memory of the working key belongs to `malloc` of the C library, so the recording allocator of `SecretBytes.rs` does not see it.
+- **Rule.** The shim counts the loads and the frees of each handle in a counter of the thread, and a contract test checks that the count goes back after the drop. A counter of the thread does not see the tests of other threads.
