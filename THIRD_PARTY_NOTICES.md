@@ -114,8 +114,14 @@ You are solely responsible for determining the appropriateness of using and dist
 - Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. License: Apache-2.0, in the `LICENSE` file of that folder and in the `SPDX-License-Identifier` line of each file. The liboqs wrapper `src/kem/bike/kem_bike.c` is MIT.
 - Use in this repository: `Modules/BIKE` translates the portable files of that folder into Rust. The port is a modified work: it takes its random bytes as an argument, and it computes the carry-less products by another method that gives the same bytes. The crate is under MIT AND Apache-2.0.
 
+## ML-DSA
+
+- Algorithm: CRYSTALS-Dilithium, by Vadim Lyubashevsky, with Shi Bai, Léo Ducas, Eike Kiltz, Tancrède Lepoint, Peter Schwabe, Gregor Seiler and Damien Stehlé. ML-DSA is its standard form, NIST FIPS 204. See https://pq-crystals.org/dilithium/ and https://csrc.nist.gov/pubs/fips/204/final.
+- ML-DSA in liboqs: [mldsa-native](https://github.com/pq-code-package/mldsa-native) of the PQ Code Package, commit `9b0ee84f4cf399043eca59eca4e5f8531ca1d61b`. Copyright the mldsa-native project authors. Some files, such as `poly.c` and `ct.c`, also name the mlkem-native project authors. License: Apache-2.0 OR ISC OR MIT.
+- Use in this repository: `Modules/MLDSA` follows FIPS 204 and the arithmetic of mldsa-native, and gives the bytes of that code. The port is under MIT, and the `license` field of the crate states the combined expression `MIT AND (Apache-2.0 OR ISC OR MIT)`.
+
 ## Test vectors
 
-- [NIST ACVP-Server](https://github.com/usnistgov/ACVP-Server), tag `v1.1.0.41`: the ML-KEM vectors. Works of the United States government are not subject to copyright in the United States.
-- [Wycheproof](https://github.com/C2SP/wycheproof) of C2SP, commit `032b56abd1368843e4def50b4975032ec1ec7ba4`: the ML-KEM vectors. License: Apache-2.0.
+- [NIST ACVP-Server](https://github.com/usnistgov/ACVP-Server), tag `v1.1.0.41`: the ML-KEM and ML-DSA vectors. Works of the United States government are not subject to copyright in the United States.
+- [Wycheproof](https://github.com/C2SP/wycheproof) of C2SP, commit `032b56abd1368843e4def50b4975032ec1ec7ba4`: the ML-KEM and ML-DSA vectors. License: Apache-2.0.
 - The repository holds the addresses and SHA-256 of these files in `Documentation/Registers/TestVectors.md`, and not the files. `cargo xtask fetch-oracle` downloads them for the tests.

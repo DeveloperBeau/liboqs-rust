@@ -44,7 +44,7 @@ For a signature scheme, a variation draws a message of 0 to 9280 bytes and, for 
 1. The key pair.
 2. The signature, with the plain form or the context form.
 3. The verification of the Rust signature by C, and of the C signature by Rust.
-4. The verdicts of both sides on a changed signature, a changed message, a longer context and a short signature.
+4. The verdicts of both sides on a changed signature, a changed message, a longer context and a short signature. Each change keeps the form of the signature, except the longer context, which is always verified in the context form, so a plain signature also meets a context that it was not made under.
 
 The first difference stops the check with a `ParityMismatch`, which names the algorithm, the case, the seed and the step.
 
@@ -78,6 +78,7 @@ The first difference stops the check with a `ParityMismatch`, which names the al
 - `SnapshotParity.rs`: the names of the frozen snapshot, and the snapshot line of each registered algorithm.
 - `RegisteredParity.rs`: every registered algorithm with the cases of `PARITY_CASES`, 2 by default, and the seed of `PARITY_SEED`. The suite runs in the dev profile, where a variation of a large family takes a large part of a second, so the release runs of `parity run` carry the 1000 variations.
 - `HostileInputParity.rs`: keys and ciphertexts of the right length with any bytes, only ones, only zeros or seeded bytes, give the result of the C library for every registered KEM: the same bytes or a failure on both sides. It also covers the HQC keys whose bits above `n` reach the reduction of the C code, see [HQC.md](HQC.md).
+- `MalformedKeyParity.rs`: ML-DSA signs secret keys that no key generation gives, with coefficients out of range or random bytes, as the C library does. The variations sign only with generated keys.
 
 CI runs the test suite on every pull request, then `known-answers --all` and `snapshot --check`, and `run` with 100 variations in blocks of 10, in four shards of four processes.
 

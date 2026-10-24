@@ -20,6 +20,7 @@ pub use OQSNativeEntities::{
 };
 pub use OQSNativeFrodoKEM::FrodoKEM;
 pub use OQSNativeHQC::HQC;
+pub use OQSNativeMLDSA::{MLDSA, PreHashAlgorithm};
 pub use OQSNativeMLKEM::{Kyber, MLKEM};
 #[cfg(feature = "std")]
 pub use OQSNativeSystemRandom::SystemRandom;

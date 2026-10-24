@@ -348,6 +348,62 @@ The missed mutant of the comparison of decapsulation is a test gap, and `aDecode
 | The weight of a syndrome counts only the coefficients below r | `Syndrome::weight`: each operator replaced | `weightCountsTheCoefficientsBelowR` |
 | The sampler gives the positions of the C sampler | `Sampler::positions`: the scaling and the repeat rule replaced | `decoderGivesTheErrorOfTheCDecoderForACiphertextBeyondItsReach`, `decoderGivesTheErrorsOfTheCDecoderForHostileInputs` |
 
+## Latest result for ML-DSA
+
+The first runs of 2026-10-23 on the branch `family/ml-dsa`, with `OQS_ORACLE_DIR` set to the oracle folder. The load average of the machine was 15 to 28, and the disk filled up before the run of the crate ended. The runs of the shared crates took the files that the port added or changed, and the facade ran with the tests of `oqs-native-parity` as well. The second runs took the crate, the facade and the whole parity crate in the ten shards of the `Mutants` workflow of CI, on the commit of the new tests below: [the crate](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40028751030), [the facade](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40028751411) and [the parity crate](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40028751618).
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-ml-dsa`, first run | 624 | 547 | 21 | 43 | 11 |
+| `oqs-native-ml-dsa`, second run in CI | 626 | 558 | 12 | 40 | 16 |
+| `oqs-native-sha2`, `SHA224.rs`, `SHA256.rs`, `SHA512224.rs` and `SHA512256.rs` | 69 | 68 | 1 | 0 | 0 |
+| `oqs-native-sha3`, `SHA3224.rs` | 5 | 5 | 0 | 0 | 0 |
+| `oqs-native-algorithm-tests`, `VectorRandom.rs` | 7 | 7 | 0 | 0 | 0 |
+| `oqs-native-parity`, `SignatureParity.rs` | 11 | 9 | 0 | 1 | 1 |
+| `oqs-native-parity`, second run of the whole crate in CI | 207 | 189 | 1 | 16 | 1 |
+| `oqs-native`, with the tests of `oqs-native-parity` | 21 | 9 | 0 | 7 | 5 |
+| `oqs-native`, with the tests of `oqs-native-parity`, second run in CI | 21 | 10 | 0 | 7 | 4 |
+
+The full disk spoiled the results of five mutants of `decomposed` in `Polynomial.rs`: `*` replaced with `+` or with `/` at both places of line 117, and `-` replaced with `+` in `low - modulus`, line 118. Two of them never ran, so the counts of the table add up to 622. Applied by hand, each mutant of line 117 fails 26 tests and the mutant of line 118 fails 17, among them `decompositionAndHintsFollowFIPS204ForEveryValue` and the known answers of every count of each set.
+
+Eleven of the 21 timeouts are endless loops of the samplers. Applied by hand, each kept the unit tests that sample a polynomial running for 300 seconds, where the whole unit test binary ends in under a second.
+
+- `sampledUniform`, line 390, and `sampledShort`, line 420: `<` replaced with `<=`. The loop goes on at 256 coefficients and takes no candidate.
+- `sampledUniform`, line 393, and `sampledShort`, line 424: `==` replaced with `!=`. The inner loop stops before its first candidate.
+- `sampledUniform`, line 403, and `sampledShort`, line 429: `+=` replaced with `*=`. The count stays at 0.
+- `sampledUniform`, line 400: `&` replaced with `|`. Each candidate is at least `2^23 - 1`, which is above q.
+- `boundedCoefficient`, line 441: the body replaced with `None`, and line 444: `<` replaced with `>`. No half byte gives a coefficient for eta 2, so `sampledShort` never ends. `boundedCoefficientsAreTheCoeffFromHalfByteOfFIPS204` fails at once.
+- `sampledInBall`, line 483: `+=` replaced with `*=`. The position stays at byte 8 of the stream, and the loop never ends when that byte is above `256 - tau`.
+- `sampledInBall`, line 484: `<=` replaced with `>`. At the index 255 no byte is above the index.
+
+One more timeout ends with a failed test, but only after hours. In `sampledUniform`, line 401, `<` replaced with `==` lets only a candidate of exactly q count, and such a candidate comes once in 2^23 candidates. One polynomial then takes about 2^31 candidates, about 30 seconds in the test build. `samplesStayInTheirRangesAndDependOnTheirSeeds` fails after one such polynomial, because its coefficients are q. `keyPairsHaveTheLayoutOfFIPS204` samples 204 of them, so the unit tests end after more than an hour.
+
+The other nine timeouts are equivalent mutants. Applied by hand, each passed every test of the crate. A caught mutant usually stops the suite at the first test binary that fails, and an equivalent mutant runs every binary, so on the loaded machine the equivalent mutants passed the time limit. They are in the list below.
+
+Of the 11 missed mutants, four are test gaps. `eachConstantIsTheConstantOfFIPS204AndOfTheHeaderOfMLDSANative` and `uniformSamplingSkipsACandidateOfQAndGivesThePolynomialOfTheCFunction` kill them. The other seven are equivalent.
+
+The second run of the crate confirms the first. Its 16 missed mutants are the 16 equivalent mutants below, among them the nine that the first run reported as timeouts, and its 12 timeouts are the 11 endless loops and the mutant of line 401 above.
+
+The timeout of `oqs-native-sha2` replaces the body of `SHA256::withInitialState` with `Default::default()`. `default` calls `new`, which calls `withInitialState` again, so the calls never end. The missed mutant of `SignatureParity.rs` makes `checkEveryCase` return `Ok(())`. The parity jobs check blocks with `checkCase`, so only tests that expect success called `checkEveryCase` for a scheme, and `aSignatureDefectInTheBaseCaseNamesTheSnapshotField` now runs it on a broken scheme. The missed mutant and the timeout of the second run of the parity crate are the coin of `VariationGenerator::usesContextForm` and the selection of `ParityJob::cSnapshot`, which the sections of the parity harness and of the stateful known answers record.
+
+The first run of the facade missed the mutant that replaces `Registry::signatureSchemes` with an empty list. The coverage test looked up each C name with `Registry::signatureScheme`, and the parity program checks the schemes of the list, so an empty list checked no scheme and every test passed. `everyCAlgorithmIsRegisteredOrListedAsNotYetPorted` now reads the three lists, and the second run caught the mutant. The other four missed mutants replace the stateful list with an empty list, a lookup in it with `None`, or the name of a stateful scheme with another text. The stateful list stays empty until the first stateful family, as in the FrodoKEM run.
+
+### Equivalent mutants
+
+- `Parameters.rs`, the gamma2 of `mldsa44`, `mldsa65` and `mldsa87` at the lines 161, 175 and 189, which were the lines 154, 168 and 182 in the first run, `Parameters::commitmentBits`, line 54, and `Polynomial.rs`, `isNarrowRounding`, line 102: `-` replaced with `+` or with `/` in `(q - 1) / 88` and `(q - 1) / 32`. These are ten mutants, five missed and five timeouts. q - 1 = 8380416 is 88 times 95232 and 32 times 261888. q + 1 and q leave the remainders 2 and 1, so the quotients stay 95232 and 261888. The constant does not change, so the program does not change.
+- `Polynomial.rs`, `rootPowers`, line 47, and `decomposed`, line 118: `-` replaced with `/` in `(q - 1) / 2`. q is odd, so `q / 2` is 4190208 as well.
+- `Polynomial.rs`, `rootPowers`, line 47: `>` replaced with `>=`, and `-` replaced with `+` in `(modulusWide - 1) / 2`. The first mutant changes the centering only for an entry of 4190208 before the centering, and the second only for an entry of 4190209. No entry from 1 to 255 has one of these values. `twiddleFactorsAreTheTableOfMLDSANative` checks every entry against its definition and passes with both mutants, and `zetas` is a constant, so the program does not change.
+- `Polynomial.rs`, `rootPowers`, line 30: `%` replaced with `+` in `(1i64 << 32) % modulusWide`. The start value is then `2^32 + q`, which is congruent to `2^32 mod q`. Each entry from 1 to 255 multiplies the start value by 1753 at least once, because BitRev8 of its index is at least 1, and takes the product modulo q. The product stays below 2^43, so it does not overflow, and each remainder is the same. `twiddleFactorsAreTheTableOfMLDSANative` passes with the mutant.
+- `Polynomial.rs`, `decomposed`, line 118: `-` replaced with `+` in `(modulus - 1) / 2 - low`. The selection then subtracts q only above 4190209 in place of above 4190208, so the output changes only for a low part of exactly 4190209. For a standard representative, line 117 gives a low part from `-gamma2 + 1` to gamma2 when the high part does not wrap, and the value itself, from `q - gamma2` to `q - 1`, when the high part wraps to 0. gamma2 is at most 261888, so no low part is 4190209. `decompositionAndHintsFollowFIPS204ForEveryValue` checks every value from 0 to `q - 1` for both values of gamma2 and passes with the mutant. Only standard representatives reach `decomposed`. In `InternalAlgorithms.rs`, `attemptedSignature` and `isValidSignature` give `Polynomial::decomposed` and `Polynomial::hintedHigh` the output of `nonNegative`, which maps each coefficient of `inverseTransform`, below q in absolute value, into the range from 0 to `q - 1`.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| A signature makes the attempts of mldsa-native before it fails | `InternalAlgorithms::signature`, line 210 of the first run, now `Parameters::signingAttemptCount`: `-` replaced with `+` or `/`, `/` replaced with `*` | `eachConstantIsTheConstantOfFIPS204AndOfTheHeaderOfMLDSANative` |
+| The uniform sampler refuses a candidate of q | `Polynomial::sampledUniform`, line 401: `<` replaced with `<=` | `uniformSamplingSkipsACandidateOfQAndGivesThePolynomialOfTheCFunction` |
+| Decompose gives the high and the low part of FIPS 204 | `decomposed`, line 117: `*` replaced with `+` or `/`, line 118: `-` replaced with `+` in `low - modulus` | `decompositionAndHintsFollowFIPS204ForEveryValue` and the known answers of every count of each set |
+| The parity program checks the signature schemes of the registry list | `Registry::signatureSchemes`: the list replaced with an empty list | `everyCAlgorithmIsRegisteredOrListedAsNotYetPorted` |
+| The check of every case of a scheme reports a broken scheme | `SignatureParity::checkEveryCase`: the body replaced with `Ok(())` | `aSignatureDefectInTheBaseCaseNamesTheSnapshotField` |
+
 ## History
 
 | Run | Code | Mutants | Caught | Timeout | Unviable | Missed |

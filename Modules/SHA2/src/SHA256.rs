@@ -34,8 +34,14 @@ impl SHA256 {
 
     /// Makes a hash with no input yet.
     pub fn new() -> Self {
+        Self::withInitialState(initialState)
+    }
+
+    /// Makes a hash with no input yet that starts from another initial hash value, as SHA-224
+    /// does.
+    pub(crate) fn withInitialState(state: [u32; 8]) -> Self {
         SHA256 {
-            state: initialState,
+            state,
             block: [0; 64],
             blockLength: 0,
             totalLength: 0,
