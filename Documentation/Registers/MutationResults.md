@@ -606,6 +606,8 @@ The run of 2026-10-23 of the crate in the ten shards of the `Mutants` workflow o
 |---|---|---|---|---|---|
 | `oqs-native-slh-dsa`, first run in CI | 539 | 496 | 0 | 41 | 2 |
 
+The [second run](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40039245878), on the commit of the new test, had 539 mutants: 497 caught, no timeout, 41 unviable and 1 missed, the equivalent mutant of `chainDigits` below.
+
 The run had no timeout. One of the two missed mutants is a test gap, and `nodesOfEveryHeightUpToAWholeTreeAreTheNodesOfTheCFunction` now kills it. The other is equivalent.
 
 The test gap replaces `+` with `*` in the size of the stack of `FORS::node`, line 30, so the stack holds 14 nodes in place of 15. The node of height z needs z + 1 places. `FORS::sign` asks only for the heights from 0 to a - 1, so a signature needs at most 14 places, and the root of a whole tree of height 14 needs 15. `fors_node` of the C code takes every height up to a, because its stack of 14 nodes, `SLH_MAX_A`, and its output hold 15 nodes. The new test compares the nodes of every height from 0 to 14 of `SHA2_192S` and `SHAKE_256S` with the digests of `fors_node`. The C program that printed them includes `slh_dsa.c`, because the function is static, and takes the hash functions from `liboqs.a`. Its copy of `slh_sign_internal` gives the signatures of `liboqs.a`. With the mutant, the test fails with an index out of bounds at the index 14 of the stack. With `-` in place of `+`, the stack holds 13 nodes, and the new test and `testSigMemPassesForEachSchemeOfTheSuiteSampleAndEachPureSmallSet`, which signs with trees of height 14, both fail.
