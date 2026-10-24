@@ -8,7 +8,7 @@ use OQSNativeEntities::{
     Encapsulation, KEMDescription, KeyPair, OQSError, SecretBytes, SignatureDescription,
     StatefulSignatureDescription,
 };
-use core::ffi::{CStr, c_char, c_int, c_void};
+use core::ffi::{CStr, c_char, c_int, c_longlong, c_void};
 use std::cell::Cell;
 use std::ffi::CString;
 use std::ptr::{null, null_mut};
@@ -208,6 +208,7 @@ unsafe extern "C" {
     ) -> c_int;
     fn oracleLMSWorkingKeyLoad(secretKey: *mut u8, secretKeyLength: usize) -> *mut c_void;
     fn oracleLMSWorkingKeyFree(workingKey: *mut c_void);
+    fn oracleLMSLiveWorkingKeyCount() -> c_longlong;
     fn oracleLMSWorkingKeySign(
         name: *const c_char,
         workingKey: *mut *mut c_void,
@@ -1021,6 +1022,13 @@ impl<'random> COracle<'random> {
         workingKey: &OracleWorkingKey,
     ) -> Result<u64, OQSError> {
         self.workingKeySignatureCount(workingKey, true)
+    }
+
+    /// The number of LMS working keys that the current thread loaded and did not release, which
+    /// proves that the drop of a working key releases its memory in the C library.
+    pub fn liveWorkingKeyCount(&self) -> i64 {
+        // The C function reads a counter of the calling thread and nothing else.
+        unsafe { oracleLMSLiveWorkingKeyCount() }
     }
 
     /// The SHA3-256 digest of an input, from `OQS_SHA3_sha3_256`.

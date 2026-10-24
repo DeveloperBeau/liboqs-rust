@@ -74,6 +74,10 @@ mod tests {
             "XMSS-SHA2_10_256_1",
             "XMSSMT-SHA2_20_256",
             "XMSSMT-SHA2_20/3_256",
+            // No layers. A total of 0 is a multiple of 0, so only the check of the layers
+            // keeps the division away.
+            "XMSSMT-SHA2_20/0_256",
+            "XMSSMT-SHA2_0/0_256",
             "LMS_SHA256_H5",
             "LMS_SHA256_X5_W1",
             "LMS_SHA256_H5_X1",
