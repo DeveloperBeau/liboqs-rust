@@ -534,6 +534,8 @@ The runs of 2026-10-23 on the branch `family/ntru`, in the ten shards of the `Mu
 | `oqs-native-sorting-network` | 120 | 104 | 8 | 0 | 8 |
 | `oqs-native-ntru-prime` | 706 | 641 | 43 | 5 | 17 |
 
+The [second run of NTRU Prime](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40040181702), on the commit of the new tests, had 706 mutants: 645 caught, 43 timeouts, 5 unviable and 13 missed. The 13 missed mutants are the 13 equivalent mutants below, and the timeouts are the timeouts of the first run.
+
 The 12 missed mutants of NTRU and the 8 of the sorting network are equivalent mutants. Of the 17 missed mutants of NTRU Prime, four are test gaps, and `decodingReadsTheBytesOfEncodeAtEachThresholdOfTheRanges` and `residueModuloModulusIsCenteredUpToTheLimitOfThe32BitProductOfFqFreeze` now kill them. The other 13 are equivalent.
 
 Seven of the eight timeouts of the sorting network stop a loop of `SortingNetwork::sortWith`: `+=` replaced with `*=` at the lines 89, 98, 115, 126 and 131, `+=` replaced with `-=` at line 89, and `*` replaced with `/` in `2 * p` at line 98. Each keeps `top` at 1 or at 0, keeps `i` at 0 or `j` at its place, or adds 0 to `i` for a `p` of 4 or more, so its loop never ends. Applied by hand, each kept the unit test program running for 120 seconds, where it ends in under a second. The eighth, `*` replaced with `/` in `2 * p` at line 126, failed `sortUnsignedGivesTheUnsignedValuesInAscendingOrderForEveryLength` before the limit.
