@@ -780,7 +780,7 @@ The six timeouts of the test support are endless loops of a reader. Each log sho
 - `JSONValue.rs`, `Reader::string`, line 202: the arm of `"` deleted. A quote goes to the arm of the plain text, whose run ends at the quote itself, so the position stays at the quote.
 - `JSONValue.rs`, `Reader::string`, line 203: the arm of `\` deleted. A backslash goes to the arm of the plain text in the same way, and the position stays at the backslash.
 - `JSONValue.rs`, `Reader::string`, line 239: `+` replaced with `*` in `start + offset`. A run of one character before a quote gives the end `start`, so the position goes back to the start of the run, and the same run comes again.
-- `ResponseFile.rs`, `ResponseFile::value`, line 36: `+=` replaced with `*=`. The position stays where it is, so the reader shifts the same digit into the value for ever.
+- `ResponseFile.rs`, `ResponseFile::value`, line 36 of that run: `+=` replaced with `*=`. The position stays where it is, so the reader reads the same digit for ever. The line is line 35 since the reader places the digits in one pass.
 
 The lines of `JSONValue.rs` came with the port of ML-KEM, and the lines of `ResponseFile.rs` with the known-answer program of the stateful schemes.
 
@@ -788,7 +788,7 @@ Of the 7 missed mutants, three were test gaps, two joined disjoint bit fields wi
 
 - `StatefulTreeHeight::largest`, line 25: `>` replaced with `>=` in `layers > 0`. `total.is_multiple_of(0)` is true only for a total of 0, so the mutant divides by zero only for a name of 0 layers and a total of 0. `theNameGivesTheHeightOfTheLargestTree` now also refuses `XMSSMT-SHA2_20/0_256` and `XMSSMT-SHA2_0/0_256`, which are not names of liboqs. The mutant panics on the second.
 - `StatefulSignatureFuzzTest::run`, line 67: `%` replaced with `/` in `bytes(1)[0] % 3`. Each quotient picks an order too, and the property of every order holds for a correct scheme, so `run` gave the same result. `fuzz_test_sig_stfl_lms.c` takes the field selector `fuzz_data[0] % 3`. The test now gives the selector byte to `overwritten`, which takes it modulo 3, and `theFuzzBytesFillTheFieldsInTheOrderThatTheSelectorPicksModulo3` checks the selectors 3, 5, 7 and 255 by hand. The mutant fails it, because 3 / 3 is 1 and 5 / 3 is 1.
-- `ResponseFile::value`, lines 41 and 43: `|` replaced with `^` where a digit shifts into the value. The equivalence is in the section of the known-answer program of the stateful schemes above. The lines now join the fields with `+`, as the rule of disjoint bit fields in `Documentation/Learnings/MutationTesting.md` says. Applied by hand, `+` replaced with `-` or with `*` on either line fails at least two of the three tests of the values of `ResponseFile`.
+- `ResponseFile::value`, lines 41 and 43 of that run: `|` replaced with `^` where a digit shifted into the value. The equivalence is in the section of the known-answer program of the stateful schemes above. The reader no longer shifts each digit through the value. It now places the last digits of the line in one pass, and joins the two halves of a byte with `+=`, as the rule of disjoint bit fields in `Documentation/Learnings/MutationTesting.md` says. Applied by hand, `+=` replaced with `-=` or with `*=` on that line fails five of the seven tests of `ResponseFile`, `eachValueIsTheValueThatTheShiftsOfTheCReaderGive` among them.
 - `COracle.rs`, `Drop for OracleWorkingKey`, line 1225: the body replaced with `()`. The working key of hash-sigs then stays in the memory of the C library, and no output shows it. The shim now counts the working keys that each thread loaded and did not free, and `COracle::liveWorkingKeyCount` reads the count. `aDroppedWorkingKeyReleasesItsMemoryInTheCLibrary` checks that a load adds one, that the drop takes it away, and that a refused load adds none. Applied by hand, the mutant fails it with the count 1 in place of 0. `aTwoLevelWorkingKeySignsAcrossItsBottomTreesAsTheCLibraryDoes` checks that each new load at a boundary frees the working key that it replaces.
 
 ### Equivalent mutants
@@ -800,7 +800,7 @@ Of the 7 missed mutants, three were test gaps, two joined disjoint bit fields wi
 |---|---|---|
 | A name of zero layers has no height | `StatefulTreeHeight::largest`, line 25: `>` replaced with `>=` | `theNameGivesTheHeightOfTheLargestTree` |
 | The LMS fuzz program picks the order of the fields with the selector byte modulo 3 | `StatefulSignatureFuzzTest::overwritten`: `%` replaced with `/`, by hand | `theFuzzBytesFillTheFieldsInTheOrderThatTheSelectorPicksModulo3` |
-| A response value shifts each digit in from the low end | `ResponseFile::value`: `+` replaced with `-` or `*`, by hand | `aValueKeepsTheLastDigitsWithZerosInFrontOfAShortOne`, `valuesFollowTheirMarkersInFileOrder` and 1 more |
+| A response value keeps the last digits of its line, as the shifts of `ReadHex` leave them | `ResponseFile::value`: `+=` replaced with `-=` or `*=`, by hand | `eachValueIsTheValueThatTheShiftsOfTheCReaderGive`, `aValueKeepsTheLastDigitsWithZerosInFrontOfAShortOne` and 3 more |
 | The drop of a working key frees it in the C library | `Drop for OracleWorkingKey`: body replaced with `()` | `aDroppedWorkingKeyReleasesItsMemoryInTheCLibrary` |
 
 ## History
