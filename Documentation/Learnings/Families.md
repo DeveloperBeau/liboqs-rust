@@ -359,3 +359,9 @@
 - Trap: the tests of Classic McEliece and the parity tests make dozens of key pairs, and each takes seconds at the first optimization level.
 - Finding: one key pair, encapsulation and decapsulation of each of the ten sets took 20 seconds in the dev profile at level 1 and 10.5 seconds at level 3, with the same seeds. A key pair spends its time in the Gaussian elimination over a matrix of up to 1.7 MB and in the sorting networks of the control bits. The decapsulation computed the factors `1 / g(L_i)^2` once for each of its two double syndromes, and computing them once halved its time.
 - Rule: the dev profile builds `oqs-native-classic-mceliece` at the third level, as it builds `oqs-native-sha3`. The override changes only the optimization, so the overflow checks and the debug assertions stay on.
+
+## A refused input can fail a later step as well
+
+- Trap: a test of a refusal of the key generation passes without the check, because its input also fails a later step.
+- Finding: the first test of the rule of Classic McEliece that two equal order values give no key changed one value of a random input. Its matrix had no systematic form, so the key generation gave no key without the check as well, and both mutants of the check survived the first mutation run. `twoEqualOrderValuesGiveNoKeyAlsoWhenTheirOrderGivesAKey` starts from the input of a known key of `pk_gen` and gives the index 991 the value of the index 283, which comes just before it in the order of the values. The order of the indices and the matrix stay the same.
+- Rule: a test of a refusal starts from an input that the code accepts, breaks only the rule of the test, keeps every other value that the code reads, and asserts that the rest stays the same. See also "A refused case that breaks two rules cannot see the loss of one".
