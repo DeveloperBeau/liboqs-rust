@@ -179,8 +179,9 @@ impl OneTimeSignature {
 #[cfg(test)]
 mod tests {
     use super::OneTimeSignature;
+    use crate::testInputs::{identifierAndSeed, sequenceBytes};
     use crate::{OneTimeSignatureType, SeedDerivation};
-    use OQSNativeSHA2::SHA256;
+    use OQSNativeAlgorithmTests::OutputDigest;
 
     const allTypes: [OneTimeSignatureType; 4] = [
         OneTimeSignatureType::winternitz1,
@@ -188,18 +189,6 @@ mod tests {
         OneTimeSignatureType::winternitz4,
         OneTimeSignatureType::winternitz8,
     ];
-
-    fn hex(bytes: &[u8]) -> String {
-        bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-    }
-
-    /// The identifier and the seed of the tests: the bytes 0 to 15, and 32 to 63.
-    fn identifierAndSeed() -> ([u8; 16], [u8; 32]) {
-        (
-            core::array::from_fn(|index| index as u8),
-            core::array::from_fn(|index| 32 + index as u8),
-        )
-    }
 
     /// The signature of the message `the quick brown fox` with the key of leaf 5.
     fn signature(kind: OneTimeSignatureType) -> Vec<u8> {
@@ -222,19 +211,22 @@ mod tests {
 
     #[test]
     fn publicKeysAreThePublicKeysOfHashSigs() {
-        // `OQS_LMS_NAMESPACE_lm_ots_generate_public_key` of the C oracle for leaf 5 of the
-        // tree with I = 0..15 and SEED = 32..63.
+        // `OQS_LMS_NAMESPACE_lm_ots_generate_public_key` of the C oracle for leaf 5.
         let expected = [
-            "32b173a9b1274affe6bdb9acb3b6e4c84796acc82ba51f6a6336b222c938528d",
-            "4191b3673be90148b993d2cb8d9acf7776b8be73bcc1509265324d7d802bab9a",
-            "2995a3d767172e7dfa7b879920283ab541251a16e2a6fb0a247717ea903d2e13",
-            "9ec12be6e76bbe428754aad19bf8ed2c49cdf242363975ee5bab0a141892cd5d",
+            "ab51cb0d4fb213d37ef0a6c27b464929cff339b5ddd4a972c8f4ac6a73447826",
+            "73c900713a39a17abeed75f95b79bfbc8649617b00a2d80756136afffa440d39",
+            "4fcd6d47951ed43779b946c083f74a82694e68bc9e6fed37ac9f25d5470f4460",
+            "764e3490fbfdf9aa985cd1a3ff3390a2e6e44766fa8892bd31e1805c129afeb4",
         ];
         let (identifier, seed) = identifierAndSeed();
         let derivation = SeedDerivation::new(&identifier, &seed);
         for (kind, publicKey) in allTypes.into_iter().zip(expected) {
             assert_eq!(
-                hex(&OneTimeSignature::new(kind).publicKey(&identifier, 5, &derivation)),
+                OutputDigest::of(&OneTimeSignature::new(kind).publicKey(
+                    &identifier,
+                    5,
+                    &derivation
+                )),
                 publicKey,
                 "{kind:?}"
             );
@@ -243,18 +235,18 @@ mod tests {
 
     #[test]
     fn signaturesAreTheSignaturesOfHashSigs() {
-        // The SHA-256 of `OQS_LMS_NAMESPACE_lm_ots_generate_signature` of the C oracle for the
-        // message `the quick brown fox`, which derives the randomizer C itself.
+        // `OQS_LMS_NAMESPACE_lm_ots_generate_signature` of the C oracle for the message
+        // `the quick brown fox`, which derives the randomizer C itself.
         let expected = [
-            "82a97b0992877a03c00715eb0ce654c515876e4b487aee02cdd5fc29bd6a2487",
-            "afb1289362ceabf22f851904014a5f926936bb819e5a80b73cfc94617f570cfd",
-            "814e0f82c5398a6abe561e04f0ab1163637d0d91636d1d1743c406922af5f9bc",
-            "c93b06b4ff2d2b4b063c2ff4fa0b1b6a550818c6a743d79bacaab385bd9c04c2",
+            "2e9ececa0fada7c6df72028740f1509d9fcb0b5c2da51fbefbe02de6f3721d47",
+            "6123576ca25d66fe4f2372cc8f22fb2e18a29bf39f923d0926befa43baea38dc",
+            "1fc09a8965119fe0df8bf0fcc3f45762bbbdbd02f54c8a8f962fba203d425085",
+            "04efc775c9f689deed744f24d20c42f321da60ed5183fe3ffdc634d672bc8953",
         ];
         for (kind, digest) in allTypes.into_iter().zip(expected) {
             let signature = signature(kind);
             assert_eq!(signature.len(), kind.signatureLength(), "{kind:?}");
-            assert_eq!(hex(&SHA256::hash(&signature)), digest, "{kind:?}");
+            assert_eq!(OutputDigest::of(&signature), digest, "{kind:?}");
         }
     }
 
@@ -324,19 +316,15 @@ mod tests {
 
     #[test]
     fn coefficientsAndChecksumsAreTheValuesOfHashSigs() {
-        // `OQS_LMS_NAMESPACE_lm_ots_coef` and `lm_ots_compute_checksum` of the C oracle for
-        // Q = SHA-256("coefficients"): the digits 0, 1, 5 and the last digit of the hash, and
-        // the shifted checksum.
-        let messageHash = SHA256::hash(b"coefficients");
-        assert_eq!(
-            hex(&messageHash),
-            "7dbbfe42465d3612fcc812f31e5fdf2001bd55345bf76585f16f47ba170d7d49"
-        );
+        // `OQS_LMS_NAMESPACE_lm_ots_coef` and `lm_ots_compute_checksum` of the C oracle for a
+        // hash Q of the sequence of the seed 3: the digits 0, 1, 5 and the last digit of the
+        // hash, and the shifted checksum.
+        let messageHash: [u8; 32] = sequenceBytes(32, 3).try_into().expect("32 bytes");
         let expected = [
-            (OneTimeSignatureType::winternitz1, [0, 1, 1, 1], 14976),
-            (OneTimeSignatureType::winternitz2, [1, 3, 3, 1], 11904),
-            (OneTimeSignatureType::winternitz4, [7, 13, 14, 9], 7728),
-            (OneTimeSignatureType::winternitz8, [125, 187, 93, 73], 4458),
+            (OneTimeSignatureType::winternitz1, [0, 1, 0, 1], 15616),
+            (OneTimeSignatureType::winternitz2, [1, 1, 0, 1], 11968),
+            (OneTimeSignatureType::winternitz4, [5, 3, 13, 5], 7264),
+            (OneTimeSignatureType::winternitz8, [83, 195, 180, 181], 3904),
         ];
         for (kind, digits, checksum) in expected {
             let w = kind.winternitz();
