@@ -1,6 +1,6 @@
 //! Parity of the shared primitives with the C primitives of liboqs: 1000 seeded inputs each.
 
-use OQSNativeAES::{AES128, AES256};
+use OQSNativeAES::{AES128, AES256, Rijndael256};
 use OQSNativeCOracle::{COracle, OracleRandomness};
 use OQSNativeParity::{ParitySettings, VariationGenerator};
 use OQSNativeSHA2::{SHA256, SHA384, SHA512};
@@ -173,6 +173,24 @@ fn aesBlocksMatchTheCLibrary() {
         assert_eq!(
             ciphertext256,
             oracle.aes256ECB(&key256, &plaintext),
+            "{label}, case {case}"
+        );
+    }
+}
+
+#[test]
+fn rijndael256BlocksMatchTheMQOMCodeOfTheCLibrary() {
+    let (mut generator, label) = generator("Rijndael-256");
+    for case in 0..caseCount {
+        let key: [u8; 32] = generator.bytes(32).try_into().expect("32 bytes");
+        // An odd count leaves the second block of the last pair of the bitsliced form empty.
+        let blocks = generator.below(12) as usize;
+        let plaintext = generator.bytes(32 * blocks);
+        let mut ciphertext = vec![0u8; plaintext.len()];
+        Rijndael256::new(&key).encryptBlocks(&plaintext, &mut ciphertext);
+        assert_eq!(
+            ciphertext,
+            oracle().rijndael256ECB(&key, &plaintext),
             "{label}, case {case}"
         );
     }

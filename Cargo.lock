@@ -17,6 +17,7 @@ dependencies = [
  "oqs-native-mayo",
  "oqs-native-ml-dsa",
  "oqs-native-ml-kem",
+ "oqs-native-mqom",
  "oqs-native-ntru",
  "oqs-native-ntru-prime",
  "oqs-native-slh-dsa",
@@ -164,6 +165,18 @@ dependencies = [
 name = "oqs-native-ml-kem"
 version = "0.16.0"
 dependencies = [
+ "oqs-native-algorithm-tests",
+ "oqs-native-domain",
+ "oqs-native-entities",
+ "oqs-native-kat-random",
+ "oqs-native-sha3",
+]
+
+[[package]]
+name = "oqs-native-mqom"
+version = "0.16.0"
+dependencies = [
+ "oqs-native-aes",
  "oqs-native-algorithm-tests",
  "oqs-native-domain",
  "oqs-native-entities",

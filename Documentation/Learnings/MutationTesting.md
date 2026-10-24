@@ -269,3 +269,21 @@
 - **Trap.** An and of two bits gives the same value as its first factor when an earlier line makes the second factor 1 wherever the first one is 1. A mutant that makes the second factor always 1 survives.
 - **Finding.** `ctz` of `pk_gen.c` sets `m |= b` and adds `(m ^ 1) & (b ^ 1)` at each bit `b`. A set bit sets `m` first, so `b ^ 1` is 1 wherever `m ^ 1` is 1. The mutant that replaces `^` with `|` in `b ^ 1` survived the first mutation run of Classic McEliece.
 - **Rule.** Drop a factor that an earlier line fixes, and say in a comment why the shorter form gives the same value. `trailingZeroCount` of `ParityCheckMatrix.rs` adds `m ^ 1`.
+
+## A test of an exclusive or with operands that share no bit cannot see an or
+
+- **Trap.** A unit test of a tweak, such as `key[2] ^= index >> 8`, whose fixed salt byte shares no set bit with the tweak byte gives the same key with `|=`. The mutant survives the test, and the callers may never give a tweak that would show it.
+- **Finding.** The CI run of `oqs-native-mqom` missed `^=` replaced with `|=` on byte 2 of `SeedCipher::tweaked`. The test used the salt byte 0x10 and the tweak byte 0x02. The only callers with an index of 256 or more tweak the zero salt of the PRG of the equations. With the salt byte 0x13, which shares a set bit with each of the three tweak bytes, the test fails for each of the three mutants.
+- **Rule.** Give each exclusive or of a unit test operands that share a set bit, and write the expected bytes by hand from the definition. This is the rule of "A rejection test that changes one byte cannot see an exclusive or" of `Families.md` for a known answer.
+
+## A count that only sizes a buffer gives a slow equivalent mutant
+
+- **Trap.** A function that computes a count, makes buffers of that count and then zips them with its input and its output gives the same output with a larger count. The mutant only does more work, so a run reports it as a timeout and not as a missed mutant.
+- **Finding.** The truncated Rijndael-256 of `SeedCipher::encrypt` of MQOM computed `seeds.len() / 24` blocks. With `*` in place of `/` it encrypted 576 times the blocks, and the zips kept only the blocks of the seeds. The CI run counted a timeout. Applied by hand, the suite ran for 450 seconds with no failed test.
+- **Rule.** Build a buffer from its input, for example with `chunks_exact` and `collect`, and take the length of the next buffer from it. No count of its own is then left to mutate. Check each timeout with no failed test by hand, as "A timeout can be a slow suite and not an endless loop" asks.
+
+## A clear that the C code needs for an uninitialized array changes nothing in a zeroed vector
+
+- **Trap.** The C code clears a part of a stack array because the array is not initialized. The port makes the array with `vec![0; n]`, so the part is already zero, and a mutant that empties the range of the clear survives.
+- **Finding.** `GGMTree_PartiallyExpand` clears the hidden leaf of its array `node`. In `GGMTree::partialLeaves` of MQOM no line writes the hidden leaf or one of its ancestors, so the clear of the port changed nothing, and `(hiddenLeaf + 1)` replaced with `(hiddenLeaf * 1)` survived the CI run.
+- **Rule.** Leave out a clear of a zeroed vector, and say in a comment why the part stays zero. Keep a test that checks the part, so a later write into it fails. This is the rule of "Writes into zeroed or unused space give equivalent mutants" for a write of zero.

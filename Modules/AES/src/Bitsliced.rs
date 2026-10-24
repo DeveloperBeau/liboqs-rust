@@ -236,8 +236,11 @@ fn substituteWord(word: u32) -> u32 {
     q[0] as u32
 }
 
-/// The round constants of the key schedule.
-const roundConstants: [u32; 10] = [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36];
+/// The round constants of the key schedule: the powers of x in GF(2^8). AES-128 uses the first
+/// ten, AES-256 the first seven, and Rijndael with a 256-bit block and key all fourteen.
+const roundConstants: [u32; 14] = [
+    0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36, 0x6C, 0xD8, 0xAB, 0x4D,
+];
 
 /// Computes the compressed bitsliced round keys of a key of 16 or 32 bytes, as
 /// `br_aes_ct64_keysched` does.
@@ -401,9 +404,122 @@ pub fn encryptFourBlocks(
     output
 }
 
+/// The number of rounds of Rijndael with a 256-bit block and a 256-bit key: Nr = 14.
+pub const rijndael256Rounds: usize = 14;
+
+/// Puts two 256-bit Rijndael blocks, each as eight little-endian words, into the bitsliced
+/// form of `encryptFourBlocks`.
+///
+/// The form holds four 128-bit blocks of four columns. Here the even columns of the first
+/// block take the place of block 0, those of the second block the place of block 1, and the
+/// odd columns the places of blocks 2 and 3. Byte `r` of column `c` of block `b` is then bit
+/// `16 r + 2 c + b` of each word, so the four rows stay in the four 16-bit lanes, and the
+/// substitution and `mixColumns` of AES apply to the eight columns unchanged.
+fn rijndael256Bitsliced(first: &[u32; 8], second: &[u32; 8]) -> [u64; 8] {
+    let mut q = [0u64; 8];
+    let places = [(first, 0, 0), (second, 0, 1), (first, 1, 2), (second, 1, 3)];
+    for (words, firstColumn, place) in places {
+        let columns = [
+            words[firstColumn],
+            words[firstColumn + 2],
+            words[firstColumn + 4],
+            words[firstColumn + 6],
+        ];
+        let (low, high) = interleaveIn(&columns);
+        q[place] = low;
+        q[place + 4] = high;
+    }
+    orthogonalize(&mut q);
+    q
+}
+
+/// The two 256-bit Rijndael blocks, as eight little-endian words each, of the bitsliced form
+/// of `rijndael256Bitsliced`.
+fn rijndael256Blocks(mut q: [u64; 8]) -> [[u32; 8]; 2] {
+    orthogonalize(&mut q);
+    let mut blocks = [[0u32; 8]; 2];
+    for (block, firstColumn, place) in [(0, 0, 0), (1, 0, 1), (0, 1, 2), (1, 1, 3)] {
+        let columns = interleaveOut(q[place], q[place + 4]);
+        for (index, word) in columns.into_iter().enumerate() {
+            blocks[block][firstColumn + 2 * index] = word;
+        }
+    }
+    blocks
+}
+
+/// The ShiftRows of Rijndael with eight columns: row `r` turns left by 0, 1, 3 and 4 columns,
+/// the offsets C1 = 1, C2 = 3 and C3 = 4 of the Rijndael proposal for Nb = 8. A column step is
+/// two bits of the 16-bit lane of a row.
+fn shiftRows256(q: &mut [u64; 8]) {
+    for word in q.iter_mut() {
+        let x = *word;
+        *word = (x & 0x000000000000FFFF)
+            + ((x & 0x00000000FFFC0000) >> 2)
+            + ((x & 0x0000000000030000) << 14)
+            + ((x & 0x0000FFC000000000) >> 6)
+            + ((x & 0x0000003F00000000) << 10)
+            + ((x & 0xFF00000000000000) >> 8)
+            + ((x & 0x00FF000000000000) << 8);
+    }
+}
+
+/// The round keys of Rijndael with a 256-bit block and a 256-bit key, in the bitsliced form
+/// of two blocks: eight words for each of the 15 round keys.
+///
+/// The key expansion is the one of the Rijndael proposal for Nk = Nb = 8. It is the expansion
+/// of AES-256, continued to 120 words, so it substitutes the word after each round constant
+/// and the fourth word of each group of eight.
+pub fn rijndael256RoundKeys(key: &[u8; 32]) -> [u64; 120] {
+    let totalWords = 8 * (rijndael256Rounds + 1);
+    let mut schedule = [0u32; 120];
+    decodeLittleEndian(key, &mut schedule[..8]);
+    for index in 8..totalWords {
+        let mut temporary = schedule[index - 1];
+        if index % 8 == 0 {
+            temporary = substituteWord(temporary.rotate_right(8)) ^ roundConstants[index / 8 - 1];
+        } else if index % 8 == 4 {
+            temporary = substituteWord(temporary);
+        }
+        schedule[index] = schedule[index - 8] ^ temporary;
+    }
+    let mut roundKeys = [0u64; 120];
+    for (words, roundKey) in schedule.chunks_exact(8).zip(roundKeys.chunks_exact_mut(8)) {
+        let words: &[u32; 8] = words.try_into().expect("eight words");
+        roundKey.copy_from_slice(&rijndael256Bitsliced(words, words));
+    }
+    roundKeys
+}
+
+/// Encrypts two 256-bit blocks with Rijndael with a 256-bit block and the round keys of
+/// `rijndael256RoundKeys`, and returns the 64 bytes of the two ciphertexts.
+pub fn encryptTwoRijndael256Blocks(blocks: &[u8; 64], roundKeys: &[u64; 120]) -> [u8; 64] {
+    let mut first = [0u32; 8];
+    let mut second = [0u32; 8];
+    decodeLittleEndian(&blocks[..32], &mut first);
+    decodeLittleEndian(&blocks[32..], &mut second);
+    let mut q = rijndael256Bitsliced(&first, &second);
+    addRoundKey(&mut q, &roundKeys[..8]);
+    for round in 1..rijndael256Rounds {
+        substitute(&mut q);
+        shiftRows256(&mut q);
+        mixColumns(&mut q);
+        addRoundKey(&mut q, &roundKeys[round * 8..round * 8 + 8]);
+    }
+    substitute(&mut q);
+    shiftRows256(&mut q);
+    addRoundKey(&mut q, &roundKeys[rijndael256Rounds * 8..]);
+    let mut output = [0u8; 64];
+    for (block, chunk) in rijndael256Blocks(q).iter().zip(output.chunks_exact_mut(32)) {
+        for (word, bytes) in block.iter().zip(chunk.chunks_exact_mut(4)) {
+            bytes.copy_from_slice(&word.to_le_bytes());
+        }
+    }
+    output
+}
+
 #[cfg(test)]
 mod tests {
-    use super::substituteWord;
+    use super::{rijndael256Bitsliced, rijndael256Blocks, shiftRows256, substituteWord};
 
     /// The AES S-box of FIPS 197, figure 7, written by hand from the standard.
     const substitutionBox: [u8; 256] = [
@@ -444,6 +560,61 @@ mod tests {
                     expected | others,
                     "byte {value:#04x} at position {position}"
                 );
+            }
+        }
+    }
+
+    /// Two blocks of eight words whose bytes are all different.
+    fn distinctBlocks() -> ([u32; 8], [u32; 8]) {
+        let word = |base: u32| {
+            u32::from_le_bytes([base as u8, base as u8 + 1, base as u8 + 2, base as u8 + 3])
+        };
+        (
+            core::array::from_fn(|column| word(4 * column as u32)),
+            core::array::from_fn(|column| word(128 + 4 * column as u32)),
+        )
+    }
+
+    #[test]
+    fn eachRijndael256ByteIsBit16RowPlus2ColumnPlusBlockOfEachWord() {
+        for block in 0..2 {
+            for column in 0..8 {
+                for row in 0..4 {
+                    let mut words = [[0u32; 8]; 2];
+                    words[block][column] = 1 << (8 * row);
+                    let q = rijndael256Bitsliced(&words[0], &words[1]);
+                    // The byte 1 has only bit 0 set, so only the word of bit 0 holds it.
+                    assert_eq!(q[0], 1u64 << (16 * row + 2 * column + block));
+                    assert!(q[1..].iter().all(|word| *word == 0));
+                }
+            }
+        }
+        let (first, second) = distinctBlocks();
+        assert_eq!(
+            rijndael256Blocks(rijndael256Bitsliced(&first, &second)),
+            [first, second]
+        );
+    }
+
+    #[test]
+    fn rijndael256ShiftRowsTurnsTheRowsBy0And1And3And4Columns() {
+        let (first, second) = distinctBlocks();
+        let mut q = rijndael256Bitsliced(&first, &second);
+        shiftRows256(&mut q);
+        let shifted = rijndael256Blocks(q);
+        // State byte (row, column) of a block is byte `row` of word `column`, and ShiftRows
+        // takes the new byte (row, column) from (row, column + offset) of the old state.
+        let offsets = [0, 1, 3, 4];
+        for (old, new) in [first, second].iter().zip(&shifted) {
+            for (row, offset) in offsets.iter().enumerate() {
+                for (column, word) in new.iter().enumerate() {
+                    let source = (column + offset) % 8;
+                    assert_eq!(
+                        word.to_le_bytes()[row],
+                        old[source].to_le_bytes()[row],
+                        "row {row}, column {column}"
+                    );
+                }
             }
         }
     }

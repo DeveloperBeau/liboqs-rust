@@ -23,6 +23,7 @@ A name writes each acronym in this table as one unit: all upper case (`MLKEM768`
 | `FIPS` | Federal Information Processing Standard |
 | `FORS` | Forest of random subsets |
 | `GF` | Galois field, a finite field such as GF(16) and GF(256) |
+| `GGM` | Goldreich, Goldwasser and Micali, the tree of seeds of their pseudorandom function |
 | `HMAC` | Hash-based message authentication code |
 | `HPS` | Hoffstein, Pipher and Silverman, the NTRU-HPS parameter sets |
 | `HQC` | Hamming Quasi-Cyclic |
@@ -44,6 +45,7 @@ A name writes each acronym in this table as one unit: all upper case (`MLKEM768`
 | `OQS` | Open Quantum Safe |
 | `OS` | Operating system |
 | `OV` | Oil and Vinegar, the name of the UOV parameter sets of liboqs, such as `OV-Is` |
+| `PIOP` | Polynomial interactive oracle proof |
 | `PRF` | Pseudorandom function |
 | `RFC` | Request for Comments |
 | `RNG` | Random number generator |
@@ -61,3 +63,4 @@ A name writes each acronym in this table as one unit: all upper case (`MLKEM768`
 | `UTF` | Unicode Transformation Format |
 | `WOTS` | Winternitz one-time signature |
 | `XMSS` | eXtended Merkle Signature Scheme |
+| `XOF` | Extendable-output function |

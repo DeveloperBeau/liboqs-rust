@@ -27,6 +27,7 @@ CMake gets the source and build folders with every link resolved, because CMake 
 The build script of `oqs-native-c-oracle` finds the folder through `OQS_ORACLE_DIR`, or else at `target/oracle/<version>` in the workspace. A missing folder stops the build with the command to run. The script compiles two C files with the system C compiler and links them with `liboqs.a` and `liboqs-internal.a`:
 
 - `Shim/OracleShim.c` wraps each liboqs call in a plain function, so that Rust never depends on the layout of a liboqs struct.
+- liboqs has no public API for Rijndael-256. The shim declares the context of `rijndael_ct64.h` of the MQOM code and two functions that `liboqs.a` exports for the set `mqom2_cat5_gf16_fast_r3`, the key schedule and the encryption of one block.
 - `tests/test_helpers.c` of liboqs holds the generators of the liboqs known-answer programs, such as the SHAKE256 generator of HQC.
 
 Without the `std` feature the crate is empty and links nothing.

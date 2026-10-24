@@ -1,7 +1,8 @@
 //! Replicates liboqs `tests/test_aes.c`: the FIPS 197 block vectors for ECB, and the RFC 3686
-//! vectors for CTR. Adds the counter rules of the C code and the misuse panics.
+//! vectors for CTR. Adds the counter rules of the C code and the misuse panics, and the vector
+//! of Rijndael with a 256-bit block and key of the Rijndael vector set of Brian Gladman.
 
-use OQSNativeAES::{AES128, AES256};
+use OQSNativeAES::{AES128, AES256, Rijndael256};
 
 fn bytes(hex: &str) -> Vec<u8> {
     (0..hex.len())
@@ -10,7 +11,7 @@ fn bytes(hex: &str) -> Vec<u8> {
         .collect()
 }
 
-fn key<const LENGTH: usize>(hex: &str) -> [u8; LENGTH] {
+fn key<const Length: usize>(hex: &str) -> [u8; Length] {
     bytes(hex).try_into().expect("key length")
 }
 
@@ -36,6 +37,24 @@ fn aes256EncryptsTheBlockOfFIPS197() {
         ciphertext.to_vec(),
         bytes("8ea2b7ca516745bfeafc49904b496089")
     );
+}
+
+#[test]
+fn rijndael256EncryptsTheBlockOfTheRijndaelVectorSet() {
+    // The vector of block length 256 and key length 256 of the Rijndael vector set of Brian
+    // Gladman: the key and the plaintext continue the key and the plaintext of FIPS 197,
+    // Appendix B.
+    let cipher = Rijndael256::new(&key(
+        "2b7e151628aed2a6abf7158809cf4f3c762e7160f38b4da56a784d9045190cfe",
+    ));
+    let plaintext = bytes("3243f6a8885a308d313198a2e03707344a4093822299f31d0082efa98ec4e6c8");
+    let mut ciphertext = [0u8; 64];
+    // The second block is the first again, so the pair of the bitsliced form holds two equal
+    // blocks.
+    cipher.encryptBlocks(&[plaintext.clone(), plaintext].concat(), &mut ciphertext);
+    let expected = bytes("a49406115dfb30a40418aafa4869b7c6a886ff31602a7dd19c889dc64f7e4e7a");
+    assert_eq!(ciphertext[..32].to_vec(), expected);
+    assert_eq!(ciphertext[32..].to_vec(), expected);
 }
 
 #[test]
