@@ -419,3 +419,9 @@
 - Trap: a port that trusts the counters of the BDS state in a secret key panics, or reaches outside the key, for a forged key.
 - Finding: the stack offset, the stack usage, the stack levels and the next leaf of each state come from the key. The C code adds them to pointers into the key, so a forged value reads or writes outside the buffer. A stack offset of 2^32 - 1 in the next tree of the lowest layer of an XMSS^MT key puts the next leaf 2^32 - 32 bytes after the stack.
 - Rule: the port keeps the arrays of a state as offsets into the key, computes each place with the 32-bit arithmetic of the C code, and refuses an access outside the key with `OQSError::operationFailed`. A signature works on a copy of the key, so a refusal leaves the key as it was.
+
+## The stateful programs make key pairs that the suite sample does not count
+
+- Trap: the default suite of a stateful family that runs `StatefulSignatureCorrectnessTest` on each set of the suite sample takes minutes, and the run of the parity program over the sample passes its bound.
+- Finding: the program makes three key pairs of each set, and an XMSS^MT set of 60/6 builds six trees of height 10 for each of them. On every XMSS set the test took 233 seconds of processor time, and seven minutes on a loaded machine. With the 19 XMSS sets of the sample registered, `runOverTheSuiteSampleOfTheRegistryReportsItsSizeAndEachAlgorithm` took six minutes against a bound of 120 seconds.
+- Rule: the default suite runs the correctness program on the sets whose key pairs build no tree above height 5, the sets that read their key pairs from the response file among them, and an ignored test runs it on every set. A test that runs the whole sample through the parity program has a bound that fits the key pairs of the sample.
