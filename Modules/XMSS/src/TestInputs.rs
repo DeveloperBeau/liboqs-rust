@@ -1,13 +1,12 @@
-//! The inputs and the digests of the unit tests that compare a function with its C function.
+//! The inputs and the sets of the unit tests that compare a function with its C function.
 //!
 //! The known answers come from a C program that called the internal functions of the XMSS code
 //! of liboqs 0.16.0, such as `oqs_sig_stfl_xmss_sha256_h10_inner_thash_h`, with the same inputs,
-//! for the one set of each `CoreHash` that the program linked. The program is not part of the
-//! repository.
+//! for the one set of each `CoreHash` that the program linked. The program printed the
+//! `OutputDigest` of each output. It is not part of the repository.
 
 use crate::{CoreHash, HashAddress};
-use OQSNativeSHA2::SHA256;
-use alloc::string::String;
+use OQSNativeAlgorithmTests::LinearCongruentialSequence;
 use alloc::vec::Vec;
 
 /// Each core hash, with the XMSS object identifier of the set whose C functions gave the known
@@ -23,25 +22,13 @@ pub(crate) const coreHashes: [(CoreHash, u32); 7] = [
     (CoreHash::shake256N32, 0x10),
 ];
 
-/// The bytes of an input with a label, the inputs of the C program: byte i is
-/// `37 label + 11 i + i / 8` modulo 256.
-pub(crate) fn pattern(length: usize, label: usize) -> Vec<u8> {
-    (0..length)
-        .map(|index| (label * 37 + index * 11 + (index >> 3)) as u8)
+/// The bytes of the seeded sequence of the C program: each byte is the high byte of the next
+/// state.
+pub(crate) fn sequenceBytes(count: usize, seed: u32) -> Vec<u8> {
+    let mut sequence = LinearCongruentialSequence::new(seed);
+    (0..count)
+        .map(|_| (sequence.nextState() >> 24) as u8)
         .collect()
-}
-
-/// The bytes in lower-case hexadecimal.
-pub(crate) fn hex(bytes: &[u8]) -> String {
-    bytes
-        .iter()
-        .map(|byte| alloc::format!("{byte:02x}"))
-        .collect()
-}
-
-/// The SHA-256 of the bytes in lower-case hexadecimal, the digest of the C program.
-pub(crate) fn digest(bytes: &[u8]) -> String {
-    hex(&SHA256::hash(bytes))
 }
 
 /// The address of eight words, as the C program writes them in its `uint32_t addr[8]`.

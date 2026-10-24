@@ -173,19 +173,20 @@ impl MerkleTree {
 #[cfg(test)]
 mod tests {
     use super::MerkleTree;
-    use crate::testInputs::{address, coreHashes, hex, pattern};
+    use crate::testInputs::{address, coreHashes, sequenceBytes};
     use crate::{KeyedHash, Parameters, Variant};
+    use OQSNativeAlgorithmTests::OutputDigest;
 
-    /// The leaves of `gen_leaf_wots` of the C program for each core hash, in the order of
-    /// `coreHashes`.
+    /// The digests of the leaves of `gen_leaf_wots` of the C program for each core hash, in the
+    /// order of `coreHashes`.
     const leaves: [&str; 7] = [
-        "5200c5822506bc92fb1b0f0a9e1d7458a9d78fc8562f610ae22902742b2fe96c",
-        "0428bbfe3ea216d12c8979a4ae659d1de8730363d1d98b76",
-        "adf931f4523380327e893c83c31fe7f8eed698ffc902263e4bca81ead8743874",
-        "949fe0a9b0282c0204ca473c38794ae6d1379e8a91bd7160f4c1ad9b378d619d7bd58cec9ef66e49a6249670a72f3595961fd2045810ce17c5499b92dc0d0b2c",
-        "4a1791dc76880cf6543c4c3123524dbd591a3de64bc7b8312e615a2e22fbd82a1ae4c8b15cc98e1ae0c00e0080f0eedf90a0b40433fc3bb2926d028c4b6b5456",
-        "632cab28a93e5dd7054180741250e4e44a05979e838f5dd6",
-        "0ff53b9dba610d7ea264d5fcb60e4e689d53a2f707f8a85ecfd4f30f1bf389ba",
+        "4691fcdde46f7993124b5f23f1af776e0e8256185e971b3ee12de0c4442515a1",
+        "0897052e454f44208df235d5d60c08f6f7548cb9a26f3947f0a0df35fffe1076",
+        "7a0a376d483f2541afe00cd08476a8f4e7e070cdfb6518747f53702e6a6d0d0f",
+        "18056ae6c2debf837415e0835eedba3625c15a6d754cc80923355bee4ede759a",
+        "d1fe639b3dc684330d43c825504cf737d5667892527cd897bac552eb28a73353",
+        "a3b2577f5c49500abb86d88c62cf92acc8af126697315877bbc42a44c166ccca",
+        "d6336e0e16bba595f3d00c7463ffbcebc76c8b482efb4fd60d8195a0da598419",
     ];
 
     #[test]
@@ -193,16 +194,20 @@ mod tests {
         for ((function, identifier), expected) in coreHashes.iter().zip(leaves) {
             let parameters = Parameters::of(Variant::xmss, *identifier).expect("a set");
             let hashLength = parameters.hashLength;
-            let hash = KeyedHash::new(&parameters, *function, &pattern(hashLength, 12));
+            let hash = KeyedHash::new(&parameters, *function, &sequenceBytes(hashLength, 12));
             let mut lTreeAddress = address([1, 0, 2, 1, 3, 0, 0, 0]);
             let mut otsAddress = address([1, 0, 2, 0, 3, 0, 0, 0]);
             let leaf = MerkleTree::leaf(
                 &hash,
-                &pattern(hashLength, 11),
+                &sequenceBytes(hashLength, 11),
                 &mut lTreeAddress,
                 &mut otsAddress,
             );
-            assert_eq!(hex(&leaf[..hashLength]), expected, "{function:?}");
+            assert_eq!(
+                OutputDigest::of(&leaf[..hashLength]),
+                expected,
+                "{function:?}"
+            );
             // The L-tree of len nodes has ceil(log2(len)) rows: 6 for 51 nodes, 7 for 67 and 8
             // for 131, and the address leaves at the height above its last row.
             let rows = u32::BITS - (parameters.chainCount as u32 - 1).leading_zeros();
@@ -220,8 +225,12 @@ mod tests {
         // parent of the two. The test computes the same with the node hash itself.
         let mut parameters = Parameters::of(Variant::xmss, 0x01).expect("XMSS-SHA2_10_256");
         parameters.chainCount = 3;
-        let hash = KeyedHash::new(&parameters, crate::CoreHash::sha256N32, &pattern(32, 1));
-        let nodes = pattern(96, 2);
+        let hash = KeyedHash::new(
+            &parameters,
+            crate::CoreHash::sha256N32,
+            &sequenceBytes(32, 1),
+        );
+        let nodes = sequenceBytes(96, 2);
         let mut publicKey = nodes.clone();
         let mut lTreeAddress = address([0, 0, 0, 1, 4, 0, 0, 0]);
         let leaf = MerkleTree::lTree(&hash, &mut publicKey, &mut lTreeAddress);

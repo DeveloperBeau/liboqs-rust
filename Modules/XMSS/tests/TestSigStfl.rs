@@ -5,17 +5,17 @@
 //!
 //! The known answers come from the C library of the oracle. A C program made the key pair of each
 //! response file with the NIST generator seeded with the bytes 0 to 47, signed sequences of
-//! messages, and signed the edge cases below, and printed the SHA-256 of each signature and of
-//! each key. Valgrind reported no access outside the buffers of the C code for any of these
+//! messages, and signed the edge cases below, and printed the `OutputDigest` of each signature
+//! and of each key. Valgrind reported no access outside the buffers of the C code for any of these
 //! cases. The program is not part of the repository.
 
 use OQSNativeAlgorithmTests::{
-    FuzzRandom, ResponseFile, StatefulSignatureCorrectnessTest, StatefulTreeHeight, TestVectorFiles,
+    FuzzRandom, OutputDigest, ResponseFile, StatefulSignatureCorrectnessTest, StatefulTreeHeight,
+    TestVectorFiles,
 };
 use OQSNativeDomain::{KeyStatePersisting, RandomGenerating, StatefulSigning};
 use OQSNativeEntities::{OQSError, SecretBytes};
 use OQSNativeKATRandom::NISTKATRandom;
-use OQSNativeSHA2::SHA256;
 use OQSNativeXMSS::{XMSS, XMSSMT};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -68,14 +68,6 @@ impl RandomGenerating for RecordingRandom {
 /// The entropy of the known-answer generator of the response files: the bytes 0 to 47.
 fn countingEntropy() -> [u8; 48] {
     std::array::from_fn(|index| index as u8)
-}
-
-fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-}
-
-fn digest(bytes: &[u8]) -> String {
-    hex(&SHA256::hash(bytes))
 }
 
 /// The key pair of the response file of a scheme, which is the key pair of the NIST generator
@@ -178,18 +170,18 @@ fn testSigStflPassesForEverySet() {
 const keyPairDigests: [(&str, &str, &str); 3] = [
     (
         "XMSS-SHA2_10_192",
-        "7434fea2e6c3b44d1c2abdc5942c6260ebe019af5cbe1caac68ecc631bb4e8a0",
-        "ae3a2ea965aa13f2f4ca23f22ecbf196ca745f4ff543c1a8a81700373e084a7b",
+        "bf37ecee10e183ae393b4eae839e0a9734aae70b7e3475b794c3d5e37586e54c",
+        "a58114ad882e868e2848bda7b9f3be560c3297ac20b19d90e50b95e828505a6d",
     ),
     (
         "XMSS-SHAKE256_10_192",
-        "403a3785b54d7633226772b7ddf4edc8baffe47ef2fcf49455eeb75fe4e53d1c",
-        "e712e495be4c16ac84b8adfba0478b050347fe7131c18de58c6d09bbfb2a3fce",
+        "3c51a5fe7cd8f9a89e6f1d66f1815045e4e073babfa159a4a9715abe54a27e38",
+        "d0409fe37e83560e377b790d499bc96f226935936b15b97cd549acec627ad94d",
     ),
     (
         "XMSS-SHAKE256_10_256",
-        "a34696ef84db2dd196321f7c5085b38d896fc69d8b84a203d74b998a1f6a1d28",
-        "c0a516e75bbdf1a272b37a5a7c0141168df350567a8fd5b2121e3bb8dac9abce",
+        "277a97317eef8831efc599682cfffca3139bc0f211e90332c46f22a1e98c9fa4",
+        "8d8b0ccab5415b8559043293e280df5287265fb97186246b399224fbfc73c176",
     ),
 ];
 
@@ -204,13 +196,16 @@ fn checkKeyPair(scheme: &dyn StatefulSigning) {
         Some((_, publicKey, secretKey)) => (publicKey.to_string(), secretKey.to_string()),
         None => {
             let (publicKey, secretKey) = responseKeyPair(scheme);
-            (digest(&publicKey), digest(secretKey.bytes()))
+            (
+                OutputDigest::of(&publicKey),
+                OutputDigest::of(secretKey.bytes()),
+            )
         }
     };
     assert_eq!(
         (
-            digest(&keyPair.publicKey),
-            digest(keyPair.secretKey.bytes())
+            OutputDigest::of(&keyPair.publicKey),
+            OutputDigest::of(keyPair.secretKey.bytes())
         ),
         expected,
         "{name}"
@@ -286,8 +281,9 @@ fn aKeyPairDrawsTwoSeedsAndThenThePublicSeed() {
 // The key after each signature.
 
 /// Signs `count` messages from the key of the response file and compares the chain digest
-/// SHA-256(chain || signature || saved key) of each checkpoint with the C library. Each signature
-/// is checked against the public key, and the saved key is the key in memory.
+/// `OutputDigest(chain || signature || saved key)` of each checkpoint with the C library, where
+/// chain is the text of the link before. Each signature is checked against the public key, and
+/// the saved key is the key in memory.
 fn checkSequence(
     scheme: &dyn StatefulSigning,
     count: usize,
@@ -296,7 +292,9 @@ fn checkSequence(
 ) {
     let name = scheme.description().name;
     let (publicKey, mut secretKey) = responseKeyPair(scheme);
-    let mut chain = [0u8; 32];
+    // Each link of the chain is the digest of the text of the link before, the signature and the
+    // saved key, so one value checks every signature up to a checkpoint.
+    let mut chain = String::new();
     let mut store = RecordingStore::accepting();
     let mut checkpoint = checkpoints.iter().peekable();
     for k in 0..count {
@@ -311,15 +309,11 @@ fn checkSequence(
         );
         let saved = store.saved.last().expect("a saved key");
         assert_eq!(saved.as_slice(), secretKey.bytes(), "{name}, signature {k}");
-        let mut hash = SHA256::new();
-        hash.absorb(&chain);
-        hash.absorb(&signature);
-        hash.absorb(saved);
-        chain = hash.finalize();
+        chain = OutputDigest::of(&[chain.as_bytes(), &signature, saved].concat());
         if let Some((after, remaining, expected)) =
             checkpoint.next_if(|(after, _, _)| *after == k + 1)
         {
-            assert_eq!(hex(&chain), *expected, "{name}, after {after} signatures");
+            assert_eq!(chain, *expected, "{name}, after {after} signatures");
             assert_eq!(
                 scheme.remainingSignatureCount(secretKey.bytes()),
                 Ok(*remaining),
@@ -344,67 +338,67 @@ fn eachSignatureOfXMSSAdvancesTheKeyAsTheCLibraryDoes() {
             (
                 1,
                 1022,
-                "a3c0973561c6fc8c151ec59d8c152417dc596c08fac1999258fd509d9ef83e55",
+                "9072bd3b03abc943e45de407b34bd214b24014613ce65c4eca35d6d900e65aef",
             ),
             (
                 2,
                 1021,
-                "1732e75b8e6e6eefc43e7e43e7ba506084ffe6b7deae53ab7ca6501dfb99cfdb",
+                "814fb8ec0ac43fdaf7e203af4393cc1a2b6cc877d6121a5fac9a922a274851f1",
             ),
             (
                 3,
                 1020,
-                "abe822c69ca285c18eb0572f3200997c7043b4ee7dfc2a2c9da7166298a21231",
+                "614a6303ba65588d13f5cc16ca490ca4a199b200feeaea84d27520d1e2ed242a",
             ),
             (
                 4,
                 1019,
-                "23157ef371e41744e8fb838028ff303eacac6969027aad756812af6e119a4d34",
+                "b13111c2524a2248c1239c808d5fb2365ad3c8114a70570c948e5aa32f742881",
             ),
             (
                 5,
                 1018,
-                "66b1e6f953bc46ba79af660dea005ea5c6a0f6140ee5dcdaab7f647419cc7df1",
+                "d727230176c3079ac535af3c79c8dd703483b5b9a2ab4d92c9476ed9a3aa2ef0",
             ),
             (
                 6,
                 1017,
-                "5ad66fad31787619bb8cd9fcc745b2c7aeacff4121d82074e325cf46f3bb0373",
+                "05853c5facb27151e09da0e60dd5aa88b9e46b549213abe2ec504c8d97217aa5",
             ),
             (
                 7,
                 1016,
-                "16ca6c93611a3c2944cee5701031b8146d6647484d8496a2aeb84911573308ea",
+                "e25c29cb1c3bc09df80e69dfd119c3db67f8663f095767cddf5512f16e36d00a",
             ),
             (
                 8,
                 1015,
-                "0363065cd5953330dced56ee55fc19e9a5812a33f8d417bd35c61958485802d1",
+                "cf86c12f16fa05a898c921dd88aa0f2e5b6eb2b5d17c77cf1dedfe8c07b73409",
             ),
             (
                 16,
                 1007,
-                "0c09524d70e575afdd6441be1f992cd9bde6d9bfbbc302996278cd0a9f2b0ffd",
+                "09e5b2369aadc00fb062526e38677e9775cef4953487e16f6e5fb22b0f793caa",
             ),
             (
                 31,
                 992,
-                "e96ec164090cba72b7cdd8eecb17a6b2f89d0ce8399efd69c463e352d452e63e",
+                "9493acfe12d0c54eb41339999c2eadd48c9225971adede3c4c97c57c74e0b3e5",
             ),
             (
                 32,
                 991,
-                "aebf3447c71a5d14960f93c729f208bb5a8c52f8df3b30533051a3884dcfe43f",
+                "38bd8e8b634261fd40624ddbd68ca727f25224da0d1831be14144dfb127b4d06",
             ),
             (
                 33,
                 990,
-                "ebd608d1c85444f60c6bcda90be729f95678e24060a562bfd1ade5510dc540ca",
+                "63a7dc4254049c6b72c5be0f5f5d508026a4bf525a76e7d379fc1d23b7f6666e",
             ),
             (
                 40,
                 983,
-                "a54f84fe60def1795fcc6787cc3c12a6ddef8d586a6a3cc3923d11d9bf956a80",
+                "1cbbbcb1fa9ebbd756f64020f9dee4f0d61f031f797c17c63d254ad5f428e0ab",
             ),
         ],
         &[],
@@ -422,77 +416,77 @@ fn eachSignatureOfXMSSMTAdvancesTheKeyAsTheCLibraryDoes() {
             (
                 1,
                 1048574,
-                "cbdf6fe0c5acefa2ffc1f0a37f8b4c4adee99ae9e8cebd16a558625d76db2a90",
+                "53d21929a177c47d98730508d27b5a0282c30e4be38fff5beafbbade955b3088",
             ),
             (
                 2,
                 1048573,
-                "b6ef195cfb1fb51b26cc8f590bc1741b584e55502db3916c208b0edab1bd17da",
+                "0d68346606ca9d4115b35569d84d9c3a3df078ced92e2b1b943cc93db893257d",
             ),
             (
                 3,
                 1048572,
-                "a8655fd11600eb3674e3fed1b51e41426e45d14762091bfd0fa4bf94c130c746",
+                "382f0c6266d969cb6fba5388926733d42cb69837eec915bc5358dec88948aa3e",
             ),
             (
                 4,
                 1048571,
-                "a8d41172b1f206e9e3711612735e39046ee720276c25e0571ec47ab1eba307d0",
+                "b1bd84f8b34814376993efbdf246754393b9b2e8ded7a04ebdff09137ab420f7",
             ),
             (
                 5,
                 1048570,
-                "2a6b16b3c139dfe78bf1175d64a348ffb459429f2cf0afbee9512e43c36bd3e1",
+                "c7633acd3cf06c85aaafb8f5ffcc0a7be10cc4a87f695d1e32fea2451bb7758d",
             ),
             (
                 6,
                 1048569,
-                "30a44bb7a54884b1c0ec4df808ff03bfdfc2378d40924d0db86cd63bd6266e1b",
+                "9434980e6b148ef89b4507ccdddf6531fb6b78b73e23714dce5865c30394b7b0",
             ),
             (
                 7,
                 1048568,
-                "6eea4d4b214b721aa7e404811a205404553ef339f189cc8aa61342c5512f0c4a",
+                "81283ff1ea811d310a2e948647b2d065471fc54bb994795cbaef38c85e55150c",
             ),
             (
                 8,
                 1048567,
-                "2438e0a23dd3f623e139564e8e2fc02c9474068c187d1f93b164e750697e8a76",
+                "32aadddfb4d69b4cd8387ce3548bd780e6ec2a15c71351b9293041f799b1fafd",
             ),
             (
                 16,
                 1048559,
-                "3b7ae143febee8ea2c4c40fabe078fe765ed2dac2d62a8d2da389e415aeb49fc",
+                "30bb2692f8d0d7cbdef619e2173c3bcbdef4ade5004797f55fea2d2faacf604f",
             ),
             (
                 31,
                 1048544,
-                "36c99d080ffe9480e8e802ab6d21bbc4760b8d161803e0cca82d93c76930797c",
+                "c8cf0875ff4a1c21dbbf9264a47c4fccaf7db62271fc49d631eb5dc8c3b8afd2",
             ),
             (
                 32,
                 1048543,
-                "d4cf66e86f3de7780428deeefda39d131f8129580c3d98fd462dd966d8bf5420",
+                "4d3ada6a91cc0816e9d4d9e7432d8961204b61427ec698959068828d9420ede4",
             ),
             (
                 33,
                 1048542,
-                "bf6792d62bcc648730ebd9e598e815ae606661ab8892b84d08831332e7288df6",
+                "06c04b673467b9900f6956a0e5d43f21b939302bd189351c1811389626a39713",
             ),
             (
                 40,
                 1048535,
-                "5dc3fc0a10db58d09727974efe66eb2f7f8f1047496146f2e73fdd41cba3b1ac",
+                "ee360432c65647c8f5f1ca32a85998299cb7fee39e4a8229cb95f844e86b01fc",
             ),
             (
                 64,
                 1048511,
-                "0afd0389fc148cdaa1abc309e5528c1b3ed688fcee1e763c65ecc055b043745e",
+                "cc641bbb94623808520852440a61fc905a8cf52f517b9a59748c481b0f190c91",
             ),
             (
                 70,
                 1048505,
-                "c45c7675b8b100bf9f917797f9fbb8266edf727de7a518bdd38c17cdbfd1e63e",
+                "65e4a5db94f1356660fec081f50b03a087c4b7e8f4d761b4cfd10bbeef5a71e0",
             ),
         ],
         &[],
@@ -508,67 +502,67 @@ fn eachSignatureOfAnXMSSMTSetOfEightLayersAdvancesTheKeyAsTheCLibraryDoes() {
             (
                 1,
                 1099511627774,
-                "3f6340f334c32509054c83f8af12e532c6e1cba8cfaa57a4ffb3d197755bec65",
+                "df1eecbd13fe0aef666a12ff4c1b5794365b801c2c839e2eabdea8fddfa00cfc",
             ),
             (
                 2,
                 1099511627773,
-                "76e226fdf7cdeadde858f1b4cddcee16543a82327c10812f5d011e46328bf0ff",
+                "2adffcd47839b3fc3d4538a3e2452d55eaddd4730a54dc86a8d3da6d4187e86d",
             ),
             (
                 3,
                 1099511627772,
-                "60510a75b940a78c5306a78036e8e3b1a64ce51dbf9251e735bf67a9213586a4",
+                "44a714e3cbbc751984c537b1ff8852506c26efb0fa0d3995e6c2bb865358ec32",
             ),
             (
                 4,
                 1099511627771,
-                "7a3140df38f8121e5de0ca797d8289a8f5c663c6ebc218f8fbe162e14702ca39",
+                "ec335decfd726675a9505c407bb09e4807a778a4692cd0fcb1919b89d2c0b7ba",
             ),
             (
                 5,
                 1099511627770,
-                "6ff01b7d7d34417cfe346e3a47192652e8047c89d0e124c54776b53c4e5e34ab",
+                "935984d31af2579c63db323984f9d7a6d95bbbe01b15ad15766fa66d9e0c06ee",
             ),
             (
                 6,
                 1099511627769,
-                "30df8a64331674c5c71e59fe546fdbebb5cbc0d7b166f3bcee0dc8f6d2915565",
+                "124c30068b8efb1c10dfe2b6a5aaed90752bbba1f9e10de4bf608953c32ea968",
             ),
             (
                 7,
                 1099511627768,
-                "8ad224cfad558ce140c2ba6a0e0db906ec2c8d447cc8c060bdbc1b0fbf25f866",
+                "677185bed04376c53de5e3a0568eb1d16b737fd51d9a6e4f6ee532d8caba6d23",
             ),
             (
                 8,
                 1099511627767,
-                "84d144f565acae302abb54186fd386e32e0710e81bc4db6dcf9c8b1953dffed5",
+                "0750aa17b34778b158e64ca6c5f06198919149778e0f2fc68a315cee5894c18f",
             ),
             (
                 16,
                 1099511627759,
-                "82dfe86912adec8498cbab9a6b4accdd501716b86f91f537e4a54ca9101e68c3",
+                "5814d19d2c1cf5befb4a418e58e3b76d9a6c60b1c402eb74c14f19c53535d69c",
             ),
             (
                 31,
                 1099511627744,
-                "27a0a459a1a83ef99f2ec960b0434210d73d6e43fe7a836dccf2dad8e61c2097",
+                "be3379a9947734ebffea65354c7797b55c41fcf19738704c3d6f798815495a3d",
             ),
             (
                 32,
                 1099511627743,
-                "ae116cb94f418fdd1ad646663f0a332e24cc5680f5dcdb3533d3e3c20b960808",
+                "0db9c406b016e0b3530331ced2a53fb7edf8250dc2b10615e48b76192450150e",
             ),
             (
                 33,
                 1099511627742,
-                "fb7f107adfe4dcd06de7e4a72638d43b2f46423f242e99d0053f2389a97ad94d",
+                "c21b7adfb23a38c953cc62647e7999faafd9f3f3f61b050de00ebd7b6ac21bec",
             ),
             (
                 40,
                 1099511627735,
-                "2b4cdd701edbfc184c57e08a751c6a0ae96c898b9b06283c6b0adeb7a2b89854",
+                "0d779c325440a5bda3e8b441c76cc52ae7476b7afd9d2c24ecd19392b980b7f0",
             ),
         ],
         &[],
@@ -587,17 +581,17 @@ fn everySignatureOfAnXMSSKeyAdvancesTheKeyAsTheCLibraryDoes() {
             (
                 1000,
                 23,
-                "a621461ea8ca0440088fc18e122bddbec0c4525dde2f19eaa733076dedb104a4",
+                "2ef6a2cab341ef37f0f70dffae453018276dbd8268b2ee7e0b864dc21f11e362",
             ),
             (
                 1023,
                 0,
-                "a27455c3647c10d2343a18bc8fcb9a79495a006c3467c809e5652767e3f08201",
+                "bfa8ef0d3ea43ec7539e1db04fcd9315b021ef92ca81453a8cfba88adada1cda",
             ),
             (
                 1024,
                 u64::MAX,
-                "befcd6edb4f7bdc8a7eef499c25efb9ef4f70ea0e4b9daa365eae7e967562d45",
+                "a5803fd23a67b278f7d2c81f1041142a3b9893728acc504d190ec826c0a34f0f",
             ),
         ],
         &[1023],
@@ -615,22 +609,22 @@ fn signaturesPastTheFirstTreeOfTheSecondLayerAdvanceTheKeyAsTheCLibraryDoes() {
             (
                 1000,
                 1047575,
-                "c0b2f5efdc606180b948b08639d1172be57c41afead9fae37728cf47373605a7",
+                "c90d23d659914037409574e6c95d021195fb758289a7f643bbdd5ac090f37e83",
             ),
             (
                 1023,
                 1047552,
-                "62ecb798d3568415b774da4bd58b9773d331b74878c085b0158eb9aff737a70c",
+                "2596d889bf9efdc9eec5886845baab413c2bc507e57cf1576bca8dc2c875a23f",
             ),
             (
                 1024,
                 1047551,
-                "1130e571829b37cb4be106a759648115ce1b314744822bcf8387cb1fbcc6a717",
+                "91a3523a4aafce758974cecb866f42e2475bef6fe8873fc08316f22165039e41",
             ),
             (
                 1100,
                 1047475,
-                "0999f134bd30dde7903e0c1c7a4a7ed7fd7e11c4147eae61fec9f4f34488e485",
+                "c530e5a28ae4ebc5c5b4e30d7d572dad5f31601c8d7f156d9586cb837bfb758f",
             ),
         ],
         &[],
@@ -655,20 +649,20 @@ fn signTwice(scheme: &dyn StatefulSigning, mut secretKey: SecretBytes) -> TwoSig
     let mut store = RecordingStore::accepting();
     let first = scheme
         .sign(&message, &mut secretKey, &mut store)
-        .map(|signature| digest(&signature));
+        .map(|signature| OutputDigest::of(&signature));
     if first.is_ok() {
         assert_eq!(
             store.saved.last().map(Vec::as_slice),
             Some(secretKey.bytes())
         );
     }
-    let firstKey = digest(secretKey.bytes());
+    let firstKey = OutputDigest::of(secretKey.bytes());
     let remaining = scheme.remainingSignatureCount(secretKey.bytes());
     let total = scheme.totalSignatureCount(secretKey.bytes());
     let second = scheme
         .sign(&message, &mut secretKey, &mut store)
-        .map(|signature| digest(&signature));
-    let secondKey = digest(secretKey.bytes());
+        .map(|signature| OutputDigest::of(&signature));
+    let secondKey = OutputDigest::of(secretKey.bytes());
     TwoSignatures {
         first,
         firstKey,
@@ -687,11 +681,11 @@ fn theLastIndexSignsWithTheWipedKeyAndTheNextIndexIsExhausted() {
     let outcome = signTwice(&XMSS::sha2Height10Bits256, withIndex(key.bytes(), 4, 1023));
     assert_eq!(
         outcome.first.as_deref(),
-        Ok("92e2d9d62426388c44443554c7f96703432567b2257696da0bd306f75af25e1e")
+        Ok("2e610917b14e370ced8caab84c34bd0ac20769c28db3ad03b62bb03a9ae5d646")
     );
     assert_eq!(
         outcome.firstKey,
-        "0d654f77fe2594247d76d14500a4cca49e22f19740b3662eea89a58fae3947a3"
+        "513ae5ec00b1b88da117053c0894a655e2e4b461ae2625da1f33991bccda1ebc"
     );
     assert_eq!(outcome.remaining, Ok(u64::MAX));
     assert_eq!(outcome.total, Ok(1023));
@@ -699,7 +693,7 @@ fn theLastIndexSignsWithTheWipedKeyAndTheNextIndexIsExhausted() {
     assert_eq!(outcome.second, Err(OQSError::keyExhausted));
     assert_eq!(
         outcome.secondKey,
-        "64fd85e028c7c27dc0ce5404d79cd25ae788cf9e1d18fb55a69b5027f49101f5"
+        "7a247c3f72cf170ada48bdf1a6f39d1e12c37a1160683fe43d767b82c80189e8"
     );
 }
 
@@ -725,16 +719,16 @@ fn anIndexPastTheLastWipesTheKeyWhichThenSignsFromIndexZero() {
         assert_eq!(outcome.first, Err(OQSError::keyExhausted));
         assert_eq!(
             outcome.firstKey,
-            "64fd85e028c7c27dc0ce5404d79cd25ae788cf9e1d18fb55a69b5027f49101f5"
+            "7a247c3f72cf170ada48bdf1a6f39d1e12c37a1160683fe43d767b82c80189e8"
         );
         assert_eq!(outcome.remaining, Ok(1023));
         assert_eq!(
             outcome.second.as_deref(),
-            Ok("517b289c66156de9e1d161730ae28ccbbffac1bebcebbf83b0898d7378b2ff27")
+            Ok("8857f3827fa7c1f4ee4a47aa2a5cac02a21c0b9e92db26065db2aabc991452d7")
         );
         assert_eq!(
             outcome.secondKey,
-            "b125c7568908b59338f8b784c9fc14ad4efd9e26b0c52fc3dc3e35f630b09e7d"
+            "0dfca24c426a75a7dfdf2147842e3a527964cf93c925e87ed4460a2e66977df7"
         );
     }
 }
@@ -745,20 +739,20 @@ fn anIndexThatTheStateDoesNotFollowSignsAsTheCLibraryDoes() {
     let outcome = signTwice(&XMSS::sha2Height10Bits256, withIndex(key.bytes(), 4, 500));
     assert_eq!(
         outcome.first.as_deref(),
-        Ok("45782c048f636d103fe2bc829e45107035fad48b107e1fa12b6ec2d51e02a153")
+        Ok("686d39bc39abcd32e8a1490f2e111bb5d89e24d753b70420873d4ac8a18cb0eb")
     );
     assert_eq!(
         outcome.firstKey,
-        "30c5859a262a1eac59baa2c6d80f5eda5d0b3835732565c7ec7ff3a466a8d61d"
+        "509b9b0ffa7e94655b7547b8fb154eebad4ec8c5453c937bcbab63d164af6b73"
     );
     assert_eq!(outcome.remaining, Ok(522));
     assert_eq!(
         outcome.second.as_deref(),
-        Ok("2aa41dfe80d8346a437c8d534f932e40fe4a5ee96316af93c1551bce53fb8349")
+        Ok("dc2d4e2986247ab210ce8cbe002a7263fd956fab9ae08dbe80a0f3d066fb4097")
     );
     assert_eq!(
         outcome.secondKey,
-        "3f82338d76026bfb7eda338cd3417f13c7a9f8f3afcad56097c9ba10d5b687f7"
+        "621e0079d0b727ea723ddd79058dba158dff3a807b58841055a6dde19f67ec52"
     );
 }
 
@@ -770,20 +764,20 @@ fn theIdentifierOfTheKeyChoosesTheParametersAndTheSetChoosesTheHash() {
     let mut shakeKey = key.bytes().to_vec();
     shakeKey[3] = 0x07;
     let outcome = signTwice(&XMSS::sha2Height10Bits256, SecretBytes::new(shakeKey));
-    let signature = "51d0d336bf8d49d520a16cbe0b9936fefe02b1e659c18ffc67a329503240aaab";
+    let signature = "8eea1f62f2a2f5f21f7713653b90d0d9dd84662127a5a8dc600a6cc17cd59078";
     assert_eq!(outcome.first.as_deref(), Ok(signature));
     assert_eq!(
         outcome.firstKey,
-        "100083ddd976ce03f60a31ea1e5309cf2b530eb27c1969a7ab1ae8bc97d711f4"
+        "c4a2bf9d70d84d36f6e6eafa1c67e840e7913ea0fa7d9194a73cad95e6b4171b"
     );
     assert_eq!((outcome.remaining, outcome.total), (Ok(1022), Ok(1023)));
     assert_eq!(
         outcome.second.as_deref(),
-        Ok("7d002217bfb95f366a3358f8bcc8070d2e27f1d3a5f192ca0cb78f06579aebd3")
+        Ok("f9ffda2a3ab628325d2c66e37ca45725d3a163cf63a3dbfbb9c1325acb2af7b7")
     );
     assert_eq!(
         outcome.secondKey,
-        "de0b7a30812ce53b4d7b7ffd3f689b71ac530f9b243f565f13fc57254c9d479e"
+        "0392905d40c2dcfc9b018e9a4f4574b6d75328501ac8a952e1e9b253576a694b"
     );
     // A key of height 10 in the larger buffer of XMSS-SHA2_16_256 signs with height 10, and its
     // signature is the 2500 bytes of the smaller set.
@@ -799,16 +793,16 @@ fn theIdentifierOfTheKeyChoosesTheParametersAndTheSetChoosesTheHash() {
     assert_eq!(outcome.first.as_deref(), Ok(signature));
     assert_eq!(
         outcome.firstKey,
-        "0ae57156f4920d0bb9d4b2566aed57c34cfe84f3661729fc26112c10f19e6fd6"
+        "a83dc860c42b3b601c3d3d69480a473d2e799c3f320b6490d8cd2bbbdc23aa93"
     );
     assert_eq!((outcome.remaining, outcome.total), (Ok(1022), Ok(1023)));
     assert_eq!(
         outcome.second.as_deref(),
-        Ok("7d002217bfb95f366a3358f8bcc8070d2e27f1d3a5f192ca0cb78f06579aebd3")
+        Ok("f9ffda2a3ab628325d2c66e37ca45725d3a163cf63a3dbfbb9c1325acb2af7b7")
     );
     assert_eq!(
         outcome.secondKey,
-        "30b479c25796cf442f611c375ca7ac49aa204c9be05c4f1f97250979a5fdc1b9"
+        "d3399400b03438219ba3806084d5643e9b7230e29b63a0bb6dfec83f0fb94e02"
     );
 }
 
@@ -820,15 +814,15 @@ fn theEdgesOfTheIndexOfXMSSMTSignAsTheCLibraryDoes() {
     let outcome = signTwice(scheme, withIndex(key.bytes(), 3, (1 << 20) - 1));
     assert_eq!(
         outcome.first.as_deref(),
-        Ok("80c96a6fa7239c359385da2a7385c4029c7d1451f35d53fde68f19ca5b3fd16f")
+        Ok("29f2360a574084218b2ad83232c903c7bd2c038b18ccbd7b6242530b762ab8e1")
     );
     assert_eq!(
         outcome.firstKey,
-        "18f69fb9a9b7a79ebcd1180a915ba40e6441b55f94e77901efc5b59caadccc70"
+        "b80e642b33d6ba7f1080debe0e9946169f196bed26b290a09e339cd0eea33683"
     );
     assert_eq!(outcome.remaining, Ok(u64::MAX));
     assert_eq!(outcome.second, Err(OQSError::keyExhausted));
-    let wipedKey = "e63cf2fa968a2f0741e400680ef3e752b92946d31c753f3d3f3f239bf46c35cb";
+    let wipedKey = "7ebd63c4a271f574a9ba1ebe6e2aaf8c488e97447c2813a265148971309889b8";
     assert_eq!(outcome.secondKey, wipedKey);
     let outcome = signTwice(scheme, withIndex(key.bytes(), 3, 1 << 20));
     assert_eq!(outcome.first, Err(OQSError::keyExhausted));
@@ -836,38 +830,38 @@ fn theEdgesOfTheIndexOfXMSSMTSignAsTheCLibraryDoes() {
     assert_eq!(outcome.remaining, Ok(1048575));
     assert_eq!(
         outcome.second.as_deref(),
-        Ok("b45b6c6f442255d69f9f95ccbf9c96ec792294403af3f86bac39fb8c0953947a")
+        Ok("5ab9ede81db042f508ea108f7db6c9207d53f138898c403eac0030c30ad51e0e")
     );
     assert_eq!(
         outcome.secondKey,
-        "3ae561ea6d2591266ba22143a3dbbc3e4fa18b79e56a6571a123cfd87c52017a"
+        "6b58525612ae6cf29a522446fd56165affc29f94848542f58d8fe2c9b1c71bb4"
     );
     // The ends of one, two and three trees at once: the next trees of the fresh key are empty,
     // and at the end of three trees the count of the updates goes below zero.
     for (index, signature, firstKey, remaining, second, secondKey) in [
         (
             31,
-            "03079f063fd9defc9c3889e993a6c3ed86c79c02a91d0f9829be1204701b315e",
-            "0b14d5d775047b6050cdcdbf1c2d9ba21749a9d8301b3af60934b63392ce86b3",
+            "53afb6aadd731d58922192c0f3d7a11c10356333b6ec1328a3456f219a3da248",
+            "23a98d625d1afdbd6b5f09164417c78bef13abe4007fc483c7619d731690ffe4",
             1048543,
-            "c9535569f70a6a821e25508a00ac184eb3607e32f8b02f01243d9d879308bc05",
-            "9a1c63ea16fcd8f81be2d0ccf201b54917e02541717fd62eb6d19a8550d3d2d0",
+            "d8cb0544afb37c626db1d360ef6a2f6c87d045e3c15847d8933cc01b9995443f",
+            "cf932849b2137e3a13ceb8bbe69e02cef0ac7034d78b5b47a5b5ddad8be4c1f1",
         ),
         (
             1023,
-            "1882b97658f8084c06182e114ce79234f4fc6b14b1a17c49c1bf01936e3d6516",
-            "88a7acd4dd1d6d121fb55a3b81111d15b7244c66606562cde8c49c03f1676942",
+            "7c9c59493c2338d36c4f4cce9d8661b86ee415da801d637f6bda3e38d8431e9d",
+            "e990ac79c3cb2fd7752eb2d7a7fc974ccd303d4e1a1c799bfd805ebcd74f614f",
             1047551,
-            "c5586944f8999cd84f2840d6f6ac99452ab79432db1efa42d32029447eb88503",
-            "25ab09dd18bc5f182d2973ea2b7b967f7b1113fd6a9370fc12810e7472dc8cfd",
+            "3a42f3cb8f3d03ed93d7737cf3170ae7980dc75a3597466a0dc364dd2708e1ae",
+            "52c5ae4e0402730def3ee6fdccc8d3b765a9491d58bcdc66ebedcedc16645756",
         ),
         (
             32767,
-            "9808cee427692faa947aecc59e7148ce6b1296ae4a2ce510d8eced0574dc905a",
-            "098089b01fcfd2760adf151c759022ce5a33c3cab01ee2df34c30ea02220aa5f",
+            "f919a81d04a4f91e54097b25e2190472b298cfb0d3e2fd55037fff09c9a0fa12",
+            "42e5382d62f6402071d3e641e456090bf42c0f645340c87c6dd09c603703fa93",
             1015807,
-            "97b9af92cb0913ca18ccdeca1441801b095b9b99ac7f45d3325be0abb532bea3",
-            "ddcaf78a7f99af50790231afea1f9234edbff36abbb57606276b092fc5170153",
+            "8ea5455f5860eb0dc4748e70f702354299c527444a2b24c6f6a23cf47d26bfaf",
+            "786aa74a8e6ab38469fc75ed6f1a8e3967f7be5dabaf42c474c637ac7f7cc237",
         ),
     ] {
         let outcome = signTwice(scheme, withIndex(key.bytes(), 3, index));
@@ -889,19 +883,19 @@ fn updatesBelowZeroReachTheNextTreesOfTheLayersAboveAsInTheCLibrary() {
     for (index, signature, firstKey, remaining, second, secondKey) in [
         (
             32767,
-            "45dc798486ee14634453d405804a81505f8a5fea9c14f7f9db8de2106592666a",
-            "7d66f885a4c1e805cc37484f7f8e2ca302e3b127dbcbdbfd2bf3dbfe1bc0d6b5",
+            "fb24856c48b92df3c1782735a21829c3f034729a8f0497ac4b8b8b9d1326cfc5",
+            "0b6235db87aa2be476ebf1e675c94c9342b9242d71403d730e7ddfe8c6177e4b",
             1099511595007,
-            "3ea2e5782e356b4ab53faecffee2ef9fc77e5c532892a7eb7466be0b6e928ddb",
-            "3db4ff7b7b7087f27bed5b6650d884e174d8d563bee0294e937c6b3ac3ed9a37",
+            "abffddd59b43ce62cbac5f95314481eea911ee5d024e5ee028a051cfe335aa75",
+            "809d3cd2c052ea83b2768886dc9e8cb4117db7e765bafa2f0515caa3c2b153af",
         ),
         (
             (1 << 40) - 1,
-            "688e474e38f77108da6dd723bc96b3588574b2e55a9c3eb338bcdf967473e161",
-            "e20f6edfe5fbba6da192981a610ba5a0902ba558d2cfa3131cc1a69adf60a5a1",
+            "a614060f727bfcda234deaab6404cb3fad65eb9be9ea32b90c795fffed414b5b",
+            "3c173f1699c2fcc92049b8d40f493a54d5412fc396174f9bb90f2e4d88e195b0",
             1099511627775,
-            "4c82c94763aa4121cd43a5c4cdd4a16955e1f11eecd7e6651e5a61dfbbaa93ea",
-            "185744c86bbdaab8e928115713aec3abcf2a08c2b8a3e63df00f424ef3682ef2",
+            "6a6bdaaa440cf7355e2413b1584ffe7c38ab2c8a7c2758f71f0cc91f02aa0b0c",
+            "52db8ec99c569108396b9ddd629614b3d596b547c192a6c1647aa401637f015b",
         ),
     ] {
         let outcome = signTwice(scheme, withIndex(key.bytes(), 5, index));
@@ -925,20 +919,20 @@ fn theTreeIndexOfTheUpdatesOfALayerPassesThrough32BitsAsInTheCCode() {
     );
     assert_eq!(
         outcome.first.as_deref(),
-        Ok("12e0c47f1e7dbbe9694168f627a1af40aff2ea5614f6460c7f89d18c161359db")
+        Ok("8093dcb720e4fff71914686e8ad9a292c9eb001536ee338846a862b5333f0e9e")
     );
     assert_eq!(
         outcome.firstKey,
-        "c5875810a6052e36dfea4d1b9e31ca28bcb416e2c0ccb07ead31ed8a5a2fd96a"
+        "4c0b2ba457fd01f41a25c1ac9a9bec7227036c25cb23116bc33f865772cc995c"
     );
     assert_eq!(outcome.remaining, Ok(1_148_417_904_979_476_473));
     assert_eq!(
         outcome.second.as_deref(),
-        Ok("7cedb6a2e6a5dc308db1040fddc19c661ee6d9830e657c43a6321ada205a08fe")
+        Ok("758cc020758b82d6ce82952ec7846003158440e4685ab548cedf663b06bad8a1")
     );
     assert_eq!(
         outcome.secondKey,
-        "48160b48c5099ea679c2b512a3c58e875b3fea64dffeb8865ad4e05f08b5c866"
+        "d9452f8e96e6c1f204164415034f4e194e9318a15e3907060b78c1a60474ef23"
     );
 }
 
@@ -1004,8 +998,8 @@ fn aKeyWhoseIdentifierIsNoSetOfTheVariantIsRefused() {
     let mut bytes = key.bytes().to_vec();
     bytes[3] = 0x16;
     assert_eq!(
-        digest(&bytes),
-        "6d852d137b65c17c65b7073c971e9b3d48fa8d1089f2b44df3ccc1b7de13168c"
+        OutputDigest::of(&bytes),
+        "8d017a199f5ba323a6cd25a744f1f96240790603eb7087764f9b156bdde83765"
     );
     // The identifiers of XMSS^MT are another table: 0x16 there is XMSSMT-SHAKE_60/3_256.
     let (_, mtKey) = responseKeyPair(&XMSSMT::sha2Height20Layers2);

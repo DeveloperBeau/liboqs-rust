@@ -687,7 +687,7 @@ impl BDSState {
 #[cfg(test)]
 mod tests {
     use super::{BDSState, copyWithinKey, place, swapWithinKey};
-    use crate::testInputs::pattern;
+    use crate::testInputs::sequenceBytes;
     use crate::{CoreHash, HashAddress, KeyedHash, Parameters, SigningFailure, Variant};
 
     /// The parameters of XMSS-SHA2_10_256: n = 32 and h = 10, one state of 1241 bytes.
@@ -710,7 +710,7 @@ mod tests {
     #[test]
     fn theLayoutOfAStateIsTheLayoutOfXMSSCoreFastC() {
         let parameters = parameters();
-        let mut key = pattern(1373, 1);
+        let mut key = sequenceBytes(1373, 1);
         let (states, end) = BDSState::deserialized(&parameters, &key, 1).expect("a state");
         assert_eq!(end, 1373);
         let state = &states[0];
@@ -767,11 +767,11 @@ mod tests {
         // `bds_treehash_update` returns `updates - used` as a `char`, which is signed on x86-64,
         // where the oracle runs, and the caller reads it back as an unsigned int.
         let parameters = parameters();
-        let hash = KeyedHash::new(&parameters, CoreHash::sha256N32, &pattern(32, 1));
+        let hash = KeyedHash::new(&parameters, CoreHash::sha256N32, &sequenceBytes(32, 1));
         let mut key = keyWithInstances(1);
         let (mut states, _) = BDSState::deserialized(&parameters, &key, 1).expect("a state");
         let address = HashAddress::default();
-        let seed = pattern(32, 2);
+        let seed = sequenceBytes(32, 2);
         // Every instance is completed, so no update is used.
         for (updates, returned) in [
             (5u32, 5u32),
@@ -792,13 +792,13 @@ mod tests {
     #[test]
     fn anUnfinishedInstanceUsesAnUpdateAndTheLowestInstanceGoesFirst() {
         let parameters = parameters();
-        let hash = KeyedHash::new(&parameters, CoreHash::sha256N32, &pattern(32, 1));
+        let hash = KeyedHash::new(&parameters, CoreHash::sha256N32, &sequenceBytes(32, 1));
         let mut key = keyWithInstances(1);
         // Instances 3 and 1 are unfinished with empty stacks: instance 1 is the lowest.
         key[979 + 39 + 6] = 0;
         key[979 + 3 * 39 + 6] = 0;
         let (mut states, _) = BDSState::deserialized(&parameters, &key, 1).expect("a state");
-        let seed = pattern(32, 2);
+        let seed = sequenceBytes(32, 2);
         let used = states[0]
             .updateTreeHashes(&mut key, 1, &hash, &seed, &HashAddress::default())
             .expect("an update");
@@ -863,7 +863,7 @@ mod tests {
         // XMSSMT-SHA2_20/4_256 has 7 states of 625 bytes after the 131 bytes of the index and
         // the four values of n bytes.
         let parameters = Parameters::of(Variant::xmssmt, 0x02).expect("XMSSMT-SHA2_20/4_256");
-        let mut key = pattern(parameters.secretKeyLength, 3);
+        let mut key = sequenceBytes(parameters.secretKeyLength, 3);
         let original = key.clone();
         let (mut states, _) = BDSState::deserialized(&parameters, &key, 7).expect("states");
         BDSState::swap(&mut states, 4, 0, &mut key, &parameters).expect("a swap");
