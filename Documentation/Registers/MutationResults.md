@@ -724,6 +724,8 @@ The run of 2026-10-23 is the `Mutants` workflow of CI, in ten shards, on the bra
 |---|---|---|---|---|---|
 | `oqs-native-classic-mceliece` | 1195 | 1112 | 20 | 32 | 31 |
 
+The [second run](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40045653640), on the commit of the new tests and the new forms, had 1199 mutants: 1137 caught, 20 timeouts, 32 unviable and 10 missed, the ten equivalent mutants below that keep the form of the C code.
+
 The 20 timeouts are endless loops of the error vector. Each of them failed a unit test first, and the unit test binary then stayed in `syndromesGiveTheKnownAnswersOfTheCFunction`. There `randomErrorVector` draws attempts until one gives `t` distinct positions below `n`, as `gen_e` does. With each mutant no attempt gives them, or almost none does, so the loop does not end.
 
 - `Encryption::positions`: the body replaced with `None`, `<` replaced with `==` or `>` in the test of a candidate against `n` (line 34), `<` replaced with `==` or `<=` in the count of the positions (line 38), and `==` replaced with `!=` in the test of a repeated position (line 45).
