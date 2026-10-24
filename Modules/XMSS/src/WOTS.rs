@@ -171,7 +171,7 @@ impl WOTS {
 mod tests {
     use super::WOTS;
     use crate::testInputs::{address, coreHashes, sequenceBytes};
-    use crate::{KeyedHash, Parameters, Variant};
+    use crate::{CoreHash, KeyedHash, Parameters, Variant};
     use OQSNativeAlgorithmTests::OutputDigest;
 
     /// The digests of the outputs of `wots_pkgen` and `wots_sign` of the C program for each core
@@ -273,6 +273,28 @@ mod tests {
             );
             assert_ne!(other, recovered, "{name}");
         }
+    }
+
+    #[test]
+    fn aChainTakesNoStepFromWOnAsGenChainDoes() {
+        // `gen_chain` stops before the step index w = 16 for any count of steps, so 17 steps
+        // from 0 give the 16 steps from 0, and a chain from 16 changes nothing.
+        let parameters = Parameters::of(Variant::xmss, 0x01).expect("XMSS-SHA2_10_256");
+        let hash = KeyedHash::new(&parameters, CoreHash::sha256N32, &sequenceBytes(32, 12));
+        let start = sequenceBytes(32, 15);
+        let chained = |from: u32, steps: u32| {
+            let mut value = start.clone();
+            let mut chainAddress = address([1, 0, 2, 0, 3, 4, 0, 0]);
+            WOTS::chain(&hash, &mut value, from, steps, &mut chainAddress);
+            (value, chainAddress)
+        };
+        let sixteenSteps = chained(0, 16);
+        // The step of index 15 is taken.
+        assert_ne!(sixteenSteps.0, chained(0, 15).0);
+        assert_eq!(sixteenSteps.1, address([1, 0, 2, 0, 3, 4, 15, 1]));
+        assert_eq!(chained(0, 17), sixteenSteps);
+        assert_eq!(chained(0, u32::MAX), sixteenSteps);
+        assert_eq!(chained(16, 1).0, start);
     }
 
     #[test]

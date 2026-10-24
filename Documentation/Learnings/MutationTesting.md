@@ -299,3 +299,9 @@
 - **Trap.** A drop that calls a free function of the C library changes no value that a test reads. The mutant that deletes the body only leaks memory, and it survives.
 - **Finding.** The drop of `OracleWorkingKey` survived the first run of `oqs-native-c-oracle`. The memory of the working key belongs to `malloc` of the C library, so the recording allocator of `SecretBytes.rs` does not see it.
 - **Rule.** The shim counts the loads and the frees of each handle in a counter of the thread, and a contract test checks that the count goes back after the drop. A counter of the thread does not see the tests of other threads.
+
+## A reset of counters that are already zero cannot show its target
+
+- **Trap.** A test of a step that sets the counters of one state to zero passes for a mutant that resets another state, when the counters of both states are zero before the step.
+- **Finding.** At the end of a tree of layer 1, `multiTreeSignature` of XMSS^MT restarts the next tree of the layer. The mutant `next - layer` in place of `next + layer` restarts the current tree of another layer. The tests signed at the ends of trees with the fresh key of the response file, whose next leaves and stack offsets are zero, and the CI run of `oqs-native-xmss` missed the mutant. The case `index 1023 with state 1 at the next leaf 7` of `theNextTreesOfXMSSMTGetTheirLeavesWithinTheLimitsOfTheCCode` gives the tree that ends the next leaf 7 before the swap, and the C library gives the key of the fresh key, as the restart clears the 7.
+- **Rule.** A test of a reset gives the counter that the step resets a value that is not zero, and leaves the counters of the other states as they are, so that a reset of the wrong state changes the key.

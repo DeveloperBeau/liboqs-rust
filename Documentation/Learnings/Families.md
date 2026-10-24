@@ -425,3 +425,9 @@
 - Trap: the default suite of a stateful family that runs `StatefulSignatureCorrectnessTest` on each set of the suite sample takes minutes, and the run of the parity program over the sample passes its bound.
 - Finding: the program makes three key pairs of each set, and an XMSS^MT set of 60/6 builds six trees of height 10 for each of them. On every XMSS set the test took 233 seconds of processor time, and seven minutes on a loaded machine. With the 19 XMSS sets of the sample registered, `runOverTheSuiteSampleOfTheRegistryReportsItsSizeAndEachAlgorithm` took six minutes against a bound of 120 seconds.
 - Rule: the default suite runs the correctness program on the sets whose key pairs build no tree above height 5, the sets that read their key pairs from the response file among them, and an ignored test runs it on every set. A test that runs the whole sample through the parity program has a bound that fits the key pairs of the sample.
+
+## A forged stack of the BDS state overwrites its own levels
+
+- Trap: a forged state that should make the merges of `bds_state_update` reach a given height cannot keep its stack levels in the levels array. The new leaf and the merged nodes overwrite them.
+- Finding: a merge at the height h of the tree needs h + 1 levels below the new leaf, so the leaf goes to slot h + 1 of a stack of h + 1 nodes. That slot is the stack offset and the stack levels of the key, so the leaf replaces the levels before the merges read them. The CI run of `oqs-native-xmss` missed the mutant of the refusal of such a merge.
+- Rule: give the forged state a stack offset so far past the stack that the levels that the merges read are bytes of the authentication path, and the slots of the leaf and of the merged nodes come after them. The test names both ranges. In the state of the next tree of the lowest layer of XMSSMT-SHA2_20/4_256 the offset 13 reads the levels at bytes 203 to 209 of the state and writes from byte 256 on.
