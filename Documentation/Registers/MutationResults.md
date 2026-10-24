@@ -541,6 +541,33 @@ The test gap replaces `+` with `*` in the size of the stack of `FORS::node`, lin
 | A verification compares the last root with `PK.root` | `Hypertree::isValid`, line 92: `==` replaced with `!=` | `hypertreeSignatureVerifiesAndAChangedMessageDoesNot` |
 | Each field of the address is a big-endian word at its place | `Address::setWord`: each operator replaced | `eachFieldIsABigEndianWordAtItsPlaceOfFIPS205Figure2`, `compressedAddressKeepsTheBytesOfFIPS205Section11Point2` and 9 more |
 
+## Latest result for CROSS
+
+The run of 2026-10-23 took the crate in the ten shards of the `Mutants` workflow of CI, on the code of the port before the new tests below: [the crate](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40026767245).
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-cross` | 888 | 795 | 1 | 86 | 6 |
+
+The timeout replaces the body of `BitReader::draw` with 1. Seven unit tests failed before the time limit of 26 seconds, among them `drawsTakeTheBitsOfTheBufferFromTheLowEnd` and `rejectionKeepsOnlyTheDrawsBelowTheBound`, so it counts as caught. With each draw 1, the shuffle of the second challenge never ends. At its last place, only a candidate of 0 is below `t - current`, which is 1. Applied by hand, `theSecondChallengeIsTheShuffleOfTheCCode` was still running after 120 seconds.
+
+Of the 6 missed mutants, two are test gaps, one joined two disjoint bit fields with an or, and three are equivalent.
+
+- `Packing::isPaddingAccepted`, line 53: `<<` replaced with `>>` in the mask of the 3-bit check. The mask is then 7 for a remainder of 1, 3 for a remainder of 2, and 0 for the other remainders. The scheme unpacks 3-bit vectors of 127, 187 and 251 values, whose remainders are 7 and 3, but `generic_unpack_3_bit` takes any count. `eachPaddingCheckGivesTheFlagsOfItsCFunctionForEveryRemainder` compares the flags of the three checks for the counts 1 to 16 with the static C functions. The mutant refuses the counts 1, 2, 9 and 10 for bytes of all ones, which the C function accepts.
+- `Verifier::isValidSignature`, line 130: `&=` replaced with `|=` in the group check. Each test of the verification changed bytes of a signature. A changed exponent of a published vector also changes the first commitment of its round, so the digest of the commitments refused the signature as well. The second form z of a zero exponent gives the same arithmetic as 0, so a signer that leaves out the normalization of its published vectors makes a signature that only the group check refuses. A C program signed with copies of the clean code of `cross-rsdp-128-fast` and `cross-rsdpg-128-fast` without `fz_dz_norm_n` or `fz_dz_norm_m`. `CROSS_verify` of liboqs refused both signatures, and a copy of `CROSS_verify` without the group check accepted them. `aPublishedVectorWithTheSecondFormOfZeroIsRefusedByTheGroupCheckAlone` makes the same signatures with `Signer::keepingTheSecondFormOfZero` and compares their digests with the digests of the C program. The mutant accepts them.
+- `BitReader::draw`, line 39: `|` replaced with `^` in the fold of the refill. `word << 8` has its low 8 bits zero, and a byte has no other bits, so the two operators gave the same value. The fold now joins them with `+`, as the rule of disjoint bit fields in `Documentation/Learnings/MutationTesting.md` says. `+` gives the same value with no carry, and the known answers of each set pass, the `all` digests among them. Applied by hand, `+` replaced with `-` overflows on a byte that is not zero and fails 20 unit tests. `+` replaced with `*` makes each refill 0 and fails 10, among them the four tests of `BitReader`.
+
+### Equivalent mutants
+
+- `Packing.rs`, `isPaddingAccepted`, line 53: `*` replaced with `+` in `remainder * 3`. The check of line 49 returns for a remainder of 0, so line 53 runs only for a remainder from 1 to 7. The shift is then 3 to 21 bits, and with the mutant 4 to 10 bits. A shift of 3 bits or more clears the low 3 bits, so `& 0x7` gives 0 on both sides, as `0xFF << (n_remainder * 3) & 0x7` of `generic_unpack_3_bit` does. Applied by hand, the mutant passed every test of the crate.
+- `Problem.rs`, `fieldBits`, line 85: `-` replaced with `/` in `prime - 1`, and `restrictedBits`, line 90: `-` replaced with `/` in `restrictedOrder - 1`. Each function takes only the problem, which has two values. The bit length of `x - 1` differs from the bit length of `x` only when x is a power of 2, and none of the primes 127 and 509 and the orders 7 and 127 is one. `bitLength` gives 7 for 126 and 127, 9 for 508 and 509, and 3 for 6 and 7, so the widths stay 7 and 9 for p and 3 and 7 for z. `eachProblemHasTheConstantsOfItsParameterHeader` checks the four widths. Applied by hand, each mutant passed every test of the crate.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The 3-bit padding check accepts every input of every count, as `generic_unpack_3_bit` computes it | `Packing::isPaddingAccepted`, line 53: `<<` replaced with `>>` | `eachPaddingCheckGivesTheFlagsOfItsCFunctionForEveryRemainder` |
+| The verification refuses a published vector with an exponent outside the restricted group | `Verifier::isValidSignature`, line 130: `&=` replaced with `\|=` | `aPublishedVectorWithTheSecondFormOfZeroIsRefusedByTheGroupCheckAlone` |
+| The refill of the window takes its bytes from the low end | `BitReader::draw`, line 39: `+` replaced with `*` | `drawsTakeTheBitsOfTheBufferFromTheLowEnd`, `theWindowTakesFourBytesWhenAtMost32BitsAreLeft` and 8 more |
+
 ## History
 
 | Run | Code | Mutants | Caught | Timeout | Unviable | Missed |
