@@ -691,6 +691,8 @@ The run of 2026-10-23 took the crate in the ten shards of the `Mutants` workflow
 |---|---|---|---|---|---|
 | `oqs-native-snova`, first run in CI | 1830 | 1800 | 0 | 24 | 6 |
 
+The [second run](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40039245883), on the commit of the new forms, had 1826 mutants: 1800 caught, no timeout, 25 unviable and 1 missed, the equivalent mutant of `Signer::solved` below.
+
 The run had no timeout.
 
 The six missed mutants are equivalent. Five of them are of two kinds that `Documentation/Learnings/MutationTesting.md` describes. In three of them, `|` or `^` joins two bit fields that cannot share a bit. In the other two, `^=` adds a whole sum to a zero. The code now joins those fields with `+` and assigns those sums, so the five mutants are gone. Applied by hand, each mutant of the new forms fails the exhaustive tests of the field arithmetic and the known answers of every set, except `+` replaced with `*` in the index of the product table, which does not build. The sixth mutant is in the back substitution, which keeps the loop of the C code. It stays, and a later run must show it, and only it, as missed.
