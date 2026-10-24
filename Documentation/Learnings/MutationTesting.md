@@ -126,6 +126,12 @@
 - **Finding.** A shard of the parity gate spent about three minutes on the build of the C oracle before 40 seconds of parity, and the shards of a mutation run each spent about as long on the oracle. When fifteen shards start at once, they race to save the same cache key, so most of them miss it and build the oracle again.
 - **Rule.** One job builds what every shard needs. The shards depend on it, restore the oracle with `fail-on-cache-miss`, and take a program from its artifact, so a shard builds only what is its own, such as the mutants of its part.
 
+## A cache that its key finds is never saved again
+
+- **Trap.** The key of the oracle cache hashed `LIBOQS_VERSION` and `OracleBuild.rs`, and the build job ran `fetch-oracle` after the restore. The list of the vector files is in `Documentation/Registers/TestVectors.md`, which the key did not hash.
+- **Finding.** When the SLH-DSA vectors joined the register, the build job restored an older cache with the same key, and `fetch-oracle` downloaded the new files into its own folder. `actions/cache` saves only after a miss, so the cache kept the folder without the vectors, and the checks job, which restores that cache, failed every vector test.
+- **Rule.** The key of a cache hashes every file that the step that fills it reads. A job that restores the cache with `fail-on-cache-miss` sees only what the key describes.
+
 ## The diff of a mutant, not its name, gives its value
 
 - **Trap.** A copy of a mutant in another language, written from the name of the mutant, can compute another value than the mutant.

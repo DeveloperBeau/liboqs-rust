@@ -29,7 +29,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: target/oracle
-          key: oracle-${{ runner.os }}-${{ hashFiles('LIBOQS_VERSION', 'Tools/Xtask/src/OracleBuild.rs') }}
+          key: oracle-${{ runner.os }}-${{ hashFiles('LIBOQS_VERSION', 'Tools/Xtask/src/OracleBuild.rs', 'Tools/Xtask/src/TestVector.rs', 'Documentation/Registers/TestVectors.md') }}
       - name: Build the C oracle
         run: cargo xtask fetch-oracle
       - name: Build the parity program
