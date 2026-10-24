@@ -126,6 +126,12 @@
 - **Finding.** A shard of the parity gate spent about three minutes on the build of the C oracle before 40 seconds of parity, and the shards of a mutation run each spent about as long on the oracle. When fifteen shards start at once, they race to save the same cache key, so most of them miss it and build the oracle again.
 - **Rule.** One job builds what every shard needs. The shards depend on it, restore the oracle with `fail-on-cache-miss`, and take a program from its artifact, so a shard builds only what is its own, such as the mutants of its part.
 
+## A cache that its key finds is never saved again
+
+- **Trap.** The key of the oracle cache hashed `LIBOQS_VERSION` and `OracleBuild.rs`, and the build job ran `fetch-oracle` after the restore. The list of the vector files is in `Documentation/Registers/TestVectors.md`, which the key did not hash.
+- **Finding.** When the SLH-DSA vectors joined the register, the build job restored an older cache with the same key, and `fetch-oracle` downloaded the new files into its own folder. `actions/cache` saves only after a miss, so the cache kept the folder without the vectors, and the checks job, which restores that cache, failed every vector test.
+- **Rule.** The key of a cache hashes every file that the step that fills it reads. A job that restores the cache with `fail-on-cache-miss` sees only what the key describes.
+
 ## The diff of a mutant, not its name, gives its value
 
 - **Trap.** A copy of a mutant in another language, written from the name of the mutant, can compute another value than the mutant.
@@ -155,3 +161,57 @@
 - **Trap.** An or of two words, or of a word and its negation, that sets a sticky bit or tests for zero gives the same bit as an exclusive or, except when the two words are equal or the word is `2^31`. Random operands never meet these ties.
 - **Finding.** In `FloatingPoint.rs`, the sticky bit of a product, `z0 | z1`, and the sticky bit of the dropped bits of a rounding, at lines 117 and 118 of the first Falcon run, survived 20000 random products and conversions. Products whose low limbs are equal, which a C search found, and values with one dropped bit at each position kill the three mutants. The limb comparisons of `GaussianSampler::halfGaussian` survived in the same way, and values next to each table value kill them.
 - **Rule.** For each sticky bit, zero test and limb comparison, the tests include the inputs at its ties: equal limbs, a single set bit at each position, and the values next to each bound.
+
+## A zip with a longer slice hides a wrong end of the range
+
+- **Trap.** A helper that zips two slices, such as `add` of `PackedVectors.rs` in MAYO, stops at the shorter one. A mutant that makes the range of the target longer changes nothing, and it survives.
+- **Finding.** In `quadraticForms` of MAYO, `start * limbCount` in place of `start + limbCount` survived the first run of `oqs-native-mayo`. The range started at the same word and was longer. For the element 0 it was empty, and the bin 0 is the one bin that no line reads.
+- **Rule.** Take each entry of a list with the one helper that gives its exact range, such as `mutableEntry` of `MatrixProducts.rs`. A mutant of the range is then a mutant of the helper, and every use of the helper checks it.
+
+## A remainder by 16 before a read of the low nibble gives an equivalent mutant
+
+- **Trap.** `(x % 16) as u8` gives the low nibble of x. The mutant `(x + 16) as u8` keeps the low nibble, and a function that reads only the low nibble cannot tell the two apart.
+- **Finding.** The top element of the right-hand side of MAYO goes only into `field::product`, which reads the bits 0 to 3 of its first factor. The mutant survived the first run of `oqs-native-mayo`.
+- **Rule.** Take a nibble with `& 0x0F`. Its mutants `| 0x0F` and `^ 0x0F` change the low nibble.
+
+## A stepped range with a count of its own hides a wrong end
+
+- **Trap.** A loop over `(0..length).step_by(16)` that writes `16.min(length - start)` elements at each start gives the same writes when the end of the range is one or two too high. The extra start writes no element, or no extra start is a multiple of 16.
+- **Finding.** In `systemMatrix` of MAYO, three mutants of the end of the range and of the count survived the first run of `oqs-native-mayo`. The one extra element of the count was in a column whose element is always zero.
+- **Rule.** Walk a slice of the exact length with `chunks_mut(16)`. A slice end that is too high then panics, or it writes into a place that a test checks.
+
+## A branch of the C code that no input takes gives equivalent mutants
+
+- **Trap.** A mutant of a guard that never fires survives every test, and no test can reach the guard.
+- **Finding.** The `goto done` of `crypto_sort_int32`, the lines 109 to 112 of `SortingNetwork.rs`, never runs. The loop of line 108 runs only when `i < j = n - 2q < i + p`, and then `j` reaches `i + p` before `n - q`. The two mutants of the branch survived the run of the sorting network.
+- **Rule.** Keep the branch as the C code has it. Prove from the invariant of the loop that it never runs, and record its mutants as equivalent with that invariant.
+
+## Extra comparisons that change nothing give an equivalent sorting network
+
+- **Trap.** A mutant of the loop control of a sorting network adds or repeats comparisons. Every sorting network gives the one sorted list, so neither a test of the output nor a random input can tell whether the mutant is equivalent.
+- **Finding.** Three mutants of `SortingNetwork::sortWith` passed every test. One repeats merges, and two add merges at the high places of a pass. For an input of zeros and ones, a pass of the merge exchange only raises the values at its low places and only lowers the values at its high places, so each extra merge compares two values that are already in order, and a repeated merge finds its chain as the first merge left it.
+- **Rule.** Compare the list of comparisons of the mutant with the list of the network, which depends only on the length, and prove with inputs of zeros and ones that each extra comparison changes nothing. A comparison commutes with each threshold of the values, so the proof holds for every input.
+
+## A reduction by estimated quotients stays exact with other estimates
+
+- **Trap.** A mutant that changes the estimate of a quotient in a reduction such as `Fq_freeze` survives every test of the residues, because the later steps correct a worse estimate.
+- **Finding.** Seven of the nine mutants of the constants `q16`, `q20` and `q28` of `ModularReduction::residueModuloModulus` give the centered residue for every input up to `2^31 / 14`, the limit of the 32-bit products of the C code. The other two, with `q16` of 13 and 16, give it for every input of the callers, which stay below `2 * 2295^2`, but their products overflow 32 bits from 105412007 and from 77901825 in absolute value.
+- **Rule.** Test a reduction up to the limit of the integer type of the C code as well as over the inputs of its callers. Record a mutant that stays exact over the whole range as equivalent, with the bound that each step leaves.
+
+## A mutant stopped by the memory cap can count as a timeout
+
+- **Trap.** A mutant whose loop fills a list reaches the memory cap of the `Mutants` workflow, and the run reports a timeout in place of a failed test. A reading of the log that looks only for a failed test or a panic puts the mutant among the timeouts with no failure.
+- **Finding.** The four mutants of the byte loop of `RadixEncoding::encode` of NTRU Prime printed "memory allocation of 2147483648 bytes failed" in CI, and their test programs had not ended at the limit of 10 seconds. Applied by hand under the same cap, each test program stopped with SIGABRT.
+- **Rule.** Read the log of each timeout for "memory allocation of". The cap stopped such a mutant. Count it with the timeouts, as the run reports it, and say in the register that the cap stopped it.
+
+## A stack for the whole tree hides a mutant when the program builds only subtrees
+
+- **Trap.** The stack of a tree hash without recursion needs one place more than the height of the tree. When the program asks only for subtrees below the full height, the mutant that removes that place survives every test through the program.
+- **Finding.** `FORS::sign` of SLH-DSA asks for the FORS nodes of the heights from 0 to a - 1, which need at most 14 places. With 14 places in place of 15, every test of the crate passed, because only a whole tree of height 14 needs the 15th place. `fors_node` of the C code takes every height up to a. `nodesOfEveryHeightUpToAWholeTreeAreTheNodesOfTheCFunction` builds a whole tree of height 14 and kills the mutant. The stack of `Hypertree::xmssNode` needs no such test, because a key pair builds the whole top tree.
+- **Rule.** The known-answer test of a tree hash builds every height that its definition accepts, up to a whole tree of the largest height, with the answer of the C function. This is the rule of "An input that the caller never gives hides a mutant" for the size of a buffer.
+
+## A remainder that is its own negative hides a changed sign
+
+- **Trap.** A formula over the constants of the parameter sets, such as `(8 - (x & 7)) & 7`, gives the same value with `+` in place of `-` when `x & 7` is 0 or 4. These two values are their own negatives modulo 8, so the mutant survives every test.
+- **Finding.** The WOTS+ checksum of SLH-DSA is shifted by `(8 - ((len_2 lg_w) & 7)) & 7`, the formula of FIPS 205 and of `wots_csum` of the C code. `len_2 lg_w` is 12 in every set, so the shift is 4 with either operator, and the mutant of `Hypertree::chainDigits` survived the CI run.
+- **Rule.** Compute the value of each mutant of a formula over the constants of the sets, for every set, before you write a test. When a mutant keeps the value, record it as equivalent with the values on both sides, as for a small change of the dividend of an integer division.

@@ -3,8 +3,12 @@ use OQSNativeDomain::{KeyEncapsulating, Signing, StatefulSigning};
 use OQSNativeFalcon::Falcon;
 use OQSNativeFrodoKEM::FrodoKEM;
 use OQSNativeHQC::HQC;
+use OQSNativeMAYO::MAYO;
 use OQSNativeMLDSA::MLDSA;
 use OQSNativeMLKEM::{Kyber, MLKEM};
+use OQSNativeNTRU::NTRU;
+use OQSNativeNTRUPrime::NTRUPrime;
+use OQSNativeSLHDSA::SLHDSA;
 
 /// Every algorithm of the port, by its liboqs name.
 ///
@@ -26,6 +30,13 @@ const mechanisms: &[&dyn KeyEncapsulating] = &[
     &MLKEM::mlkem512,
     &MLKEM::mlkem768,
     &MLKEM::mlkem1024,
+    &NTRU::ntruHPS2048509,
+    &NTRU::ntruHPS2048677,
+    &NTRU::ntruHPS4096821,
+    &NTRU::ntruHPS40961229,
+    &NTRU::ntruHRSS701,
+    &NTRU::ntruHRSS1373,
+    &NTRUPrime::sntrup761,
     &FrodoKEM::frodoKEM640AES,
     &FrodoKEM::frodoKEM640SHAKE,
     &FrodoKEM::frodoKEM976AES,
@@ -40,16 +51,28 @@ const mechanisms: &[&dyn KeyEncapsulating] = &[
     &FrodoKEM::eFrodoKEM1344SHAKE,
 ];
 
-/// The signature schemes.
-const signatureSchemes: &[&dyn Signing] = &[
-    &MLDSA::mldsa44,
-    &MLDSA::mldsa65,
-    &MLDSA::mldsa87,
-    &Falcon::falcon512,
-    &Falcon::falcon1024,
-    &Falcon::falconPadded512,
-    &Falcon::falconPadded1024,
+/// The signature schemes, in groups in the order of the liboqs list. A family with many
+/// schemes gives them as one group, such as the 156 schemes of `SLHDSA::schemes`.
+const signatureSchemeGroups: &[&[&dyn Signing]] = &[
+    &[
+        &MLDSA::mldsa44,
+        &MLDSA::mldsa65,
+        &MLDSA::mldsa87,
+        &Falcon::falcon512,
+        &Falcon::falcon1024,
+        &Falcon::falconPadded512,
+        &Falcon::falconPadded1024,
+        &MAYO::mayo1,
+        &MAYO::mayo2,
+        &MAYO::mayo3,
+        &MAYO::mayo5,
+    ],
+    SLHDSA::schemes,
 ];
+
+/// The signature schemes, the groups one after another.
+const signatureSchemes: &[&dyn Signing] =
+    &joined::<_, { countOf(signatureSchemeGroups) }>(signatureSchemeGroups);
 
 /// The stateful signature schemes.
 const statefulSignatureSchemes: &[&dyn StatefulSigning] = &[];
@@ -75,6 +98,43 @@ impl Named for dyn StatefulSigning {
     fn liboqsName(&self) -> &'static str {
         self.description().name
     }
+}
+
+/// The number of algorithms in groups.
+const fn countOf<Algorithm: ?Sized>(groups: &[&[&Algorithm]]) -> usize {
+    let mut count = 0;
+    let mut group = 0;
+    while group < groups.len() {
+        count += groups[group].len();
+        group += 1;
+    }
+    count
+}
+
+/// The algorithms of groups, one after another, in a list of `Count` algorithms. The first
+/// algorithm of the groups fills the list before each place gets its algorithm, so the groups
+/// must hold one algorithm or more.
+const fn joined<Algorithm: ?Sized + 'static, const Count: usize>(
+    groups: &[&'static [&'static Algorithm]],
+) -> [&'static Algorithm; Count] {
+    let mut first = 0;
+    while groups[first].is_empty() {
+        first += 1;
+    }
+    let mut list = [groups[first][0]; Count];
+    let mut position = 0;
+    let mut group = 0;
+    while group < groups.len() {
+        let mut index = 0;
+        while index < groups[group].len() {
+            list[position] = groups[group][index];
+            position += 1;
+            index += 1;
+        }
+        group += 1;
+    }
+    assert!(position == Count, "the count is the number of algorithms");
+    list
 }
 
 /// The algorithm of a list with a name, or `None`.
@@ -121,7 +181,8 @@ impl Registry {
 
 #[cfg(test)]
 mod tests {
-    use super::{Named, Registry, named};
+    use super::{Named, Registry, countOf, joined, named, signatureSchemeGroups};
+    use OQSNativeSLHDSA::SLHDSA;
 
     /// A test algorithm that is only a name.
     struct NameOnly(&'static str);
@@ -140,6 +201,42 @@ mod tests {
         assert_eq!(named(testList, "C-3").map(|found| found.0), Some("C-3"));
         assert!(named(testList, "b-2").is_none());
         assert!(named(testList, "B").is_none());
+    }
+
+    #[test]
+    fn groupsJoinInTheirOrderAndSkipEmptyGroups() {
+        const groups: &[&[&NameOnly]] = &[
+            &[],
+            &[&NameOnly("A-1")],
+            &[],
+            &[&NameOnly("B-2"), &NameOnly("C-3")],
+        ];
+        assert_eq!(countOf(groups), 3);
+        let list: [&NameOnly; 3] = joined::<_, 3>(groups);
+        let names: Vec<&str> = list.iter().map(|algorithm| algorithm.0).collect();
+        assert_eq!(names, ["A-1", "B-2", "C-3"]);
+        assert_eq!(countOf::<NameOnly>(&[]), 0);
+    }
+
+    #[test]
+    fn signatureSchemesAreTheSchemesOfTheGroupsInOrder() {
+        let names: Vec<&str> = Registry::signatureSchemes()
+            .iter()
+            .map(|scheme| scheme.description().name)
+            .collect();
+        let groupNames: Vec<&str> = signatureSchemeGroups
+            .iter()
+            .flat_map(|group| group.iter())
+            .map(|scheme| scheme.description().name)
+            .collect();
+        assert_eq!(names, groupNames);
+        // The 156 schemes of SLH-DSA end the list, as in liboqs.
+        let slhdsaNames: Vec<&str> = SLHDSA::schemes
+            .iter()
+            .map(|scheme| scheme.description().name)
+            .collect();
+        assert_eq!(slhdsaNames.len(), 156);
+        assert_eq!(names[names.len() - slhdsaNames.len()..], slhdsaNames[..]);
     }
 
     #[test]

@@ -1,0 +1,26 @@
+[package]
+name = "oqs-native-sorting-network"
+description = "The constant-time sorting network of 32-bit values that the NTRU and NTRU Prime algorithms of liboqs use."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# The sort of djbsort comes to liboqs in public domain files of PQClean and of OpenSSH, so the
+# crate keeps the license of the workspace.
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[package.metadata]
+ring = "sharedComponents"
+
+[lib]
+name = "OQSNativeSortingNetwork"
+path = "src/lib.rs"
+
+[features]
+default = ["std"]
+# Without `std` the crate builds with `core` only.
+std = []
+
+[lints]
+workspace = true

@@ -15,6 +15,7 @@ The workspace root `Cargo.toml` lists the member folders `Modules/*` and `Tools/
 | `oqs-native-aes` | `Modules/AES` | `sharedComponents` |
 | `oqs-native-sha2` | `Modules/SHA2` | `sharedComponents` |
 | `oqs-native-sha3` | `Modules/SHA3` | `sharedComponents` |
+| `oqs-native-sorting-network` | `Modules/SortingNetwork` | `sharedComponents` |
 | `oqs-native-kat-random` | `Modules/KATRandom` | `infrastructure` |
 | `oqs-native-system-random` | `Modules/SystemRandom` | `infrastructure` |
 | `oqs-native-c-oracle` | `Modules/COracle` | `infrastructure` |
@@ -23,8 +24,12 @@ The workspace root `Cargo.toml` lists the member folders `Modules/*` and `Tools/
 | `oqs-native-hqc` | `Modules/HQC` | `features` |
 | `oqs-native-ml-kem` | `Modules/MLKEM` | `features` |
 | `oqs-native-frodokem` | `Modules/FrodoKEM` | `features` |
+| `oqs-native-ntru` | `Modules/NTRU` | `features` |
+| `oqs-native-ntru-prime` | `Modules/NTRUPrime` | `features` |
 | `oqs-native-ml-dsa` | `Modules/MLDSA` | `features` |
 | `oqs-native-falcon` | `Modules/Falcon` | `features` |
+| `oqs-native-mayo` | `Modules/MAYO` | `features` |
+| `oqs-native-slh-dsa` | `Modules/SLHDSA` | `features` |
 | `oqs-native` | `Modules/OQSNative` | `composition` |
 | `oqs-native-parity` | `Tools/Parity` | `tooling` |
 | `xtask` | `Tools/Xtask` | `tooling` |

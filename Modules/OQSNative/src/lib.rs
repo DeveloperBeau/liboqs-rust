@@ -21,8 +21,12 @@ pub use OQSNativeEntities::{
 pub use OQSNativeFalcon::Falcon;
 pub use OQSNativeFrodoKEM::FrodoKEM;
 pub use OQSNativeHQC::HQC;
+pub use OQSNativeMAYO::MAYO;
 pub use OQSNativeMLDSA::{MLDSA, PreHashAlgorithm};
 pub use OQSNativeMLKEM::{Kyber, MLKEM};
+pub use OQSNativeNTRU::NTRU;
+pub use OQSNativeNTRUPrime::NTRUPrime;
+pub use OQSNativeSLHDSA::{PreHash, SLHDSA};
 #[cfg(feature = "std")]
 pub use OQSNativeSystemRandom::SystemRandom;
 pub use registry::Registry;

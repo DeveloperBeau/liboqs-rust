@@ -1,0 +1,41 @@
+[package]
+name = "oqs-native-ntru"
+description = "NTRU, the NTRU-HPS and NTRU-HRSS key encapsulation mechanisms, a native port of the NTRU algorithms of liboqs."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# The upstream code of PQClean is in the public domain, so the crate keeps the license of the
+# workspace.
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[package.metadata]
+ring = "features"
+
+[lib]
+name = "OQSNativeNTRU"
+path = "src/lib.rs"
+
+[dependencies]
+oqs-native-domain = { path = "../Domain", default-features = false }
+oqs-native-entities = { path = "../Entities", default-features = false }
+oqs-native-sha3 = { path = "../SHA3", default-features = false }
+oqs-native-sorting-network = { path = "../SortingNetwork", default-features = false }
+
+[dev-dependencies]
+oqs-native-algorithm-tests = { path = "../AlgorithmTests" }
+oqs-native-kat-random = { path = "../KATRandom" }
+
+[features]
+default = ["std"]
+# Without `std` the crate builds with `core` and `alloc` only.
+std = [
+    "oqs-native-domain/std",
+    "oqs-native-entities/std",
+    "oqs-native-sha3/std",
+    "oqs-native-sorting-network/std",
+]
+
+[lints]
+workspace = true

@@ -114,6 +114,27 @@ You are solely responsible for determining the appropriateness of using and dist
 - Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. License: Apache-2.0, in the `LICENSE` file of that folder and in the `SPDX-License-Identifier` line of each file. The liboqs wrapper `src/kem/bike/kem_bike.c` is MIT.
 - Use in this repository: `Modules/BIKE` translates the portable files of that folder into Rust. The port is a modified work: it takes its random bytes as an argument, and it computes the carry-less products by another method that gives the same bytes. The crate is under MIT AND Apache-2.0.
 
+## NTRU
+
+- Algorithm: NTRU, by John M. Schanck, with Cong Chen, Oussama Danba, Jeffrey Hoffstein, Andreas Hülsing, Joost Rijneveld, Tsunekazu Saito, Peter Schwabe, William Whyte, Keita Xagawa, Takashi Yamakawa and Zhenfei Zhang. See https://ntru.org/.
+- NTRU in liboqs: the clean code of [PQClean](https://github.com/PQClean/PQClean), commit `4c9e5a3aa715cc8d1d0e377e4e6e682ebd7602d6`, in `src/kem/ntru/pqclean_ntru*_clean`. PQClean took it from the reference code of the NTRU team, [jschanck/ntru](https://github.com/jschanck/ntru), commit `a43a4457`. The version text of liboqs names commit `6d96ed37` of the same repository.
+- License: public domain, as the `LICENSE` file of each PQClean folder states. liboqs gives `spdx-license-identifier: CC0-1.0` in `docs/algorithms/kem/ntru.yml`. Some files name their SUPERCOP origin: `crypto_sort_int32.c` is based on `crypto_sort/int32/x86` of supercop-20190110, and `poly_r2_inv.c` and `poly_s3_inv.c` on `crypto_core/invhrss701` of supercop-20200702. The liboqs wrappers `src/kem/ntru/kem_ntru.h` and `kem_ntru_hps2048509.c` to `kem_ntru_hrss1373.c` are MIT, as liboqs is.
+- Use in this repository: `Modules/NTRU` translates the clean code and gives its bytes. The sort of `crypto_sort_int32.c` is in `Modules/SortingNetwork`. The port is under MIT, which a public domain upstream allows, so the crate keeps the license of the workspace.
+
+## NTRU Prime
+
+- Algorithm: NTRU Prime, by Daniel J. Bernstein, Billy Bob Brumley, Ming-Shing Chen, Chitchanok Chuengsatiansup, Tanja Lange, Adrian Marotzke, Bo-Yuan Peng, Nicola Tuveri, Christine van Vredendaal and Bo-Yin Yang. sntrup761 is its Streamlined form. See https://ntruprime.cr.yp.to.
+- sntrup761 in liboqs: `sntrup761.c` of [OpenSSH](https://github.com/openssh/openssh-portable), revision 1.9 of 2026-01-20, commit `1cc936b2fabffeac7fff14ca1070d7d7a317ab7b`, in `src/kem/ntruprime/sntrup761_openssh`. The file takes its code from SUPERCOP 20240808, and names Daniel J. Bernstein, Chitchanok Chuengsatiansup, Tanja Lange and Christine van Vredendaal as its authors.
+- License: public domain, as the header of `sntrup761.c` and the `LICENSE` file of the folder state. liboqs gives `spdx-license-identifier: Public domain` in `docs/algorithms/kem/ntruprime.yml`. The liboqs wrappers `src/kem/ntruprime/kem_ntruprime.h` and `kem_ntruprime_sntrup761.c` are MIT, as liboqs is.
+- Use in this repository: `Modules/NTRUPrime` translates `sntrup761.c` and gives its bytes. The sort of the file is in `Modules/SortingNetwork`. The port is under MIT, which a public domain upstream allows, so the crate keeps the license of the workspace.
+
+## Sorting network (djbsort)
+
+- Algorithm: djbsort, the constant-time sorting software of Daniel J. Bernstein in SUPERCOP. See https://sorting.cr.yp.to/.
+- djbsort in liboqs: two copies. `crypto_sort_int32.c` of the four NTRU-HPS folders of PQClean, `src/kem/ntru/pqclean_ntruhps*_clean`, states that it is based on `crypto_sort/int32/x86` of supercop-20190110. `src/kem/ntruprime/sntrup761_openssh/sntrup761.c` holds `crypto_sort_int32` from `crypto_sort/int32/portable4/sort.c` of supercop-20240808, and `crypto_sort_uint32` on top of it.
+- License: public domain, as liboqs ships both copies. The `LICENSE` file of each PQClean folder states public domain, and liboqs gives `spdx-license-identifier: CC0-1.0` for that code in `docs/algorithms/kem/ntru.yml`. The header of `sntrup761.c` and the `LICENSE` file of its folder state public domain, and liboqs gives `spdx-license-identifier: Public domain` in `docs/algorithms/kem/ntruprime.yml`.
+- Use in this repository: `Modules/SortingNetwork` translates the sort for NTRU and NTRU Prime. The port is under MIT, which a public domain upstream allows, so the crate keeps the license of the workspace.
+
 ## ML-DSA
 
 - Algorithm: CRYSTALS-Dilithium, by Vadim Lyubashevsky, with Shi Bai, Léo Ducas, Eike Kiltz, Tancrède Lepoint, Peter Schwabe, Gregor Seiler and Damien Stehlé. ML-DSA is its standard form, NIST FIPS 204. See https://pq-crystals.org/dilithium/ and https://csrc.nist.gov/pubs/fips/204/final.
@@ -163,8 +184,37 @@ compensation and under reasonable terms and conditions that are
 demonstrably free of any unfair discrimination".
 ```
 
+## MAYO
+
+- Algorithm: MAYO, by Ward Beullens, with Fabio Campos, Sofía Celi, Basil Hess and Matthias J. Kannwischer, the principal submitters that liboqs names in `docs/algorithms/sig/mayo.yml`. MAYO is a candidate of round 2 of the NIST call for additional signatures. See https://pqmayo.org.
+- MAYO in liboqs: the portable implementation of the MAYO team, [PQCMayo/MAYO-C](https://github.com/PQCMayo/MAYO-C), commit `64e15c622dec1f59aa5bbaf7f7c8f4f20af75106` with the liboqs patches, in the folders `src/sig/mayo/pqmayo_mayo-<n>_opt`.
+- Copyright 2023-2025 the MAYO team. All rights reserved. License: Apache-2.0, in the `LICENSE` and `NOTICE` files of each folder and in the `SPDX-License-Identifier` line of each file. The liboqs wrappers `src/sig/mayo/sig_mayo.h` and `sig_mayo_1.c` to `sig_mayo_5.c` are MIT.
+- Use in this repository: `Modules/MAYO` translates the portable code into Rust and gives its bytes. The port is a modified work: it takes its random bytes as an argument, and it keeps its large arrays on the heap. The crate is under MIT AND Apache-2.0.
+
+```text
+Copyright 2023-2025 the MAYO team. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+```
+
+## SLH-DSA
+
+- Algorithm: SPHINCS+, by Andreas Hülsing, with Daniel J. Bernstein, Christoph Dobraunig, Maria Eichlseder, Scott Fluhrer, Stefan-Lukas Gazdag, Panos Kampanakis, Stefan Kölbl, Tanja Lange, Martin M. Lauridsen, Florian Mendel, Ruben Niederhagen, Christian Rechberger, Joost Rijneveld, Peter Schwabe, Jean-Philippe Aumasson, Bas Westerbaan and Ward Beullens. SLH-DSA is its standard form, NIST FIPS 205. See https://sphincs.org/ and https://csrc.nist.gov/pubs/fips/205/final.
+- SLH-DSA in liboqs: [slhdsa-c](https://github.com/pq-code-package/slhdsa-c) of the PQ Code Package, commit `a0fc1ff253930060d0246aebca06c2538eb92b88`, with the liboqs patch `internal_api.patch`. Copyright the slhdsa-c project authors, and for `slh_sys.h` also the mlkem-native project authors. License: Apache-2.0 OR ISC OR MIT, as the SPDX header of each file says. The wrappers and templates of each scheme are liboqs code under MIT.
+- Use in this repository: `Modules/SLHDSA` follows FIPS 205 and the structure of slhdsa-c, and gives the bytes of that code. `Modules/SHA2` and `Modules/SHA3` give SHA-224, SHA-512/224, SHA-512/256 and SHA3-224 for its pre-hash forms, written from FIPS 180-4 and FIPS 202. The port is under MIT, and the `license` field of the crate states the combined expression `MIT AND (Apache-2.0 OR ISC OR MIT)`.
+
 ## Test vectors
 
-- [NIST ACVP-Server](https://github.com/usnistgov/ACVP-Server), tag `v1.1.0.41`: the ML-KEM and ML-DSA vectors. Works of the United States government are not subject to copyright in the United States.
+- [NIST ACVP-Server](https://github.com/usnistgov/ACVP-Server), tag `v1.1.0.41`: the ML-KEM, ML-DSA and SLH-DSA vectors. Works of the United States government are not subject to copyright in the United States.
 - [Wycheproof](https://github.com/C2SP/wycheproof) of C2SP, commit `032b56abd1368843e4def50b4975032ec1ec7ba4`: the ML-KEM and ML-DSA vectors. License: Apache-2.0.
 - The repository holds the addresses and SHA-256 of these files in `Documentation/Registers/TestVectors.md`, and not the files. `cargo xtask fetch-oracle` downloads them for the tests.
