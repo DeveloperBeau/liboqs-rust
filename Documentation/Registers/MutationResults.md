@@ -904,6 +904,8 @@ The runs of 2026-10-24 are the `Mutants` workflow of CI, in ten shards, on the c
 | `oqs-native-sha2` | 136 | 134 | 1 | 0 | 0 |
 | `oqs-native`, with the tests of `oqs-native-parity` | 45 | 15 | 1 | 29 | 0 |
 
+The second run of the crate is the `Mutants` workflow of CI, in ten shards, on the branch `mutants/oqs-native-lms.2`, on the commit of the new tests and the checked splits: [run 40067123423](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40067123423). It had 656 mutants: 565 caught, 4 timeouts, 78 unviable and 9 missed. The 9 missed mutants are the 9 equivalent mutants below, at their lines in the current code: `isHSSPublicKey`, lines 47, 51 and 52, `publicKeyLevels`, line 63, `AuxiliaryData::savedDepths`, lines 34 and 45, and `TreeBuilder::step`, line 122. The 4 timeouts are the 4 of the first run. No length check of the verification is left to mutate.
+
 Three of the four timeouts of the crate failed a test first. `TreeBuilder::step` replaced with `()`, `TreeBuilder::isComplete` replaced with `false`, and `+=` replaced with `*=` in the count of built leaves of `step`, line 125, each failed `aBuilderStepsOneLeafAtATimeAndKeepsTheTopAndTheChosenSubtrees`. With each of them the builder never completes, so `TreeBuilder::complete` does not end.
 
 The fourth timeout had no failed test. `ParameterSet::compressed`, line 67: `+=` replaced with `*=`. The index stays at 0, so the loop never ends. Applied by hand, the suite of the crate ran under the cap of the address space until the limit of 150 seconds, about 18 times the 8 seconds of the whole suite, and did not end. `compressedSetsAndIdentifiersFollowTheLayoutOfHashSigsAndLiboqs` and the three tests of `LMSWorkingKey` were still running.
