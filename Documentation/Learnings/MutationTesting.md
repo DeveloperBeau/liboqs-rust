@@ -209,3 +209,21 @@
 - **Trap.** A mutant of the size that `reserve_exact` requests changes only the capacity of the vector. The bytes stay the same, and every test passes.
 - **Finding.** The CI run of `oqs-native-uov` missed `+` replaced with `*` and with `-` in `signature.reserve_exact(oilValues.len() + saltLength)` of `Signer::signature`. By default cargo-mutants 27.1.0 makes no mutant in the arguments of a call named `with_capacity`, through its setting `skip_calls`, so `Vec::with_capacity(publicSeedLength + oilBlock.len())` in `KeyGenerator::compressedPublicKey` gave no mutant. The tool mutates the arguments of `reserve_exact`.
 - **Rule.** Make a new vector of a known length with `Vec::with_capacity`. For a request that grows a vector that exists, check that no changed request can panic, with no subtraction below zero in the test build and no request above the cap of the test program, and record the mutants as equivalent with the values on both sides.
+
+## A mask after an or can hide the overlap of its two terms
+
+- **Trap.** `(x | (x << s)) & B` gives the same value with `^` when the value and its shifted copy overlap only in bits that `B` clears. The rule of disjoint fields does not apply as it is, because an addition carries from the overlap into the bits that `B` keeps.
+- **Finding.** The four spreads of `gf_sq` of GF(2^12) in Classic McEliece survived the first mutation run with `^` in place of `|`. The value has 16 bits and the first shift is 8, so the two terms overlap in the bits 8 to 15. The spreads of `gf_sq2` of GF(2^13) shift the value by 24 first, so their terms have no bit in common, and an addition joins them as they are.
+- **Rule.** Mask each term before the join, as `(x & low) + ((x & high) << s)`, so that the two terms have no bit in common, and add them. See "Disjoint bit fields make `|` and `^` the same".
+
+## A loop that reaches its fixed point hides added rounds
+
+- **Trap.** A loop that repeats a step until a value is final gives the same result with more rounds. A mutant that raises the bound of the loop survives, and no test can kill it.
+- **Finding.** `cbrecursion` of the control bits of Classic McEliece finds the smallest element of each cycle of a permutation in `w - 2` rounds of doubling. Each cycle has at most `n / 2` elements, so each minimum is final after the last round. Four mutants that add one or two rounds and two mutants that also square the doubled permutation in the last round survived the first mutation run. The mutants that leave out a round failed.
+- **Rule.** Record a mutant that raises such a bound as equivalent, with the proof that the value is final after the last round of the code and that the added rounds change no value that a later line reads.
+
+## A factor that an earlier line fixes gives an equivalent mutant
+
+- **Trap.** An and of two bits gives the same value as its first factor when an earlier line makes the second factor 1 wherever the first one is 1. A mutant that makes the second factor always 1 survives.
+- **Finding.** `ctz` of `pk_gen.c` sets `m |= b` and adds `(m ^ 1) & (b ^ 1)` at each bit `b`. A set bit sets `m` first, so `b ^ 1` is 1 wherever `m ^ 1` is 1. The mutant that replaces `^` with `|` in `b ^ 1` survived the first mutation run of Classic McEliece.
+- **Rule.** Drop a factor that an earlier line fixes, and say in a comment why the shorter form gives the same value. `trailingZeroCount` of `ParityCheckMatrix.rs` adds `m ^ 1`.
