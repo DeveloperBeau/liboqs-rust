@@ -27,7 +27,7 @@ impl HashToPoint {
         for value in values.iter_mut() {
             let mut bytes = [0u8; 2];
             reader.squeeze(&mut bytes);
-            let sample = (u32::from(bytes[0]) << 8) | u32::from(bytes[1]);
+            let sample = (u32::from(bytes[0]) << 8) + u32::from(bytes[1]);
             // The reduction modulo q: up to two subtractions of 2 q and one of q.
             let isAtLeast =
                 |value: u32, bound: u32| (value.wrapping_sub(bound) >> 31).wrapping_sub(1);
@@ -102,6 +102,24 @@ mod tests {
                     "logn {logn}, {seed}"
                 );
             }
+        }
+    }
+
+    #[test]
+    fn pointReadsTheSamplesOfTheCCodeAndNoMore() {
+        // `hash_to_point_ct` reads N plus the oversampling of its table of 16-bit samples, so
+        // the stream goes on right after them.
+        let oversampling = [65, 67, 71, 77, 86, 100, 122, 154, 205, 287];
+        for logn in 1..=10u32 {
+            let input = [0x48, logn as u8];
+            let mut reader = SHAKE256::absorbOnce(&input);
+            HashToPoint::point(&mut reader, logn);
+            let mut next = [0u8; 16];
+            reader.squeeze(&mut next);
+            let readLength = 2 * ((1 << logn) + oversampling[logn as usize - 1]);
+            let mut stream = vec![0u8; readLength + 16];
+            SHAKE256::absorbOnce(&input).squeeze(&mut stream);
+            assert_eq!(&next[..], &stream[readLength..], "logn {logn}");
         }
     }
 

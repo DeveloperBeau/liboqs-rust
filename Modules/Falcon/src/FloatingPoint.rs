@@ -92,7 +92,7 @@ impl FloatingPoint {
         let hasTopBit = (mantissa >> 54) as u32;
         exponent &= -(hasTopBit as i32);
         // The top bit of the mantissa increments the exponent by one, which is wanted.
-        let bits = ((u64::from(sign) << 63) | (mantissa >> 2))
+        let bits = ((u64::from(sign) << 63) + (mantissa >> 2))
             .wrapping_add(u64::from(exponent as u32) << 52);
         // The low three bits 011, 110 and 111 round up, which rounds to nearest with ties to
         // even. A carry into the exponent is correct.
@@ -173,7 +173,7 @@ impl FloatingPoint {
     /// The square root of a value that is not negative, as `fpr_sqrt` does.
     pub(crate) fn squareRoot(self) -> Self {
         let x = self.bits;
-        let mut mantissa = (x & mantissaMask) | (1 << 52);
+        let mut mantissa = (x & mantissaMask) + (1 << 52);
         let biasedExponent = ((x >> 52) & 0x7FF) as i32;
         let mut exponent = biasedExponent - 1023;
         // An odd exponent doubles the mantissa. The exponent is then halved.
@@ -310,13 +310,13 @@ impl Add for FloatingPoint {
         let xSign = xExponent >> 11;
         xExponent &= 0x7FF;
         let implicitBit = u64::from(((xExponent + 0x7FF) >> 11) as u32) << 52;
-        let mut xMantissa = ((x & mantissaMask) | implicitBit) << 3;
+        let mut xMantissa = ((x & mantissaMask) + implicitBit) << 3;
         xExponent -= 1078;
         let mut yExponent = (y >> 52) as i32;
         let ySign = yExponent >> 11;
         yExponent &= 0x7FF;
         let implicitBit = u64::from(((yExponent + 0x7FF) >> 11) as u32) << 52;
-        let mut yMantissa = ((y & mantissaMask) | implicitBit) << 3;
+        let mut yMantissa = ((y & mantissaMask) + implicitBit) << 3;
         yExponent -= 1078;
         // Only y moves right. A shift above 59 bits gives zero.
         let mut shift = xExponent - yExponent;
@@ -364,8 +364,8 @@ impl Mul for FloatingPoint {
     /// The product, as `fpr_mul` does.
     fn mul(self, other: FloatingPoint) -> FloatingPoint {
         let (x, y) = (self.bits, other.bits);
-        let xMantissa = (x & mantissaMask) | (1 << 52);
-        let yMantissa = (y & mantissaMask) | (1 << 52);
+        let xMantissa = (x & mantissaMask) + (1 << 52);
+        let yMantissa = (y & mantissaMask) + (1 << 52);
         // The product of two 53-bit integers, with low halves of 25 bits.
         let x0 = (xMantissa as u32) & 0x01FF_FFFF;
         let x1 = (xMantissa >> 25) as u32;
@@ -407,8 +407,8 @@ impl Div for FloatingPoint {
     /// The quotient, as `fpr_div` does. The divisor must not be zero.
     fn div(self, other: FloatingPoint) -> FloatingPoint {
         let (x, y) = (self.bits, other.bits);
-        let mut xMantissa = (x & mantissaMask) | (1 << 52);
-        let yMantissa = (y & mantissaMask) | (1 << 52);
+        let mut xMantissa = (x & mantissaMask) + (1 << 52);
+        let yMantissa = (y & mantissaMask) + (1 << 52);
         // The division bit by bit, for 55 bits.
         let mut quotient = 0u64;
         for _ in 0..55 {
@@ -439,32 +439,14 @@ impl Div for FloatingPoint {
 #[cfg(test)]
 mod tests {
     use super::FloatingPoint;
+    use OQSNativeAlgorithmTests::FuzzRandom;
 
-    /// SplitMix64, the seeded source of the random operands.
-    struct Operands {
-        state: u64,
-    }
-
-    impl Operands {
-        fn seeded(seed: u64) -> Self {
-            Operands { state: seed }
-        }
-
-        fn nextWord(&mut self) -> u64 {
-            self.state = self.state.wrapping_add(0x9E37_79B9_7F4A_7C15);
-            let mut word = self.state;
-            word = (word ^ (word >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-            word = (word ^ (word >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-            word ^ (word >> 31)
-        }
-
-        /// A normal binary64 value with a random sign and mantissa, and an unbiased exponent
-        /// in `-exponentRange..=exponentRange`.
-        fn normal(&mut self, exponentRange: u64) -> f64 {
-            let word = self.nextWord();
-            let exponent = 1023 - exponentRange + (word >> 52) % (2 * exponentRange + 1);
-            f64::from_bits((word & (1 << 63)) | (exponent << 52) | (self.nextWord() >> 12))
-        }
+    /// A normal binary64 value with a random sign and mantissa, and an unbiased exponent in
+    /// `-exponentRange..=exponentRange`, from the SplitMix64 words of a fuzz source.
+    fn normal(operands: &mut FuzzRandom, exponentRange: u64) -> f64 {
+        let word = operands.nextWord();
+        let exponent = 1023 - exponentRange + (word >> 52) % (2 * exponentRange + 1);
+        f64::from_bits((word & (1 << 63)) | (exponent << 52) | (operands.nextWord() >> 12))
     }
 
     fn emulated(value: f64) -> FloatingPoint {
@@ -479,9 +461,9 @@ mod tests {
 
     #[test]
     fn arithmeticGivesTheBitsOfIEEE754ForNormalValues() {
-        let mut operands = Operands::seeded(operandSeed);
+        let mut operands = FuzzRandom::seeded(operandSeed);
         for case in 0..20_000 {
-            let (x, y) = (operands.normal(300), operands.normal(300));
+            let (x, y) = (normal(&mut operands, 300), normal(&mut operands, 300));
             let (left, right) = (emulated(x), emulated(y));
             assert_eq!(
                 (left + right).bits(),
@@ -527,13 +509,13 @@ mod tests {
     #[test]
     fn sumsWithCloseExponentsAndCancellationGiveTheBitsOfIEEE754() {
         // Close exponents exercise the alignment, the sticky bit and the cancellation.
-        let mut operands = Operands::seeded(operandSeed ^ 1);
+        let mut operands = FuzzRandom::seeded(operandSeed ^ 1);
         for case in 0..20_000 {
-            let x = operands.normal(3);
+            let x = normal(&mut operands, 3);
             let y = if case % 3 == 0 {
                 f64::from_bits(x.to_bits() ^ (1 << 63) ^ (operands.nextWord() & 0xFF))
             } else {
-                operands.normal(3)
+                normal(&mut operands, 3)
             };
             assert_eq!(
                 (emulated(x) + emulated(y)).bits(),
@@ -564,6 +546,96 @@ mod tests {
     }
 
     #[test]
+    fn aZeroFactorInEitherPlaceGivesTheSignedZeroOfIEEE754() {
+        for (left, right) in [
+            (0.0, 3.0),
+            (3.0, 0.0),
+            (-0.0, 3.0),
+            (0.0, -3.0),
+            (-3.0, 0.0),
+            (-0.0, -3.0),
+        ] {
+            assert_eq!(
+                (emulated(left) * emulated(right)).bits(),
+                (left * right).to_bits(),
+                "{left} * {right}"
+            );
+        }
+    }
+
+    #[test]
+    fn productsWhoseLowLimbsAreEqualKeepTheStickyBit() {
+        // The two low limbs of 25 bits of each product are equal, so only an or of the limbs
+        // keeps the sticky bit that rounds the product up. A C program found the pairs.
+        for (x, y) in [
+            (0x3FFC_FCDC_DCC1_B1E7u64, 0x3FF1_2A97_5E3D_A463u64),
+            (0x3FF2_8CB5_DB97_06BD, 0x3FFB_BB2E_331B_8B3E),
+            (0x3FF0_3581_DC9F_F40D, 0x3FFF_4C22_5A83_8D2C),
+            (0x3FF5_5B23_447B_DF80, 0x3FF6_C5ED_BF03_36BA),
+            (0x3FF0_4D1A_8119_A79E, 0x3FFC_20E7_846C_342B),
+            (0x3FF1_4DEE_6BFF_4D78, 0x3FF8_E45F_6785_2C5A),
+        ] {
+            let product = FloatingPoint::fromBits(x) * FloatingPoint::fromBits(y);
+            assert_eq!(
+                product.bits(),
+                (f64::from_bits(x) * f64::from_bits(y)).to_bits(),
+                "{x:#x} * {y:#x}"
+            );
+        }
+    }
+
+    #[test]
+    fn roundingToNearestKeepsEachDroppedBitInTheStickyBit() {
+        // The half bit and one more dropped bit round up, although the lowest kept bit is 0.
+        // The C code gathers the dropped bits below the top three from two words: the low 32
+        // bits, and the 29 bits above them.
+        for power in 2..=51 {
+            let x = 2.5 + 2f64.powi(-power);
+            assert_eq!(x.round_ties_even(), 3.0);
+            assert_eq!(emulated(x).roundedToNearest(), 3, "rint({x})");
+            assert_eq!(emulated(-x).roundedToNearest(), -3, "rint(-{x})");
+        }
+        // Two dropped bits 32 places apart give the same value in both words, which an
+        // exclusive or of the words would cancel.
+        for low in 10..=28 {
+            let x = 0.5 + 2f64.powi(low - 63) + 2f64.powi(low - 31);
+            assert_eq!(x.round_ties_even(), 1.0);
+            assert_eq!(emulated(x).roundedToNearest(), 1, "rint({x})");
+        }
+    }
+
+    #[test]
+    fn normalizationShiftsEachMantissaUntilItsTopBitIsSet() {
+        // FPR_NORM64 of fpr.c: a mantissa moves left by its count of leading zeros, and the
+        // exponent goes down by that count, so a mantissa of 2^63 or more stays. Zero stays
+        // zero, and the exponent goes down by 63.
+        let mut operands = FuzzRandom::seeded(operandSeed ^ 5);
+        let mut mantissas = vec![
+            0u64,
+            1,
+            1 << 63,
+            (1 << 63) + 1,
+            (1 << 63) + 0xFFFF_FFFF,
+            u64::MAX,
+        ];
+        mantissas.extend((0..64).map(|shift| operands.nextWord() >> shift));
+        for mantissa in mantissas {
+            let (mut normalized, mut exponent) = (mantissa, 100);
+            super::normalize64(&mut normalized, &mut exponent);
+            let zeros = if mantissa == 0 {
+                63
+            } else {
+                mantissa.leading_zeros()
+            };
+            assert_eq!(
+                (normalized, exponent),
+                (mantissa << (zeros % 64), 100 - zeros as i32),
+                "{mantissa:#x}"
+            );
+        }
+    }
+
+    #[test]
     fn tinyResultsAreZeroAndNotSubnormal() {
         let tiny = emulated(f64::MIN_POSITIVE);
         assert_eq!((tiny * FloatingPoint::oneHalf).bits(), 0);
@@ -577,7 +649,7 @@ mod tests {
 
     #[test]
     fn integersConvertWithRoundingToNearest() {
-        let mut operands = Operands::seeded(operandSeed ^ 2);
+        let mut operands = FuzzRandom::seeded(operandSeed ^ 2);
         for case in 0..20_000 {
             let word = operands.nextWord();
             // Integers of every bit length, both signs, below 2^63 in absolute value.
@@ -607,9 +679,9 @@ mod tests {
 
     #[test]
     fn roundingFunctionsGiveTheIntegersOfIEEE754() {
-        let mut operands = Operands::seeded(operandSeed ^ 3);
+        let mut operands = FuzzRandom::seeded(operandSeed ^ 3);
         for case in 0..20_000 {
-            let x = operands.normal(62).clamp(-9.2e18, 9.2e18);
+            let x = normal(&mut operands, 62).clamp(-9.2e18, 9.2e18);
             let value = emulated(x);
             assert_eq!(
                 value.roundedToNearest(),
@@ -641,9 +713,9 @@ mod tests {
 
     #[test]
     fn comparisonOrdersEveryPairOfSigns() {
-        let mut operands = Operands::seeded(operandSeed ^ 4);
+        let mut operands = FuzzRandom::seeded(operandSeed ^ 4);
         for _ in 0..20_000 {
-            let (x, y) = (operands.normal(40), operands.normal(40));
+            let (x, y) = (normal(&mut operands, 40), normal(&mut operands, 40));
             assert_eq!(emulated(x).isLessThan(emulated(y)), x < y, "{x} < {y}");
             assert!(!emulated(x).isLessThan(emulated(x)), "{x} < {x}");
         }

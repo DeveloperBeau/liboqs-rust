@@ -9,7 +9,8 @@ pub(crate) enum SolverFailure {
     /// `solve_NTRU_intermediate`.
     intermediate,
     /// The reduction of `F` and `G` at depth 1 goes out of range, in
-    /// `solve_NTRU_binary_depth1`. No known input reaches this step.
+    /// `solve_NTRU_binary_depth1`. No known pair `f` and `g` reaches this step. Only deeper
+    /// values that no deeper level gives reach it.
     depthOne,
     /// A coefficient of `F` is outside the limit.
     bigFOutOfRange,

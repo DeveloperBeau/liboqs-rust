@@ -43,7 +43,7 @@ impl BitWriter {
 
     /// Appends the low bits of a value and writes each full byte.
     fn append(&mut self, value: u32, bits: u32) {
-        self.accumulator = (self.accumulator << bits) | value;
+        self.accumulator = (self.accumulator << bits) + value;
         self.bitCount += bits;
         while self.bitCount >= 8 {
             self.bitCount -= 8;
@@ -89,7 +89,7 @@ impl Encoding {
         let mut bitCount = 0u32;
         let mut bytes = input.iter();
         while values.len() < n {
-            accumulator = (accumulator << 8) | u32::from(*bytes.next()?);
+            accumulator = (accumulator << 8) + u32::from(*bytes.next()?);
             bitCount += 8;
             if bitCount >= 14 {
                 bitCount -= 14;
@@ -151,7 +151,7 @@ impl Encoding {
         let mut bitCount = 0u32;
         let mut bytes = input.iter();
         while values.len() < n {
-            accumulator = (accumulator << 8) | u32::from(*bytes.next()?);
+            accumulator = (accumulator << 8) + u32::from(*bytes.next()?);
             bitCount += 8;
             while bitCount >= bits && values.len() < n {
                 bitCount -= bits;
@@ -189,7 +189,7 @@ impl Encoding {
             let value = i32::from(*value);
             let magnitude = value.unsigned_abs();
             // The sign bit and the low seven bits of the absolute value.
-            writer.append((u32::from(value < 0) << 7) | (magnitude & 127), 8);
+            writer.append((u32::from(value < 0) << 7) + (magnitude & 127), 8);
             // The high bits as that many zeros and a one.
             writer.append(1, (magnitude >> 7) + 1);
             if writer.bytes.len() > maximumLength {
@@ -217,14 +217,14 @@ impl Encoding {
         };
         for _ in 0..n {
             // The sign bit and the low seven bits.
-            accumulator = (accumulator << 8) | nextByte()?;
+            accumulator = (accumulator << 8) + nextByte()?;
             let low = accumulator >> bitCount;
             let isNegative = low & 128 != 0;
             let mut magnitude = low & 127;
             // The unary count of the high bits, which ends with a one.
             loop {
                 if bitCount == 0 {
-                    accumulator = (accumulator << 8) | nextByte()?;
+                    accumulator = (accumulator << 8) + nextByte()?;
                     bitCount = 8;
                 }
                 bitCount -= 1;
