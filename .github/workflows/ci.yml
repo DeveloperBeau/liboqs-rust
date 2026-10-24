@@ -130,6 +130,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
+      # The key of the cache hashes files of the tree, and the snapshot check reads the frozen
+      # snapshot, so the job needs the checkout even though it runs only the built program.
+      - uses: actions/checkout@v5
       - name: Restore the C oracle of the build job
         uses: actions/cache/restore@v4
         with:
@@ -150,6 +153,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
+      # The key of the cache hashes files of the tree, and the snapshot check reads the frozen
+      # snapshot, so the job needs the checkout even though it runs only the built program.
+      - uses: actions/checkout@v5
       - name: Restore the C oracle of the build job
         uses: actions/cache/restore@v4
         with:
