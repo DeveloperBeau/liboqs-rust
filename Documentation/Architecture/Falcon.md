@@ -63,7 +63,7 @@ A verification decodes the public key and the signature, computes `s1 = c0 - s2 
 - Falcon has no context string. A non-empty context is `OQSError::contextNotSupported` for a signature and `false` for a verification. The empty context gives the plain signature.
 - The emulated floating point gives zero for a result that would be subnormal, as the C code does. No operation makes an infinity or a NaN.
 - A secret key that decodes and completes, but is not a key of the scheme, can make the signer run without end. A key with `F = 0` does so in the C library and in the port. No test uses such a key.
-- The solver has a failure check at depth 1, `SolverFailure::depthOne`, that no known input reaches, in the C code or in the port.
+- The solver has a failure check at depth 1, `SolverFailure::depthOne`, that no known pair `f` and `g` reaches, in the C code or in the port. Deeper values that no deeper level gives reach it. The unit test of depth 1 gives such values, and the port fails for the same three of them as `solve_NTRU_binary_depth1`.
 
 ## Tests
 
@@ -74,6 +74,7 @@ Each test file names the liboqs test that it replicates.
 - `FuzzTestSig.rs`: `tests/fuzz_test_sig.c` through `SignatureFuzzTest`, random secret keys with the right header, and random signatures and public keys with the right headers.
 - `TestSigMem.rs`: `tests/test_sig_mem.c` through `SignatureMemoryTest`.
 - Unit tests: the floating point against the IEEE-754 arithmetic of the processor and against the C code, the FFT and the NTT against the schoolbook product, the encodings, the ChaCha20 block of RFC 8439, and the known answers of the C code for the sampler, HashToPoint, the keys of every degree from 2 to 1024 and the signature vectors of every degree.
+- Known answers of the internal C functions, with inputs from `LinearCongruentialSequence` and digests of `OutputDigest`: `zint_co_reduce`, `zint_co_reduce_mod`, `zint_bezout` and `zint_norm_zero`, `FFT`, `iFFT` and `poly_LDL_fft`, `poly_big_to_fp`, `solve_NTRU_intermediate` and `solve_NTRU_binary_depth1`, and `BerExp`. The inputs include values that no key gives: pairs whose reductions negate a or b, a complex `g00`, and deeper values that make the reduction fail.
 - `eachCandidateIsRefusedOrAcceptedAsTheCCodeDecides`: the decision of the key generator for each candidate pair of ten streams, against the decisions of the C loop, with every reason of `KeyRefusal`.
 - `eachPairIsSolvedOrRefusedAtTheStepOfTheCCode`: the solution, or the step that fails, for sixteen pairs, against the C solver.
 - `Tools/Parity`: the base case and 1000 seeded variations of each set against the C library.

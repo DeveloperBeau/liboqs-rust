@@ -1380,6 +1380,7 @@ const rootTable: [u64; 2048] = [
 mod tests {
     use super::{FourierTransform, inverseHalfDegrees, rootTable};
     use crate::floatingPoint::FloatingPoint;
+    use OQSNativeAlgorithmTests::{LinearCongruentialSequence, OutputDigest};
 
     /// The FNV-1a hash of the little-endian bytes of the values, the digest that the C program
     /// of the known answers prints.
@@ -1637,6 +1638,68 @@ mod tests {
                 .collect();
             assert_eq!(rounded, expected, "logn {logn}");
         }
+    }
+
+    /// The values of the C program of the known answers: each is the next state of the
+    /// sequence as a signed 32-bit integer times 2^-16, which are both exact in binary64.
+    fn sequenceValues(
+        sequence: &mut LinearCongruentialSequence,
+        count: usize,
+    ) -> Vec<FloatingPoint> {
+        (0..count)
+            .map(|_| {
+                let value = f64::from(sequence.nextState() as i32) * (1.0 / 65536.0);
+                FloatingPoint::fromBits(value.to_bits())
+            })
+            .collect()
+    }
+
+    fn appendBits(output: &mut Vec<u8>, values: &[FloatingPoint]) {
+        output.extend(values.iter().flat_map(|value| value.bits().to_le_bytes()));
+    }
+
+    #[test]
+    fn transformsOfEveryDegreeGiveTheBitsOfFFTAndIFFT() {
+        // FFT and iFFT of fft.c for each logn from 0 to 10, each on new values. At logn 0 both
+        // leave the one value as it is: there is no step, and iFFT does not scale.
+        let mut sequence = LinearCongruentialSequence::new(5);
+        let mut output = Vec::new();
+        for logn in 0..=10u32 {
+            let n = 1usize << logn;
+            let mut values = sequenceValues(&mut sequence, n);
+            FourierTransform::transform(&mut values, logn);
+            appendBits(&mut output, &values);
+            let mut values = sequenceValues(&mut sequence, n);
+            FourierTransform::inverseTransform(&mut values, logn);
+            appendBits(&mut output, &values);
+        }
+        assert_eq!(
+            OutputDigest::of(&output),
+            "2b8f6ec64e058ac64594bf233334877b8c16d3ce269c13967d446998de18a576"
+        );
+    }
+
+    #[test]
+    fn decompositionGivesTheBitsOfPolyLDLFFTAlsoForAComplexG00() {
+        // poly_LDL_fft of fft.c for each logn from 1 to 10, on new values in the representation
+        // of the transform. The signer gives an auto-adjoint g00, whose imaginary parts are
+        // zero, so the values here are the only ones that reach the imaginary part of the
+        // quotient by g00. The output is g01 and then g11.
+        let mut sequence = LinearCongruentialSequence::new(6);
+        let mut output = Vec::new();
+        for logn in 1..=10u32 {
+            let n = 1usize << logn;
+            let g00 = sequenceValues(&mut sequence, n);
+            let mut g01 = sequenceValues(&mut sequence, n);
+            let mut g11 = sequenceValues(&mut sequence, n);
+            FourierTransform::decomposeLDL(&g00, &mut g01, &mut g11, logn);
+            appendBits(&mut output, &g01);
+            appendBits(&mut output, &g11);
+        }
+        assert_eq!(
+            OutputDigest::of(&output),
+            "ec11b6fadff524ae8a75de4f8fe1530c1818bc2cedb0529924ddb9e8a7d69144"
+        );
     }
 
     #[test]

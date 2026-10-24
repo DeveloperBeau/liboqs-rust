@@ -87,9 +87,15 @@ impl GaussianSampler {
     fn halfGaussian(&mut self) -> i32 {
         let low = self.random.nextWord();
         let high = self.random.nextByte();
+        Self::halfGaussianOfRandomBits(low, high)
+    }
+
+    /// The half-Gaussian integer of the 72 random bits `low + 2^64 high`: the count of the
+    /// table values above them, compared in three limbs of 24 bits.
+    fn halfGaussianOfRandomBits(low: u64, high: u32) -> i32 {
         let v0 = (low as u32) & 0xFF_FFFF;
         let v1 = ((low >> 24) as u32) & 0xFF_FFFF;
-        let v2 = ((low >> 48) as u32) | (high << 16);
+        let v2 = ((low >> 48) as u32) + (high << 16);
         // The count of the table values above the random value, with no branch.
         let mut value = 0;
         for [w2, w1, w0] in halfGaussianTable {
@@ -129,9 +135,10 @@ impl GaussianSampler {
 
 #[cfg(test)]
 mod tests {
-    use super::GaussianSampler;
+    use super::{GaussianSampler, halfGaussianTable};
     use crate::chaChaRandom::ChaChaRandom;
     use crate::floatingPoint::FloatingPoint;
+    use OQSNativeAlgorithmTests::{FuzzRandom, OutputDigest};
     use OQSNativeSHA3::SHAKE256;
 
     /// The sampler of the known answers: the stream SHAKE256("sampler") and the minimum
@@ -172,5 +179,80 @@ mod tests {
             .map(|(index, value)| i64::from(*value) * (index % 5 + 1) as i64)
             .sum();
         assert_eq!(weighted, 3493);
+    }
+
+    #[test]
+    fn halfGaussianIsTheCountOfTheTableValuesAboveTheRandomBits() {
+        // `gaussian0_sampler` compares 72 random bits with each table value in three limbs of
+        // 24 bits. The values next to each table value, and next to the borrows between its
+        // limbs, give the count of the definition.
+        let table: Vec<u128> = halfGaussianTable
+            .iter()
+            .map(|[w2, w1, w0]| (u128::from(*w2) << 48) + (u128::from(*w1) << 24) + u128::from(*w0))
+            .collect();
+        let limit = 1u128 << 72;
+        let mut values = vec![0, limit - 1];
+        for value in &table {
+            for (difference, isAdded) in [
+                (0, true),
+                (1, true),
+                (1, false),
+                (1 << 24, true),
+                (1 << 24, false),
+                ((1 << 24) - 1, false),
+                (1 << 48, true),
+                (1 << 48, false),
+                ((1 << 48) - 1, false),
+            ] {
+                let shifted = if isAdded {
+                    value.checked_add(difference)
+                } else {
+                    value.checked_sub(difference)
+                };
+                values.extend(shifted.filter(|shifted| *shifted < limit));
+            }
+        }
+        let mut random = FuzzRandom::seeded(0x4741_5553_5349_414E);
+        values.extend((0..1000).map(|_| {
+            (u128::from(random.nextWord()) + (u128::from(random.nextWord() & 0xFF) << 64)) % limit
+        }));
+        for value in values {
+            let expected = table.iter().filter(|entry| value < **entry).count() as i32;
+            let (low, high) = (value as u64, (value >> 64) as u32);
+            assert_eq!(
+                GaussianSampler::halfGaussianOfRandomBits(low, high),
+                expected,
+                "{value:#x}"
+            );
+        }
+    }
+
+    #[test]
+    fn bernoulliTrialIsBerExpOfTheCCodeAlsoWhereTheShiftSaturates() {
+        // Known answer of `BerExp` of `sign.c` for the generator of SHAKE256("BerExp"): 32
+        // trials for each x and scale, with x up to 1000, so that the shift s of
+        // exp(-x) = 2^-s exp(-r) reaches its limit of 63 from x = 64 log(2) on, and then the
+        // next 16 bytes of the generator.
+        let xs = [
+            0.0, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 30.0, 40.0, 44.0, 44.4, 45.0, 50.0, 60.0,
+            87.0, 100.0, 200.0, 1000.0,
+        ];
+        let random = ChaChaRandom::seeded(&mut SHAKE256::absorbOnce(b"BerExp"));
+        let mut sampler = GaussianSampler::new(random, FloatingPoint::one);
+        let emulated = |value: f64| FloatingPoint::fromBits(value.to_bits());
+        let mut output = Vec::new();
+        for scale in [1.0, 0.7] {
+            for x in xs {
+                for _ in 0..32 {
+                    let isTrue = sampler.isBernoulliExponentialTrue(emulated(x), emulated(scale));
+                    output.push(u8::from(isTrue));
+                }
+            }
+        }
+        output.extend((0..16).map(|_| sampler.random.nextByte() as u8));
+        assert_eq!(
+            OutputDigest::of(&output),
+            "5461d66c6a0cc7a2563c3b85fa9493a80c960709bb1a70202ec38b1caa9eaad4"
+        );
     }
 }

@@ -80,7 +80,7 @@ impl BigInteger {
         let mut comparison = 0u32;
         let mut carriedBit = 0u32;
         for (word, modulusWord) in x.iter().zip(modulus).rev() {
-            let halfWord = (modulusWord >> 1) | (carriedBit << 30);
+            let halfWord = (modulusWord >> 1) + (carriedBit << 30);
             carriedBit = modulusWord & 1;
             let difference = halfWord.wrapping_sub(*word);
             let sign = (difference.wrapping_neg() >> 31) | (difference >> 31).wrapping_neg();
@@ -174,7 +174,7 @@ impl BigInteger {
         let isNegativeB = ((carryB as u64) >> 63) as u32;
         Self::negate(a, isNegativeA);
         Self::negate(b, isNegativeB);
-        isNegativeA | (isNegativeB << 1)
+        isNegativeA + (isNegativeB << 1)
     }
 
     /// Finishes a modular reduction by an odd modulus `m`: for `isNegative = 1`, `-m <= a < 0`
@@ -316,7 +316,8 @@ impl BigInteger {
                 let isBOdd = (bLow >> i) & 1;
                 let subtractsB = isAOdd & isBOdd & isAAbove;
                 let subtractsA = isAOdd & isBOdd & !isAAbove;
-                let halvesA = subtractsB | (isAOdd ^ 1);
+                // A subtraction of b needs an odd a, so the two terms are never both 1.
+                let halvesA = subtractsB + (isAOdd ^ 1);
                 aLow = aLow.wrapping_sub(bLow & subtractsB.wrapping_neg());
                 aHigh = aHigh.wrapping_sub(bHigh & u64::from(subtractsB).wrapping_neg());
                 pa = pa.wrapping_sub(qa & -i64::from(subtractsB));
@@ -372,7 +373,7 @@ impl BigInteger {
         let mut carry = 0i32;
         for (position, word) in x.iter_mut().skip(wordShift).enumerate() {
             let source = y.get(position).copied().unwrap_or(signWord);
-            let shifted = ((source << bitShift) & wordMask) | carriedBits;
+            let shifted = ((source << bitShift) & wordMask) + carriedBits;
             carriedBits = source >> (31 - bitShift);
             // The expression does not overflow.
             let value = (i64::from(shifted) * i64::from(factor)
@@ -394,7 +395,7 @@ impl BigInteger {
         let mut borrow = 0u32;
         for (position, word) in x.iter_mut().skip(wordShift).enumerate() {
             let source = y.get(position).copied().unwrap_or(signWord);
-            let shifted = ((source << bitShift) & wordMask) | carriedBits;
+            let shifted = ((source << bitShift) & wordMask) + carriedBits;
             carriedBits = source >> (31 - bitShift);
             let value = word.wrapping_sub(shifted).wrapping_sub(borrow);
             *word = value & wordMask;
@@ -413,6 +414,58 @@ mod tests {
     use super::BigInteger;
     use crate::primeModulus::PrimeModulus;
     use crate::smallPrime::smallPrimes;
+    use OQSNativeAlgorithmTests::{LinearCongruentialSequence, OutputDigest};
+
+    /// The inputs of the C program of the known answers, from the sequence of
+    /// `LinearCongruentialSequence`: a word is the top 31 bits of the next state, a factor is
+    /// the next state as a signed 32-bit value, and a half factor is that value shifted right
+    /// by one bit with its sign.
+    struct Inputs {
+        sequence: LinearCongruentialSequence,
+    }
+
+    impl Inputs {
+        fn seeded(seed: u32) -> Self {
+            Inputs {
+                sequence: LinearCongruentialSequence::new(seed),
+            }
+        }
+
+        fn word(&mut self) -> u32 {
+            self.sequence.nextState() >> 1
+        }
+
+        fn words(&mut self, length: usize) -> Vec<u32> {
+            (0..length).map(|_| self.word()).collect()
+        }
+
+        fn factor(&mut self) -> i64 {
+            i64::from(self.sequence.nextState() as i32)
+        }
+
+        fn halfFactor(&mut self) -> i64 {
+            i64::from((self.sequence.nextState() as i32) >> 1)
+        }
+
+        /// Words with an odd low word, and a top word with bit 30 set or a top word of at
+        /// most 23 bits that is not zero.
+        fn oddModulus(&mut self, length: usize, isLarge: bool) -> Vec<u32> {
+            let mut modulus = self.words(length);
+            modulus[0] |= 1;
+            let top = &mut modulus[length - 1];
+            *top = if isLarge {
+                *top | 1 << 30
+            } else {
+                (*top >> 8) | 1
+            };
+            modulus
+        }
+    }
+
+    /// The bytes of words, 4 for each word, the low byte first.
+    fn bytes<'words>(words: impl IntoIterator<Item = &'words u32>) -> impl Iterator<Item = u8> {
+        words.into_iter().flat_map(|word| word.to_le_bytes())
+    }
 
     /// The words of a nonnegative value, least significant first.
     fn words(value: u128, length: usize) -> Vec<u32> {
@@ -561,5 +614,185 @@ mod tests {
                 "{wordShift} {bitShift}"
             );
         }
+    }
+
+    #[test]
+    fn coReductionGivesTheValuesOfZintCoReduceAlsoWhenItNegates() {
+        // 64 cases of zint_co_reduce of keygen.c for each length, with factors of the full
+        // signed range, so that 501 of the new values are negative and negated.
+        let mut inputs = Inputs::seeded(1);
+        let mut output = Vec::new();
+        for length in [1, 2, 3, 4, 5, 8, 13, 21] {
+            for _ in 0..64 {
+                let mut a = inputs.words(length);
+                let mut b = inputs.words(length);
+                let factors = [(); 4].map(|_| inputs.factor());
+                let [xa, xb, ya, yb] = factors;
+                let negations = BigInteger::coReduce(&mut a, &mut b, xa, xb, ya, yb);
+                output.extend(bytes(&a).chain(bytes(&b)));
+                output.push(negations as u8);
+            }
+        }
+        assert_eq!(
+            OutputDigest::of(&output),
+            "bcfdb29faa135a8cec392f86f629542b75327a9d983507d574624f30a1b894dc"
+        );
+    }
+
+    #[test]
+    fn modularCoReductionGivesTheValuesOfZintCoReduceMod() {
+        // 64 cases of zint_co_reduce_mod for each length, with a and b below an odd modulus
+        // and half factors, so that the sum of the absolute values of two factors is at most
+        // 2^31. Every second modulus has bit 30 of its top word set, and 10 cases give
+        // zint_finish_mod a negative value that is not below the modulus in the comparison.
+        let mut inputs = Inputs::seeded(2);
+        let mut output = Vec::new();
+        for length in [1, 2, 3, 4, 5, 8, 13, 21] {
+            for case in 0..64 {
+                let modulus = inputs.oddModulus(length, case % 2 == 0);
+                let mut a = inputs.words(length);
+                let mut b = inputs.words(length);
+                a[length - 1] %= modulus[length - 1];
+                b[length - 1] %= modulus[length - 1];
+                let [xa, xb, ya, yb] = [(); 4].map(|_| inputs.halfFactor());
+                let m0i = PrimeModulus::negativeInverse(modulus[0]);
+                BigInteger::coReduceModulo(&mut a, &mut b, &modulus, m0i, xa, xb, ya, yb);
+                output.extend(bytes(&a).chain(bytes(&b)));
+            }
+        }
+        assert_eq!(
+            OutputDigest::of(&output),
+            "9f06c0665fd0071aecac77400950087c487827cc79c8bda6da973e1d277c6172"
+        );
+    }
+
+    #[test]
+    fn bezoutGivesTheCoefficientsOfZintBezoutForEveryKindOfPair() {
+        // 44 pairs of zint_bezout for each length: 16 odd pairs of full size, 4 odd pairs of
+        // one word, an even x, an even y, x = y, x = 1, 8 pairs of a y that is x with its low
+        // 8 bits changed, whose reductions negate b 28 times, 8 pairs of a y that is x with the
+        // word under the top changed, whose first subtraction leaves a zero top word in one
+        // value and not in the other, and from 3 words on 4 pairs whose first reduction
+        // negates a. For k = 31 (length - 2) and b = 2^40 plus the low 20 bits of the next
+        // word, such a pair is x = 2^k (3 b + 2) + 1 and y = 2^k b + 2^k - 1: the top words
+        // give a > b at the second step while a < b. The output is the result, and u and v
+        // for a result of 1.
+        let mut inputs = Inputs::seeded(3);
+        let mut output = Vec::new();
+        for length in [1, 2, 3, 4, 5, 6, 8, 10, 12] {
+            let top = length - 1;
+            for case in 0..44 {
+                let mut x = inputs.words(length);
+                let mut y = inputs.words(length);
+                if case >= 40 {
+                    if length >= 3 {
+                        let b = (1u64 << 40) + u64::from(inputs.word() & 0xF_FFFF);
+                        let a = 3 * b + 2;
+                        x.fill(0);
+                        y.fill(0x7FFF_FFFF);
+                        x[0] = 1;
+                        (x[top - 1], x[top]) = ((a & 0x7FFF_FFFF) as u32, (a >> 31) as u32);
+                        (y[top - 1], y[top]) = ((b & 0x7FFF_FFFF) as u32, (b >> 31) as u32);
+                    }
+                } else if case >= 32 {
+                    y = x.clone();
+                    if length > 1 {
+                        y[top - 1] ^= inputs.word();
+                    }
+                } else if case >= 24 {
+                    y = x.clone();
+                    y[0] ^= inputs.word() & 0xFF;
+                } else if case < 16 {
+                    x[top] |= 1 << 30;
+                    y[top] |= 1 << 30;
+                } else if case < 20 {
+                    x[1..].fill(0);
+                    y[1..].fill(0);
+                }
+                x[0] |= 1;
+                y[0] |= 1;
+                match case {
+                    20 => x[0] ^= 1,
+                    21 => y[0] ^= 1,
+                    22 => y = x.clone(),
+                    23 => {
+                        x.fill(0);
+                        x[0] = 1;
+                    }
+                    _ => {}
+                }
+                let (mut u, mut v) = (vec![0u32; length], vec![0u32; length]);
+                let mut scratch = vec![0u32; 4 * length];
+                let isOne = BigInteger::bezout(&mut u, &mut v, &x, &y, &mut scratch);
+                output.push(u8::from(isOne));
+                if isOne {
+                    output.extend(bytes(&u).chain(bytes(&v)));
+                }
+            }
+        }
+        // Then three pairs of two words with top words of all ones, from seeds that a search
+        // found. A low word is the next word shifted right by the next word modulo 31, with
+        // its low bit set. zint_bezout takes the top words at the highest index where a or b
+        // is not zero, also where the two values agree, and these pairs need that.
+        for seed in [9999, 24323, 40275] {
+            let mut inputs = Inputs::seeded(seed);
+            let mut lowWord = || {
+                let word = inputs.word();
+                (word >> (inputs.word() % 31)) | 1
+            };
+            let x = [lowWord(), 0x7FFF_FFFF];
+            let y = [lowWord(), 0x7FFF_FFFF];
+            let (mut u, mut v) = ([0u32; 2], [0u32; 2]);
+            let mut scratch = [0u32; 8];
+            let isOne = BigInteger::bezout(&mut u, &mut v, &x, &y, &mut scratch);
+            output.push(u8::from(isOne));
+            if isOne {
+                output.extend(bytes(&u).chain(bytes(&v)));
+            }
+        }
+        assert_eq!(
+            OutputDigest::of(&output),
+            "81f0f0259922bde8572561ce925e30d517861afd12011a423546f17cf065bef4"
+        );
+    }
+
+    #[test]
+    fn normalizationAroundZeroGivesTheValuesOfZintNormZeroAtHalfTheModulus() {
+        // 40 cases of zint_norm_zero for each length, with an odd p whose top word has bit 29
+        // set, and x from (p - 1)/2 - 2 to (p - 1)/2 + 2, or a value below p.
+        let mut inputs = Inputs::seeded(4);
+        let mut output = Vec::new();
+        for length in [1, 2, 3, 5, 8] {
+            for case in 0..40 {
+                let mut modulus = inputs.words(length);
+                modulus[0] |= 1;
+                modulus[length - 1] |= 1 << 29;
+                let mut x: Vec<u32>;
+                if case % 8 < 5 {
+                    x = (0..length)
+                        .map(|w| {
+                            let high = modulus.get(w + 1).map_or(0, |word| word & 1);
+                            (modulus[w] >> 1) | (high << 30)
+                        })
+                        .collect();
+                    // x + d, with the carry or borrow of each word.
+                    let mut carry = i64::from(case % 8) - 2;
+                    for word in x.iter_mut() {
+                        let sum = i64::from(*word) + carry;
+                        *word = (sum as u32) & 0x7FFF_FFFF;
+                        carry = sum >> 31;
+                    }
+                } else {
+                    x = inputs.words(length);
+                    x[length - 1] %= modulus[length - 1];
+                }
+                BigInteger::normalizeAroundZero(&mut x, &modulus);
+                output.extend(bytes(&x));
+            }
+        }
+        assert_eq!(
+            OutputDigest::of(&output),
+            "59df950a55ec4047192bfe1241e72baae11fcd3aafda1c82a6f16684785c7581"
+        );
     }
 }

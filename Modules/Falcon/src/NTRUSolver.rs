@@ -848,10 +848,11 @@ impl NTRUSolver {
 
 #[cfg(test)]
 mod tests {
-    use super::NTRUSolver;
+    use super::{NTRUSolver, smallLengths};
+    use crate::floatingPoint::FloatingPoint;
     use crate::modularPolynomial::ModularPolynomial;
     use crate::solverFailure::SolverFailure;
-    use OQSNativeAlgorithmTests::FuzzRandom;
+    use OQSNativeAlgorithmTests::{FuzzRandom, LinearCongruentialSequence, OutputDigest};
 
     /// The FNV-1a hash of the bytes of a polynomial, the digest that the C program of the known
     /// answers prints.
@@ -947,6 +948,170 @@ mod tests {
             q[0] = 12289;
             assert_eq!(difference, q, "logn {logn}, bound {bound}, index {index}");
         }
+    }
+
+    #[test]
+    fn approximationsGiveTheValuesOfPolyBigToFpAlsoWhenTheCarryCrossesZeroWords() {
+        // poly_big_to_fp of keygen.c for 8 values of 1, 2, 3, 5 and 10 words: 16 polynomials of
+        // random words, about half of whose values are negative, then for each length of 2
+        // words or more the values -2^(31 (length - 1)) k for k from 1 to 8. Their low words
+        // are zero, so the carry of the negation crosses each of them. A word is the top 31
+        // bits of the next state of the sequence.
+        let mut sequence = LinearCongruentialSequence::new(7);
+        let mut output = Vec::new();
+        for length in [1usize, 2, 3, 5, 10] {
+            for case in 0..17 {
+                let mut words: Vec<u32> =
+                    (0..8 * length).map(|_| sequence.nextState() >> 1).collect();
+                if case == 16 {
+                    if length < 2 {
+                        continue;
+                    }
+                    for (k, value) in words.chunks_mut(length).enumerate() {
+                        value[..length - 1].fill(0);
+                        value[length - 1] = (k as u32 + 1).wrapping_neg() & 0x7FFF_FFFF;
+                    }
+                }
+                let mut approximations = vec![FloatingPoint::zero; 8];
+                NTRUSolver::approximations(&mut approximations, &words, length, length, 3);
+                output.extend(
+                    approximations
+                        .iter()
+                        .flat_map(|value| value.bits().to_le_bytes()),
+                );
+            }
+        }
+        assert_eq!(
+            OutputDigest::of(&output),
+            "067a8e0aa7584adc5c9a0ed614ae0544bf975cc367b338f806ca39ef4d71f18f"
+        );
+    }
+
+    /// The inputs of a seed of the C program of the known answers of the intermediate level:
+    /// `f`, `g`, the top logn, the depth and the deeper `F` and `G`. The next word modulo 7,
+    /// plus 2, is the depth, and the depth plus 1 plus the next word modulo 2 is the top logn.
+    /// The next word modulo 4 is the kind of f and g. For each coefficient in turn, f and g
+    /// take the next words modulo 3, 7 or 255 for kind 0, 1 and 2, minus 1, 3 or 127. Kind 3 is
+    /// kind 2, and then the next word, unless it is a multiple of 4, sets both coefficients to
+    /// zero. Then the next word modulo 3 is the shape of the deeper values and the next word
+    /// modulo 31 is a shift. Each deeper coefficient takes the next words. Its top word is
+    /// shifted right by the shift for shape 0. For shape 1 the next word decides: when it is
+    /// even, the top word is shifted and complemented, and else it is shifted. Shape 2 keeps
+    /// the top word.
+    fn intermediateInputs(seed: u32) -> (Vec<i8>, Vec<i8>, u32, usize, Vec<u32>) {
+        let mut sequence = LinearCongruentialSequence::new(seed);
+        let mut word = || sequence.nextState() >> 1;
+        let depth = 2 + (word() % 7) as usize;
+        let lognTop = depth as u32 + 1 + word() % 2;
+        let nTop = 1usize << lognTop;
+        let hn = (1usize << (lognTop - depth as u32)) >> 1;
+        let deeperLength = smallLengths[depth + 1];
+        let kind = word() % 4;
+        let range = [1, 3, 127, 127][kind as usize];
+        let (mut f, mut g) = (vec![0i8; nTop], vec![0i8; nTop]);
+        for u in 0..nTop {
+            f[u] = ((word() % (2 * range + 1)) as i32 - range as i32) as i8;
+            g[u] = ((word() % (2 * range + 1)) as i32 - range as i32) as i8;
+            if kind == 3 && word() % 4 != 0 {
+                f[u] = 0;
+                g[u] = 0;
+            }
+        }
+        let shape = word() % 3;
+        let shift = word() % 31;
+        let mut deeper = Vec::with_capacity(2 * hn * deeperLength);
+        for _ in 0..2 * hn {
+            let mut value: Vec<u32> = (0..deeperLength).map(|_| word()).collect();
+            let top = value[deeperLength - 1];
+            value[deeperLength - 1] = match shape {
+                0 => top >> shift,
+                1 if word() % 2 == 0 => 0x7FFF_FFFF ^ (top >> shift),
+                1 => top >> shift,
+                _ => top,
+            };
+            deeper.extend(value);
+        }
+        (f, g, lognTop, depth, deeper)
+    }
+
+    #[test]
+    fn intermediateLevelsGiveTheValuesOfSolveNTRUIntermediateAndFailWhereItFails() {
+        // solve_NTRU_intermediate of keygen.c for the inputs of each seed, with deeper values
+        // that no deeper level of a key gives. Twelve of them make the reduction fail. The
+        // seeds 277 and 1522 succeed at depth 2, where the start of the scale of k decides the
+        // result, and the seed 567 succeeds at depth 8. The output is the result byte, then
+        // the 2 N slen words of F and G for a result of 1.
+        let seeds = [1u32, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 277, 567, 1522];
+        let mut output = Vec::new();
+        let mut successes = 0;
+        for seed in seeds {
+            let (f, g, lognTop, depth, deeper) = intermediateInputs(seed);
+            match NTRUSolver::intermediate(&f, &g, lognTop, depth, &deeper) {
+                Some(solution) => {
+                    output.push(1);
+                    output.extend(solution.iter().flat_map(|value| value.to_le_bytes()));
+                    successes += 1;
+                }
+                None => output.push(0),
+            }
+        }
+        assert_eq!(successes, 3);
+        assert_eq!(
+            OutputDigest::of(&output),
+            "226c08ecde61a5f706f222963d6a79594c3cf98e554463a96bbd7ee2838c0cf4"
+        );
+    }
+
+    #[test]
+    fn depthOneGivesTheValuesOfSolveNTRUBinaryDepth1AndFailsWhereItFails() {
+        // solve_NTRU_binary_depth1 of keygen.c for the inputs of each seed: the next word
+        // modulo 4, plus 3, is the top logn, and the next word modulo 4 is the kind of f and g.
+        // For each coefficient in turn, f and g take the next words modulo 7, 3 or 255 for kind
+        // 0, 1 and 2, minus 3, 1 or 127. Kind 3 is kind 2, and then the next word, unless it is
+        // a multiple of 4, sets both coefficients to zero. The 4 hn words of F and G of the
+        // deeper level are the next words, each odd one with its low 30 bits set, which no
+        // deeper level of a key gives. The last three seeds make the reduction fail. The output
+        // is the result byte, then the 2 N words of F and G for a result of 1.
+        let seeds = [
+            1u32, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 80997, 280261, 955829,
+        ];
+        let mut output = Vec::new();
+        let mut failures = 0;
+        for seed in seeds {
+            let mut sequence = LinearCongruentialSequence::new(seed);
+            let mut word = || sequence.nextState() >> 1;
+            let lognTop = 3 + word() % 4;
+            let nTop = 1usize << lognTop;
+            let kind = word() % 4;
+            let range = [3, 1, 127, 127][kind as usize];
+            let (mut f, mut g) = (vec![0i8; nTop], vec![0i8; nTop]);
+            for u in 0..nTop {
+                f[u] = ((word() % (2 * range + 1)) as i32 - range as i32) as i8;
+                g[u] = ((word() % (2 * range + 1)) as i32 - range as i32) as i8;
+                if kind == 3 && word() % 4 != 0 {
+                    f[u] = 0;
+                    g[u] = 0;
+                }
+            }
+            let deeper: Vec<u32> = (0..nTop)
+                .map(|u| word() | if u % 2 == 1 { 0x3FFF_FFFF } else { 0 })
+                .collect();
+            match NTRUSolver::depthOne(&f, &g, lognTop, &deeper) {
+                Some(solution) => {
+                    output.push(1);
+                    output.extend(solution.iter().flat_map(|value| value.to_le_bytes()));
+                }
+                None => {
+                    output.push(0);
+                    failures += 1;
+                }
+            }
+        }
+        assert_eq!(failures, 3);
+        assert_eq!(
+            OutputDigest::of(&output),
+            "33de2ae2e78494b1b310bb8049c35b966d106d80c081de96ec0e1076e06df3d7"
+        );
     }
 
     #[test]

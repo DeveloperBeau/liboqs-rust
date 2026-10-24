@@ -11,36 +11,35 @@ const squaredNormBounds: [u32; 11] = [
 ];
 
 impl SignatureNorm {
+    /// The squared norm of integers added to a start value, saturated at `2^32 - 1` once a
+    /// partial sum reaches `2^31`, as `poly_small_sqnorm`, `is_short`, `is_short_half` and
+    /// `do_sign_dyn` compute it. A start value of `2^31` or more stays saturated.
+    pub(crate) fn saturatedSquaredNorm(start: u32, values: impl IntoIterator<Item = i32>) -> u32 {
+        let mut squaredNorm = start;
+        let mut overflow = start;
+        for value in values {
+            squaredNorm = squaredNorm.wrapping_add(value.wrapping_mul(value) as u32);
+            overflow |= squaredNorm;
+        }
+        squaredNorm | (overflow >> 31).wrapping_neg()
+    }
+
     /// True when the squared norm of `(s1, s2)` is within the bound, as `is_short` does.
     pub(crate) fn isShort(first: &[i16], second: &[i16], logn: u32) -> bool {
         let n = 1usize << logn;
-        let mut squaredNorm = 0u32;
-        let mut overflow = 0u32;
-        for (left, right) in first[..n].iter().zip(&second[..n]) {
-            let left = i32::from(*left);
-            squaredNorm = squaredNorm.wrapping_add((left * left) as u32);
-            overflow |= squaredNorm;
-            let right = i32::from(*right);
-            squaredNorm = squaredNorm.wrapping_add((right * right) as u32);
-            overflow |= squaredNorm;
-        }
-        squaredNorm |= (overflow >> 31).wrapping_neg();
-        squaredNorm <= squaredNormBounds[logn as usize]
+        let values = first[..n]
+            .iter()
+            .zip(&second[..n])
+            .flat_map(|(left, right)| [i32::from(*left), i32::from(*right)]);
+        Self::saturatedSquaredNorm(0, values) <= squaredNormBounds[logn as usize]
     }
 
     /// True when the squared norm of `(s1, s2)` is within the bound, from the saturated squared
     /// norm of `s1` and the vector `s2`, as `is_short_half` does.
     pub(crate) fn isShortHalf(firstSquaredNorm: u32, second: &[i16], logn: u32) -> bool {
         let n = 1usize << logn;
-        let mut squaredNorm = firstSquaredNorm;
-        let mut overflow = (squaredNorm >> 31).wrapping_neg();
-        for value in &second[..n] {
-            let value = i32::from(*value);
-            squaredNorm = squaredNorm.wrapping_add((value * value) as u32);
-            overflow |= squaredNorm;
-        }
-        squaredNorm |= (overflow >> 31).wrapping_neg();
-        squaredNorm <= squaredNormBounds[logn as usize]
+        let values = second[..n].iter().map(|value| i32::from(*value));
+        Self::saturatedSquaredNorm(firstSquaredNorm, values) <= squaredNormBounds[logn as usize]
     }
 }
 
@@ -83,6 +82,24 @@ mod tests {
         assert!(!SignatureNorm::isShortHalf(1 << 31, &vec![0i16; 512], 9));
         assert!(SignatureNorm::isShortHalf(34034726, &vec![0i16; 512], 9));
         assert!(!SignatureNorm::isShortHalf(34034727, &vec![0i16; 512], 9));
+    }
+
+    #[test]
+    fn saturatedSquaredNormIsTheSumBelow2To31AndElseSaturates() {
+        assert_eq!(SignatureNorm::saturatedSquaredNorm(0, [3, -4]), 25);
+        assert_eq!(SignatureNorm::saturatedSquaredNorm(7, [3, -4]), 32);
+        assert_eq!(SignatureNorm::saturatedSquaredNorm(9, []), 9);
+        // 46340^2 + 296^2 + 20^2 + 5^2 + 2^2 + 1^2 + 1^2 = 2^31 - 1, and one more 1^2 gives
+        // 2^31, which saturates.
+        let largest = [46340, 296, 20, 5, 2, 1, 1];
+        assert_eq!(
+            SignatureNorm::saturatedSquaredNorm(0, largest),
+            (1 << 31) - 1
+        );
+        assert_eq!(SignatureNorm::saturatedSquaredNorm(1, largest), u32::MAX);
+        assert_eq!(SignatureNorm::saturatedSquaredNorm(1 << 31, []), u32::MAX);
+        // Five terms of 2^30 wrap the sum around to 2^30, and the norm stays saturated.
+        assert_eq!(SignatureNorm::saturatedSquaredNorm(0, [32768; 5]), u32::MAX);
     }
 
     #[test]

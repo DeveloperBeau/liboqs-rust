@@ -175,14 +175,10 @@ impl Signer {
         }
         // s1 = hm - t0 with its saturated squared norm, and s2 = -t1.
         let [_, _, _, _, t0, t1, ..] = slots::<9>(workspace, n);
-        let mut squaredNorm = 0u32;
-        let mut overflow = 0u32;
-        for (hashed, value) in hashedMessage.iter().zip(t0.iter()) {
-            let z = i32::from(*hashed).wrapping_sub(value.roundedToNearest() as i32);
-            squaredNorm = squaredNorm.wrapping_add(z.wrapping_mul(z) as u32);
-            overflow |= squaredNorm;
-        }
-        squaredNorm |= (overflow >> 31).wrapping_neg();
+        let first = hashedMessage.iter().zip(t0.iter()).map(|(hashed, value)| {
+            i32::from(*hashed).wrapping_sub(value.roundedToNearest() as i32)
+        });
+        let squaredNorm = SignatureNorm::saturatedSquaredNorm(0, first);
         let second: Vec<i16> = t1
             .iter()
             .map(|value| value.roundedToNearest().wrapping_neg() as i16)

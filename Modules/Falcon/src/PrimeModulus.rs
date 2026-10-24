@@ -24,7 +24,7 @@ const fn reversals() -> [u16; 1024] {
         let mut reversed = 0;
         let mut bit = 0;
         while bit < 10 {
-            reversed = (reversed << 1) | ((index >> bit) & 1);
+            reversed = (reversed << 1) + ((index >> bit) & 1);
             bit += 1;
         }
         table[index] = reversed as u16;

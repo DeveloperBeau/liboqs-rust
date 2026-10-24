@@ -4,6 +4,7 @@ use crate::fourierTransform::FourierTransform;
 use crate::keyRefusal::KeyRefusal;
 use crate::modularPolynomial::ModularPolynomial;
 use crate::ntruSolver::NTRUSolver;
+use crate::signatureNorm::SignatureNorm;
 use OQSNativeSHA3::SHAKEReader;
 use alloc::vec::Vec;
 
@@ -104,12 +105,13 @@ impl KeyGenerator {
             .all(|value| (-limit + 1..limit).contains(&i32::from(*value)))
     }
 
-    /// True when the squared norm of `(g, -f)` is below the bound. The norm saturates at
-    /// `2^32 - 1` when a part of it reaches `2^31`, as in `keygen`.
+    /// True when the squared norm of `(g, -f)` is below the bound. `keygen` adds the
+    /// saturated norms of `f` and `g`, and saturates the sum when one of them saturated. A
+    /// norm of `2^31` or more is above the bound either way, so the saturated norm of both
+    /// polynomials gives the same decision.
     fn isNormBelowBound(f: &[i8], g: &[i8]) -> bool {
-        let (fNorm, gNorm) = (Self::squaredNorm(f), Self::squaredNorm(g));
-        let norm = fNorm.wrapping_add(gNorm) | ((fNorm | gNorm) >> 31).wrapping_neg();
-        norm < squaredNormBound
+        let values = f.iter().chain(g).map(|value| i32::from(*value));
+        SignatureNorm::saturatedSquaredNorm(0, values) < squaredNormBound
     }
 
     /// True when the squared norm of the orthogonalized vector
@@ -198,19 +200,6 @@ impl KeyGenerator {
             polynomial.push(value as i8);
         }
         polynomial
-    }
-
-    /// The squared norm of a small polynomial, saturated at `2^32 - 1` once it reaches `2^31`,
-    /// as `poly_small_sqnorm` does.
-    fn squaredNorm(polynomial: &[i8]) -> u32 {
-        let mut norm = 0u32;
-        let mut overflow = 0u32;
-        for value in polynomial {
-            let value = i32::from(*value);
-            norm = norm.wrapping_add((value * value) as u32);
-            overflow |= norm;
-        }
-        norm | (overflow >> 31).wrapping_neg()
     }
 }
 
@@ -521,13 +510,16 @@ mod tests {
             &[-127, -127, 0, 0],
             &[0; 4]
         ));
-        // A saturated part gives a saturated norm, though the sum of the parts wraps to 0.
+        // 2^17 coefficients of -128 give 2^31, which saturates, and with a zero or a small
+        // second part the norm stays saturated, though the sum of the parts wraps around.
         let saturated = vec![-128i8; 1 << 17];
-        let mut small = vec![0i8; 1 << 17];
+        let zero = vec![0i8; 1 << 17];
+        let mut small = zero.clone();
         small[0] = 1;
-        assert_eq!(KeyGenerator::squaredNorm(&saturated), u32::MAX);
-        assert!(!KeyGenerator::isNormBelowBound(&saturated, &small));
-        assert!(!KeyGenerator::isNormBelowBound(&small, &saturated));
+        for other in [&zero, &small] {
+            assert!(!KeyGenerator::isNormBelowBound(&saturated, other));
+            assert!(!KeyGenerator::isNormBelowBound(other, &saturated));
+        }
     }
 
     #[test]
@@ -541,9 +533,5 @@ mod tests {
                 assert_eq!(sum.rem_euclid(2), 1, "logn {logn}");
             }
         }
-        assert_eq!(KeyGenerator::squaredNorm(&[3, -4, 0, 1]), 26);
-        // 512 coefficients of -127 give 8258048, and 2^31 or more saturates.
-        assert_eq!(KeyGenerator::squaredNorm(&[-127; 512]), 512 * 127 * 127);
-        assert_eq!(KeyGenerator::squaredNorm(&vec![-128i8; 1 << 17]), u32::MAX);
     }
 }
