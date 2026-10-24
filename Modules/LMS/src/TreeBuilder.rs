@@ -142,7 +142,8 @@ impl TreeBuilder {
         }
         let depth = self.subtreeHeight - height;
         let root = nodeNumber >> depth;
-        let place = (1 << depth) | (nodeNumber & ((1 << depth) - 1));
+        // The low bits below `1 << depth` cannot meet its one bit, so the join adds them.
+        let place = (1 << depth) + (nodeNumber & ((1 << depth) - 1));
         for (subtreeRoot, nodes) in self.subtrees.iter_mut() {
             if *subtreeRoot == root {
                 nodes[place as usize] = *node;

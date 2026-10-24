@@ -152,7 +152,7 @@ impl OneTimeSignature {
         messageHash: &[u8; hashLength],
         signature: &[u8],
     ) -> Option<[u8; hashLength]> {
-        if signature.len() < 4 || signature[..4] != self.kind.code().to_be_bytes() {
+        if signature.first_chunk::<4>() != Some(&self.kind.code().to_be_bytes()) {
             return None;
         }
         if signature.len() != self.kind.signatureLength() {

@@ -43,7 +43,8 @@ impl AuxiliaryData {
                 break;
             }
             room -= length;
-            depths |= usedFlag | (1 << depth);
+            // The room keeps each saved depth below 9, so its bit cannot meet the flag, bit 31.
+            depths |= usedFlag + (1 << depth);
             depth += subtreeHeight;
         }
         depths

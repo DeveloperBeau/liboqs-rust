@@ -118,7 +118,9 @@ impl TreeState {
                 let sibling = (leaf >> level) ^ 1;
                 if level < self.subtreeHeight {
                     let depth = self.subtreeHeight - level;
-                    let place = (1 << depth) | (sibling & ((1 << depth) - 1));
+                    // The low bits below `1 << depth` cannot meet its one bit, so the join
+                    // adds them.
+                    let place = (1 << depth) + (sibling & ((1 << depth) - 1));
                     self.current[place as usize]
                 } else {
                     self.top[sibling as usize]
@@ -261,6 +263,39 @@ mod tests {
         let subtree = single.takeSubtree(2).expect("subtree 2");
         assert_eq!(subtree[1], nodes[6]);
         assert_eq!(subtree[8..16], nodes[48..56]);
+    }
+
+    #[test]
+    fn aStateKeepsTheTopAndBuildsOnlyTheSubtreesInsideTheTree() {
+        // Subtrees of height 2 split the tree of height 5 into the subtrees 0 to 7 under the
+        // top part, the nodes 1 to 15.
+        let tree = tree();
+        assert_eq!(TreeState::builder(tree.clone(), 0, 2).takeTop().len(), 16);
+        for start in [0, 3, 4, 17, 23, 24, 27, 28, 31] {
+            let mut state = TreeState::computed(tree.clone(), start, 2);
+            // The whole tree gives the subtree after the next one complete.
+            assert!(
+                state.building.as_ref().is_none_or(TreeBuilder::isComplete),
+                "start {start}"
+            );
+            for q in start..32 {
+                let subtree = q / 4;
+                assert_eq!(
+                    state.next.is_some(),
+                    subtree + 1 < 8,
+                    "start {start}, leaf {q}"
+                );
+                assert_eq!(
+                    state.building.is_some(),
+                    subtree + 2 < 8,
+                    "start {start}, leaf {q}"
+                );
+                state.advance();
+            }
+        }
+        // A tree of one subtree has no next subtree.
+        let state = TreeState::computed(tree, 7, 5);
+        assert!(state.next.is_none() && state.building.is_none());
     }
 
     #[test]

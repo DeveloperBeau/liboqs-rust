@@ -311,3 +311,33 @@
 - **Trap.** A test of a step that sets the counters of one state to zero passes for a mutant that resets another state, when the counters of both states are zero before the step.
 - **Finding.** At the end of a tree of layer 1, `multiTreeSignature` of XMSS^MT restarts the next tree of the layer. The mutant `next - layer` in place of `next + layer` restarts the current tree of another layer. The tests signed at the ends of trees with the fresh key of the response file, whose next leaves and stack offsets are zero, and the CI run of `oqs-native-xmss` missed the mutant. The case `index 1023 with state 1 at the next leaf 7` of `theNextTreesOfXMSSMTGetTheirLeavesWithinTheLimitsOfTheCCode` gives the tree that ends the next leaf 7 before the swap, and the C library gives the key of the fresh key, as the restart clears the 7.
 - **Rule.** A test of a reset gives the counter that the step resets a value that is not zero, and leaves the counters of the other states as they are, so that a reset of the wrong state changes the key.
+
+## A length check before a split gives a mutant at its bound and a panic below it
+
+- **Trap.** A parser that checks `if rest.len() < n { return false }` and then splits at n gives two kinds of surviving mutants. `<=` refuses only the length n, which a later check refuses as well, so it is equivalent. `==` lets a shorter input reach the split, which panics, so only an input that ends inside the field kills it.
+- **Finding.** The CI run of `oqs-native-lms` missed 18 mutants of the length checks of `SignatureVerification.rs` and `OneTimeSignature.rs`. Six were the panics of `==`, which no test reached, because every test of the verification changed bytes and kept the length. Twelve were equivalent at their bounds. One check of 40 bytes was dead, because the message hash that it guarded runs only after the length check of the one-time signature.
+- **Rule.** Split each field with `split_at_checked`, `split_first_chunk` or `first_chunk`, so that the check and the split are one step and leave no operator to mutate. A test of a parser gives the prefixes of a valid input that end at each edge of its fields and expects the verdict of the C library with no panic, as `eachPrefixOfASignatureIsRefusedAsTheCLibraryRefusesIt` does.
+
+## A bound that only the largest input reaches needs an input of that size
+
+- **Trap.** A check of a count against its largest value, such as `levels > 8`, gives the same verdict with `>=` for every input of a smaller count. When the named parameter sets never reach the largest value, no test has such an input.
+- **Finding.** liboqs names LMS sets of one and two levels, and no set has room to sign a key of eight levels, but `hss_validate_signature_init` accepts eight. Four mutants of the two checks of the level count survived the CI run. A C program made a key of eight levels with `OQS_LMS_NAMESPACE_hss_generate_private_key` and signed with `OQS_LMS_NAMESPACE_hss_generate_signature`, and `OQS_SIG_STFL_verify` accepted the signature. The port signs the same key through a test scheme with room for it, and `aSignatureOfEightLevelsIsValidAsTheCLibraryAcceptsIt` kills the four.
+- **Rule.** For each limit of the C code, give one test an input at the limit, made with the internal C functions where the public API cannot make it, and compare its digest with the C output.
+
+## Work past the end of a structure changes no output
+
+- **Trap.** A state that keeps or builds a part past the end of a tree, such as a subtree after the last one, gives the same signatures, because no signature reads that part. A mutant of the bound only adds work or memory.
+- **Finding.** Five mutants of the subtree bounds of `TreeState` and one of `TreeBuilder::completedSubtree` survived the CI run of `oqs-native-lms`. One of them made each state keep every node of its tree, 64 GiB for a tree of height 20.
+- **Rule.** Test the parts that a state holds at each step against their definition, as `aStateKeepsTheTopAndBuildsOnlyTheSubtreesInsideTheTree` does for the top part, the next subtree and the subtree in building.
+
+## The mutant of a run is the text of its diff
+
+- **Trap.** `cargo mutants` replaces the text of an operator. In `a && b && c`, the mutant of the first `&&` reads `a || b && c`, which groups as `a || (b && c)`, not as `(a || b) && c`. In `n - 4 - h`, the mutant `-` replaced with `/` at the second place reads `n - 4 / h`, which is `n - 0`. A mutant applied by hand from the description alone can be another mutant.
+- **Finding.** The proofs of the equivalent mutants of `isHSSPublicKey` and of `AuxiliaryData::savedDepths` of LMS first used the grouping of the syntax tree. The diffs in the `mutants.out` folder of the shard showed the text forms.
+- **Rule.** Apply a mutant by hand from its diff in the `diff` folder of the shard, and prove the equivalence of the text form.
+
+## A classification that a later check covers gives equivalent mutants
+
+- **Trap.** A function that sorts an input into one of two forms with typecode checks that a later step repeats can be wrong for an input that the later step refuses anyway. A mutant that weakens one of its checks survives.
+- **Finding.** `is_hss_public_key` and `public_key_levels` of liboqs check the typecodes of the public key, and `lm_validate_signature` and `lm_ots_validate_signature_compute` check them again. Four mutants of the copies in `SignatureVerification.rs` survived the CI run of `oqs-native-lms`, and each input that they classify in another way fails a later check.
+- **Rule.** Keep the checks of the C code, and record each such mutant as equivalent. The register names the later check that refuses each input that the mutant classifies in another way.
