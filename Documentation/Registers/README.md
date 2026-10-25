@@ -12,3 +12,4 @@ A register is the one owner of a rule that needs a list. A change that adds an i
 | [UpstreamSources.md](UpstreamSources.md) | The upstream liboqs source that each Rust module translates | People. A later tool reads it. |
 | [TestVectors.md](TestVectors.md) | The test vector files of the tests, with their addresses and SHA-256 | `cargo xtask fetch-oracle` |
 | [MutationResults.md](MutationResults.md) | The mutation results for each rule and the test that kills each mutant | People |
+| [LargeTrees.md](LargeTrees.md) | The parity result of each stateful set with a tree of height 20 or more | People |

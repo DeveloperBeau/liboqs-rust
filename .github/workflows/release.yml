@@ -1,0 +1,87 @@
+name: Release
+
+# A push of a tag `v<version>` checks that the version is the version of the workspace, packages
+# every shipped crate as crates.io would take it, and creates the GitHub release with the section
+# of CHANGELOG.md for that version. Publishing to crates.io stays a step of the owner, with a token
+# of the owner and `cargo publish --workspace` with the `--exclude` flags of the members that are
+# not published.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: The tag is the version of the workspace
+        run: |
+          version="$(cat LIBOQS_VERSION)"
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "the tag ${GITHUB_REF_NAME} is not v${version}, the version in LIBOQS_VERSION"
+            exit 1
+          fi
+          cargo xtask check-versions
+      - name: Package every shipped crate
+        # The packages are built as crates.io takes them, without a C oracle, because no
+        # shipped crate holds C. The members with publish = false stay out, as in the publish
+        # command of the owner.
+        run: >-
+          cargo package --workspace --locked --no-verify
+          --exclude oqs-native-algorithm-tests --exclude oqs-native-c-oracle
+          --exclude oqs-native-parity --exclude xtask
+      - name: The section of the version in the changelog
+        run: |
+          version="$(cat LIBOQS_VERSION)"
+          awk -v heading="## ${version}" '
+            $0 == heading { inside = 1; next }
+            inside && /^## / { exit }
+            inside { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "CHANGELOG.md has no section ## ${version}"
+            exit 1
+          fi
+      - name: Keep the notes
+        uses: actions/upload-artifact@v7
+        with:
+          name: notes
+          path: notes.md
+          retention-days: 1
+
+  release:
+    needs: package
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Fetch the notes of the package job
+        uses: actions/download-artifact@v8
+        with:
+          name: notes
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --repo "${{ github.repository }}" \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file notes.md \
+            --verify-tag
+      - name: Delete the artifacts of the run
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --paginate "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" --jq '.artifacts[].id' |
+            while read -r id; do
+              gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id"
+              echo "deleted artifact $id"
+            done
