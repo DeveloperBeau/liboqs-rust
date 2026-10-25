@@ -15,8 +15,9 @@ impl VersionCheck {
 
     /// Returns a finding for each copy of the version that disagrees with `LIBOQS_VERSION`.
     ///
-    /// The copies are the workspace package version, the version of each member crate, which
-    /// must come from the workspace, and the name of each snapshot file.
+    /// The copies are the workspace package version, the version of each local workspace
+    /// dependency, the version of each member crate, which must come from the workspace, and the
+    /// name of each snapshot file.
     pub fn findings(files: &dyn FileReading, layout: &WorkspaceLayout) -> Vec<Finding> {
         let versionPath = Path::new(Self::versionPath);
         let version = match files.text(versionPath) {
@@ -52,6 +53,19 @@ impl VersionCheck {
                 0,
                 "the workspace sets no [workspace.package] version",
             )),
+        }
+        for (name, dependencyVersion, line) in layout.rootManifest.workspacePathDependencyVersions()
+        {
+            if dependencyVersion != version {
+                findings.push(Finding::new(
+                    Self::name,
+                    rootPath,
+                    line,
+                    format!(
+                        "workspace dependency `{name}` asks for version `{dependencyVersion}`, not LIBOQS_VERSION `{version}`"
+                    ),
+                ));
+            }
         }
         for member in &layout.members {
             if !member.manifest.inheritsWorkspaceVersion() {
@@ -132,6 +146,23 @@ mod tests {
         assert_eq!(
             messages(&files),
             vec!["workspace version `0.16.0` differs from LIBOQS_VERSION `0.17.0`"]
+        );
+    }
+
+    #[test]
+    fn localWorkspaceDependencyOfAnotherVersionIsAFinding() {
+        let rootWithDependencies = format!(
+            "{root}\n[workspace.dependencies]\nalpha = {{ path = \"Modules/A\", version = \"0.15.0\" }}\nbeta = {{ path = \"Modules/B\", version = \"0.16.0\" }}\nremote = {{ version = \"1.2.3\" }}\n"
+        );
+        let files = MemoryFileSystem::withFiles(&[
+            ("LIBOQS_VERSION", "0.16.0"),
+            ("Cargo.toml", &rootWithDependencies),
+        ]);
+        assert_eq!(
+            messages(&files),
+            vec![
+                "workspace dependency `alpha` asks for version `0.15.0`, not LIBOQS_VERSION `0.16.0`"
+            ]
         );
     }
 

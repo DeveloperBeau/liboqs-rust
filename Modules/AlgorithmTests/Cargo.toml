@@ -18,11 +18,11 @@ name = "OQSNativeAlgorithmTests"
 path = "src/lib.rs"
 
 [dependencies]
-oqs-native-domain = { path = "../Domain", default-features = false }
-oqs-native-entities = { path = "../Entities", default-features = false }
-oqs-native-kat-random = { path = "../KATRandom", default-features = false }
-oqs-native-sha2 = { path = "../SHA2", default-features = false }
-oqs-native-sha3 = { path = "../SHA3", default-features = false }
+oqs-native-domain = { workspace = true }
+oqs-native-entities = { workspace = true }
+oqs-native-kat-random = { workspace = true }
+oqs-native-sha2 = { workspace = true }
+oqs-native-sha3 = { workspace = true }
 
 [dev-dependencies]
 # The behavior tests of the stateful programs run them on the C schemes, as the harness tests

@@ -7,6 +7,9 @@ rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+readme = "README.md"
+keywords = ["post-quantum", "pqc", "kem", "signature", "liboqs"]
+categories.workspace = true
 
 [package.metadata]
 ring = "composition"
@@ -16,26 +19,26 @@ name = "OQSNative"
 path = "src/lib.rs"
 
 [dependencies]
-oqs-native-bike = { path = "../BIKE", default-features = false }
-oqs-native-cross = { path = "../CROSS", default-features = false }
-oqs-native-classic-mceliece = { path = "../ClassicMcEliece", default-features = false }
-oqs-native-domain = { path = "../Domain", default-features = false }
-oqs-native-entities = { path = "../Entities", default-features = false }
-oqs-native-falcon = { path = "../Falcon", default-features = false }
-oqs-native-frodokem = { path = "../FrodoKEM", default-features = false }
-oqs-native-hqc = { path = "../HQC", default-features = false }
-oqs-native-lms = { path = "../LMS", default-features = false }
-oqs-native-mayo = { path = "../MAYO", default-features = false }
-oqs-native-ml-dsa = { path = "../MLDSA", default-features = false }
-oqs-native-ml-kem = { path = "../MLKEM", default-features = false }
-oqs-native-mqom = { path = "../MQOM", default-features = false }
-oqs-native-ntru = { path = "../NTRU", default-features = false }
-oqs-native-ntru-prime = { path = "../NTRUPrime", default-features = false }
-oqs-native-slh-dsa = { path = "../SLHDSA", default-features = false }
-oqs-native-snova = { path = "../SNOVA", default-features = false }
-oqs-native-system-random = { path = "../SystemRandom", optional = true }
-oqs-native-uov = { path = "../UOV", default-features = false }
-oqs-native-xmss = { path = "../XMSS", default-features = false }
+oqs-native-bike = { workspace = true }
+oqs-native-cross = { workspace = true }
+oqs-native-classic-mceliece = { workspace = true }
+oqs-native-domain = { workspace = true }
+oqs-native-entities = { workspace = true }
+oqs-native-falcon = { workspace = true }
+oqs-native-frodokem = { workspace = true }
+oqs-native-hqc = { workspace = true }
+oqs-native-lms = { workspace = true }
+oqs-native-mayo = { workspace = true }
+oqs-native-ml-dsa = { workspace = true }
+oqs-native-ml-kem = { workspace = true }
+oqs-native-mqom = { workspace = true }
+oqs-native-ntru = { workspace = true }
+oqs-native-ntru-prime = { workspace = true }
+oqs-native-slh-dsa = { workspace = true }
+oqs-native-snova = { workspace = true }
+oqs-native-system-random = { workspace = true, optional = true }
+oqs-native-uov = { workspace = true }
+oqs-native-xmss = { workspace = true }
 
 [features]
 default = ["std"]
