@@ -24,7 +24,7 @@ The first release: a native Rust port of every algorithm of liboqs 0.16.0, with 
 
 - The known-answer digests of liboqs, the ACVP vectors of SLH-DSA and the response files of the stateful schemes pass.
 - The replicated test programs of liboqs pass: the KEM, signature and stateful signature programs, the fuzz programs with hostile inputs, and the memory tests.
-- The parity gate gives the base case and 1000 seeded variations of 309 algorithms identical to the C library. `Documentation/Registers/LargeTrees.md` records the 23 stateful sets with a tree of height 20 or more, which run on their own.
+- The base case and 1000 seeded variations of 328 of the 332 algorithms are identical to the C library: 309 in the parity gate, and the 19 stateful sets with a tree of height 20 in the `Large trees` workflow. The four LMS sets of height 25 take from about 7 hours to about four days each, and `Documentation/Registers/LargeTrees.md` records their runs.
 - Each family has a recorded mutation run in `Documentation/Registers/MutationResults.md`, with the test that kills each mutant or the proof that it is equivalent.
 
 ### Known issues

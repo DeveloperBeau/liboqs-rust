@@ -3,11 +3,12 @@ name: Large trees
 # The parity of the stateful sets with a tree of height 20 or more, which `parity run` skips
 # without `--large-trees`. A key pair of such a set takes from minutes to hours on each side,
 # so each set is a job of its own. A push to a branch under `large-trees/` runs them on any
-# commit. The four LMS sets of height 25 take longer than the six hours of a hosted job and
-# run on a machine of their own, as Documentation/Architecture/Parity.md says.
+# commit. The four LMS sets of height 25 take longer than the six hours of a hosted job, so a
+# push to a branch under `large-trees-25/` runs them on a self-hosted runner with the label
+# `large-trees`, whose jobs may run for five days. Documentation/Architecture/Parity.md says how.
 on:
   push:
-    branches: ['large-trees/**']
+    branches: ['large-trees/**', 'large-trees-25/**']
   workflow_dispatch:
 
 permissions:
@@ -50,6 +51,7 @@ jobs:
 
   parity:
     needs: build
+    if: startsWith(github.ref_name, 'large-trees/')
     runs-on: ubuntu-26.04
     timeout-minutes: 360
     strategy:
@@ -85,17 +87,43 @@ jobs:
       - name: Parity with 1000 variations of the set
         run: ./parity run --cases 1000 --large-trees --only "${{ matrix.set }}"
 
+  height-25:
+    # The four LMS sets of height 25, from about 7 hours to about four days each. Each runs on a
+    # self-hosted runner, which takes the parity program of the build job and needs no toolchain.
+    needs: build
+    if: startsWith(github.ref_name, 'large-trees-25/')
+    runs-on: [self-hosted, large-trees]
+    timeout-minutes: 7200
+    strategy:
+      fail-fast: false
+      matrix:
+        set:
+          - LMS_SHA256_H25_W1
+          - LMS_SHA256_H25_W2
+          - LMS_SHA256_H25_W4
+          - LMS_SHA256_H25_W8
+    steps:
+      - name: Fetch the parity program of the build job
+        uses: actions/download-artifact@v8
+        with:
+          name: parity
+      - name: Make the parity program executable
+        run: chmod +x parity
+      - name: Parity with 1000 variations of the set
+        run: ./parity run --cases 1000 --large-trees --only "${{ matrix.set }}"
+
   passed:
-    # The one result of the gate, which joins the shards in the graph of a run. It fails when
-    # any shard failed or was cancelled.
-    needs: [build, parity]
+    # The one result of the run, which joins the jobs of the sets in the graph of a run.
+    needs: [build, parity, height-25]
     if: always()
     permissions:
       actions: write
     runs-on: ubuntu-26.04
     steps:
-      - name: A job failed, was cancelled or did not run
-        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+      # A branch runs either the sets of height 20 or the sets of height 25, so one of the two
+      # jobs is always skipped.
+      - name: A job failed or was cancelled
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: exit 1
       - name: Every set passed
         run: echo "every set of the run passed"

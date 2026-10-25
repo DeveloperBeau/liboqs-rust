@@ -4,7 +4,7 @@ The port gives the bytes of liboqs 0.16.0 for the same random bytes. This page l
 
 ## What the release does not cover
 
-- **Large stateful trees.** The default `parity run` and the gate skip the 23 stateful sets with a tree of height 20 or 25, because a key pair takes from minutes to days on each side. They run on their own: `Documentation/Registers/LargeTrees.md` records the result of each of them.
+- **Large stateful trees.** The default `parity run` and the gate skip the 23 stateful sets with a tree of height 20 or 25, because a key pair takes from minutes to days on each side. The 19 sets of height 20 gave the base case and 1000 variations identical to the C library in the `Large trees` workflow. The four LMS sets of height 25 need a machine without the six-hour limit of a hosted job. `Documentation/Registers/LargeTrees.md` records the result of each set.
 - **Secret intermediates.** `SecretBytes` wipes the secret keys and shared secrets that the API returns, through the one audited `unsafe` function of the port. The expanded keys and the buffers inside an operation are not wiped, where some C families wipe theirs (`mayo_secure_clear`, the zeroize calls of mldsa-native). `Documentation/Registers/UnsafeCode.md` describes the wipe.
 - **Timing.** The port follows the constant-time structure of each C implementation that it translates. No tool has measured the timing of the Rust code. MQOM branches on the bits of public equation elements where the C code uses masks, so its timing depends on the public key only.
 - **Operating system randomness.** `SystemRandom` reads the random source of a Unix system. Other systems need a `RandomGenerating` source of their own.
