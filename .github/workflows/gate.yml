@@ -19,23 +19,27 @@ jobs:
     # The one build of the C oracle and of the release parity program. The jobs after it take
     # the oracle from the cache that this job fills and the program from its artifact, so no
     # shard builds either of them again.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Install the pinned toolchain
         run: rustup show active-toolchain || rustup toolchain install
       - name: Restore the C oracle
-        uses: actions/cache@v4
+        id: oracle
+        uses: actions/cache@v6
         with:
           path: target/oracle
           key: oracle-${{ runner.os }}-${{ hashFiles('LIBOQS_VERSION', 'Tools/Xtask/src/OracleBuild.rs', 'Tools/Xtask/src/TestVector.rs', 'Documentation/Registers/TestVectors.md') }}
       - name: Build the C oracle
+        # fetch-oracle runs CMake again on a present build, which compiles the library again.
+        # A cache hit holds the whole oracle of the key, the vectors among them.
+        if: steps.oracle.outputs.cache-hit != 'true'
         run: cargo xtask fetch-oracle
       - name: Build the parity program
         run: cargo build --release --locked -p oqs-native-parity
       - name: Keep the parity program
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: parity
           path: target/release/parity
@@ -43,7 +47,7 @@ jobs:
 
   parity:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 360
     # Fifteen shards leave some of the concurrent jobs of the account to the checks of the
     # pull requests.
@@ -53,7 +57,7 @@ jobs:
         shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
     steps:
       - name: Fetch the parity program of the build job
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: parity
       - name: Make the parity program executable
@@ -61,3 +65,31 @@ jobs:
       - name: Parity with 1000 variations of each algorithm
         # Blocks of 25 variations spread a slow algorithm over every shard and process.
         run: ./parity run --cases 1000 --block-size 25 --shard ${{ matrix.shard }}/15 --processes 4
+
+  passed:
+    # The one result of the gate, which joins the shards in the graph of a run. It fails when
+    # any shard failed or was cancelled.
+    needs: [build, parity]
+    if: always()
+    permissions:
+      actions: write
+    runs-on: ubuntu-26.04
+    steps:
+      - name: A job failed, was cancelled or did not run
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: exit 1
+      - name: Every shard passed
+        run: echo "every shard of the gate passed"
+      - name: Delete the artifacts of the run
+        # The jobs of the run have read them. A run with a failed job keeps them until their
+        # retention ends, so a re-run of its failed jobs still finds them. A token that cannot
+        # delete, as in a pull request from a fork, leaves them to their retention.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --paginate "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" --jq '.artifacts[].id' |
+            while read -r id; do
+              gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id"
+              echo "deleted artifact $id"
+            done

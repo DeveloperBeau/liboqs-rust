@@ -150,6 +150,18 @@
 - **Finding.** When the SLH-DSA vectors joined the register, the build job restored an older cache with the same key, and `fetch-oracle` downloaded the new files into its own folder. `actions/cache` saves only after a miss, so the cache kept the folder without the vectors, and the checks job, which restores that cache, failed every vector test.
 - **Rule.** The key of a cache hashes every file that the step that fills it reads. A job that restores the cache with `fail-on-cache-miss` sees only what the key describes.
 
+## A restored oracle that fetch-oracle builds again
+
+- **Trap.** The build job of each workflow restored the oracle from the cache and then ran `cargo xtask fetch-oracle` in every case.
+- **Finding.** On a present source, fetch-oracle runs CMake again, and the restored build compiled 425 C files of liboqs again, about two and a half minutes of each build job, with the cache hit in the log.
+- **Rule.** A step that only fills a cache runs only when the restore missed, on `steps.<id>.outputs.cache-hit`. The key names every input of that step, so a hit holds all of its output.
+
+## A job with no checkout hashes no files for its cache key
+
+- **Trap.** The known-answers job of CI ran only the built parity program, so it had no checkout, and it restored the oracle with the same key as the other jobs.
+- **Finding.** `hashFiles` of a job with no checkout gives an empty string, so the key was `oracle-Linux-`. An early run had saved a cache under that key, from before the stateful families, and the restore with `fail-on-cache-miss` found it. The job then failed for every stateful set, because that oracle had no response files of XMSS and LMS.
+- **Rule.** A job that restores a cache whose key calls `hashFiles` checks out the tree first.
+
 ## The diff of a mutant, not its name, gives its value
 
 - **Trap.** A copy of a mutant in another language, written from the name of the mutant, can compute another value than the mutant.
