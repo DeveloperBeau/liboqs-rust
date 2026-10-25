@@ -8,7 +8,7 @@ This project is free and open source. It is an independent port. It is not affil
 
 ## Status
 
-The port is in progress. The repository holds the workspace, the standards, the repository checks, the shared primitives, the random sources and the parity harness, and these families:
+Version 0.16.0 ports every algorithm of liboqs 0.16.0, 332 in all. Each one gives the output of the C library for the same random bytes. [CHANGELOG.md](CHANGELOG.md) lists the release, and [Documentation/KnownIssues.md](Documentation/KnownIssues.md) lists what it does not cover and the open decisions.
 
 | Family | Algorithms | Status |
 |---|---|---|
@@ -33,7 +33,35 @@ The port is in progress. The repository holds the workspace, the standards, the 
 | XMSS^MT | `XMSSMT-SHA2_20/2_256`, `XMSSMT-SHA2_20/4_256`, `XMSSMT-SHA2_40/2_256`, `XMSSMT-SHA2_40/4_256`, `XMSSMT-SHA2_40/8_256`, `XMSSMT-SHA2_60/3_256`, `XMSSMT-SHA2_60/6_256`, `XMSSMT-SHA2_60/12_256`, `XMSSMT-SHAKE_20/2_256`, `XMSSMT-SHAKE_20/4_256`, `XMSSMT-SHAKE_40/2_256`, `XMSSMT-SHAKE_40/4_256`, `XMSSMT-SHAKE_40/8_256`, `XMSSMT-SHAKE_60/3_256`, `XMSSMT-SHAKE_60/6_256`, `XMSSMT-SHAKE_60/12_256` | Ported, identical to the C library |
 | LMS | The 33 sets from `LMS_SHA256_H5_W1` to `LMS_SHA256_H20_W8_H20_W8`: one tree of height 5 to 25, or two levels | Ported, identical to the C library |
 
-`Tools/Parity/NotYetPorted.txt` lists each algorithm of liboqs that the port does not have yet. With LMS it is empty: the registry holds every algorithm of liboqs 0.16.0.
+`Tools/Parity/NotYetPorted.txt` lists each algorithm of liboqs that the port does not have. It is empty: the registry holds every algorithm of liboqs 0.16.0.
+
+## Use
+
+The crate `oqs-native` finds each algorithm by its liboqs name and re-exports the families and the data types. Each operation takes its random source as an argument:
+
+```rust
+use OQSNative::{OQSError, Registry, SystemRandom};
+
+fn main() -> Result<(), OQSError> {
+    let mut random = SystemRandom::new().map_err(|_| OQSError::operationFailed)?;
+
+    let mechanism = Registry::mechanism("ML-KEM-768").ok_or(OQSError::operationFailed)?;
+    let keyPair = mechanism.generateKeyPair(&mut random)?;
+    let encapsulation = mechanism.encapsulate(&keyPair.publicKey, &mut random)?;
+    let sharedSecret =
+        mechanism.decapsulate(&encapsulation.ciphertext, keyPair.secretKey.bytes())?;
+    assert_eq!(sharedSecret.bytes(), encapsulation.sharedSecret.bytes());
+
+    let scheme = Registry::signatureScheme("ML-DSA-65").ok_or(OQSError::operationFailed)?;
+    let keyPair = scheme.generateKeyPair(&mut random)?;
+    let message = b"a message";
+    let signature = scheme.sign(message, keyPair.secretKey.bytes(), &mut random)?;
+    assert!(scheme.isValidSignature(&signature, message, &keyPair.publicKey));
+    Ok(())
+}
+```
+
+`cargo run -p oqs-native --example KEMAndSignature` runs this program. The keys, ciphertexts and signatures use the byte formats of liboqs, so they work with the C library and the other way around. A stateful scheme of `Registry::statefulSignatureSchemes` gives a new secret key with each signature, which must be stored before the signature is used: see [SECURITY.md](SECURITY.md).
 
 ## Versions
 
