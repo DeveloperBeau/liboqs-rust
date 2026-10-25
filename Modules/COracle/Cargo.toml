@@ -19,8 +19,8 @@ name = "OQSNativeCOracle"
 path = "src/lib.rs"
 
 [dependencies]
-oqs-native-domain = { path = "../Domain", default-features = false }
-oqs-native-entities = { path = "../Entities", default-features = false }
+oqs-native-domain = { workspace = true }
+oqs-native-entities = { workspace = true }
 
 [features]
 default = ["std"]

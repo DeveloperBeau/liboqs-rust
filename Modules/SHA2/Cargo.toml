@@ -7,6 +7,9 @@ rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+readme = "README.md"
+keywords = ["sha2", "sha256", "sha512", "hash", "liboqs"]
+categories.workspace = true
 
 [package.metadata]
 ring = "sharedComponents"

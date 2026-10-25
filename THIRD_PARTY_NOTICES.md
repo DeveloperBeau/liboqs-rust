@@ -2,6 +2,8 @@
 
 This project is a Rust port of liboqs. A port is a derived work, so the authors of the original code keep their credit and their license terms. Each algorithm family crate also carries the license and copyright of the code that it translates. This file lists every upstream project that the repository uses. A change that ports a new family adds its section here in the same change.
 
+`Licenses/Apache-2.0.txt` holds the text of the Apache License 2.0. Each crate whose license expression names Apache-2.0 carries that text as `LICENSE-APACHE`, and each published crate carries this file and the MIT `LICENSE` of the port.
+
 ## liboqs
 
 - Project: [Open Quantum Safe liboqs](https://github.com/open-quantum-safe/liboqs)

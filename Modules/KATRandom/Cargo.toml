@@ -7,6 +7,9 @@ rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+readme = "README.md"
+keywords = ["drbg", "known-answer", "nist", "post-quantum", "liboqs"]
+categories.workspace = true
 
 [package.metadata]
 ring = "infrastructure"
@@ -16,9 +19,9 @@ name = "OQSNativeKATRandom"
 path = "src/lib.rs"
 
 [dependencies]
-oqs-native-aes = { path = "../AES", default-features = false }
-oqs-native-domain = { path = "../Domain", default-features = false }
-oqs-native-sha3 = { path = "../SHA3", default-features = false }
+oqs-native-aes = { workspace = true }
+oqs-native-domain = { workspace = true }
+oqs-native-sha3 = { workspace = true }
 
 [features]
 default = ["std"]

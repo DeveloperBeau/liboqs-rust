@@ -7,6 +7,9 @@ rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+readme = "README.md"
+keywords = ["post-quantum", "pqc", "kem", "signature", "liboqs"]
+categories.workspace = true
 
 [package.metadata]
 ring = "domain"
@@ -16,7 +19,7 @@ name = "OQSNativeDomain"
 path = "src/lib.rs"
 
 [dependencies]
-oqs-native-entities = { path = "../Entities", default-features = false }
+oqs-native-entities = { workspace = true }
 
 [features]
 default = ["std"]

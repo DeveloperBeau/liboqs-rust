@@ -7,6 +7,11 @@ rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+readme = "README.md"
+keywords = ["falcon", "signature", "pqc", "post-quantum", "liboqs"]
+categories.workspace = true
+# The tests use the unpublished test crates, so the package leaves them out.
+exclude = ["tests/"]
 
 [package.metadata]
 ring = "features"
@@ -16,9 +21,9 @@ name = "OQSNativeFalcon"
 path = "src/lib.rs"
 
 [dependencies]
-oqs-native-domain = { path = "../Domain", default-features = false }
-oqs-native-entities = { path = "../Entities", default-features = false }
-oqs-native-sha3 = { path = "../SHA3", default-features = false }
+oqs-native-domain = { workspace = true }
+oqs-native-entities = { workspace = true }
+oqs-native-sha3 = { workspace = true }
 
 [dev-dependencies]
 oqs-native-algorithm-tests = { path = "../AlgorithmTests" }

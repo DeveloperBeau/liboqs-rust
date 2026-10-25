@@ -9,6 +9,11 @@ rust-version.workspace = true
 license = "MIT AND (Apache-2.0 OR ISC OR MIT) AND (CC0-1.0 OR Apache-2.0)"
 authors.workspace = true
 repository.workspace = true
+readme = "README.md"
+keywords = ["ml-kem", "kyber", "fips203", "post-quantum", "liboqs"]
+categories.workspace = true
+# The tests use the unpublished test crates, so the package leaves them out.
+exclude = ["tests/"]
 
 [package.metadata]
 ring = "features"
@@ -18,9 +23,9 @@ name = "OQSNativeMLKEM"
 path = "src/lib.rs"
 
 [dependencies]
-oqs-native-domain = { path = "../Domain", default-features = false }
-oqs-native-entities = { path = "../Entities", default-features = false }
-oqs-native-sha3 = { path = "../SHA3", default-features = false }
+oqs-native-domain = { workspace = true }
+oqs-native-entities = { workspace = true }
+oqs-native-sha3 = { workspace = true }
 
 [dev-dependencies]
 oqs-native-algorithm-tests = { path = "../AlgorithmTests" }

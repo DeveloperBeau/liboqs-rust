@@ -39,6 +39,8 @@ The run of 2026-10-23 on the branch `foundation/workspace`. The table counts eac
 
 No mutant is missed, and no mutant is recorded as equivalent. The eight timeouts are in the low-level loops of `RustTokenizer`: with the mutant, the tokenizer stops moving and the suite does not end.
 
+The run of 2026-10-25 of the whole crate, after the version check of the `[workspace.dependencies]` entries joined `CargoManifest.rs` and `VersionCheck.rs`, is the `Mutants` workflow of CI, in ten shards, on the branch `mutants/xtask.crates`: [run 40158650583](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40158650583). It had 586 mutants: 539 caught, 8 timeouts, 39 unviable and none missed. The eight timeouts are the eight of `RustTokenizer` above, and every mutant of the new code of the version check is caught.
+
 ## Expected result for each rule
 
 Each row names one mutant of a rule and the tests that fail under it. The test names are the expected result: if a later run does not fail these tests for this mutant, the tests have lost their link to the rule.

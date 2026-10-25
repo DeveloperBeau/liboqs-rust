@@ -115,6 +115,27 @@ impl CargoManifest {
             .collect()
     }
 
+    /// The name, the version and the line of each workspace dependency that points to a local
+    /// path and names a version.
+    pub fn workspacePathDependencyVersions(&self) -> Vec<(String, String, usize)> {
+        let paths = self.workspacePathDependencies();
+        self.entries
+            .iter()
+            .filter(|entry| entry.table == "workspace.dependencies")
+            .filter_map(|entry| {
+                let (name, version) = match entry.key.split_once('.') {
+                    Some((name, "version")) => (name.to_string(), Self::unquoted(&entry.value)),
+                    Some(_) => return None,
+                    None => (
+                        entry.key.clone(),
+                        Self::inlineTableString(&entry.value, "version")?,
+                    ),
+                };
+                paths.contains(&name).then_some((name, version, entry.line))
+            })
+            .collect()
+    }
+
     /// Every dependency that the manifest declares, in all dependency sections.
     pub fn dependencies(&self) -> Vec<Dependency> {
         let mut dependencies: Vec<Dependency> = Vec::new();
@@ -392,6 +413,20 @@ builder = { version = "2" }
             "[workspace.dependencies]\nlocal = { path = \"Modules/Local\" }\nremote = \"1\"\nother.path = \"x\"\n",
         );
         assert_eq!(parsed.workspacePathDependencies(), vec!["local", "other"]);
+    }
+
+    #[test]
+    fn workspacePathDependencyVersionsListOnlyLocalEntriesWithAVersion() {
+        let parsed = CargoManifest::parse(
+            "[workspace.dependencies]\nlocal = { path = \"Modules/Local\", version = \"0.16.0\" }\nbare = { path = \"Modules/Bare\" }\nremote = { version = \"1\" }\ndotted.path = \"Modules/Dotted\"\ndotted.version = \"0.15.0\"\n\n[dependencies]\nmember = { path = \"x\", version = \"2\" }\n",
+        );
+        assert_eq!(
+            parsed.workspacePathDependencyVersions(),
+            vec![
+                ("local".to_string(), "0.16.0".to_string(), 2),
+                ("dotted".to_string(), "0.15.0".to_string(), 6),
+            ]
+        );
     }
 
     #[test]

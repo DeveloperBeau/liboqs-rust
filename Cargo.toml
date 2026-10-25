@@ -9,6 +9,38 @@ rust-version = "1.97"
 license = "MIT"
 authors = ["Beau Ayres"]
 repository = "https://github.com/DeveloperBeau/liboqs-rust"
+categories = ["cryptography", "no-std"]
+
+# The shipped crates as dependencies of each other. The registry refuses a dependency with only a
+# path, so each entry also names the version, which `cargo xtask check-versions` keeps equal to
+# LIBOQS_VERSION. Each crate below the composition ring builds without the standard library, so
+# no entry turns on the default features. A member that needs `std` of a dependency asks for it.
+[workspace.dependencies]
+oqs-native-aes = { path = "Modules/AES", version = "0.16.0", default-features = false }
+oqs-native-bike = { path = "Modules/BIKE", version = "0.16.0", default-features = false }
+oqs-native-classic-mceliece = { path = "Modules/ClassicMcEliece", version = "0.16.0", default-features = false }
+oqs-native-cross = { path = "Modules/CROSS", version = "0.16.0", default-features = false }
+oqs-native-domain = { path = "Modules/Domain", version = "0.16.0", default-features = false }
+oqs-native-entities = { path = "Modules/Entities", version = "0.16.0", default-features = false }
+oqs-native-falcon = { path = "Modules/Falcon", version = "0.16.0", default-features = false }
+oqs-native-frodokem = { path = "Modules/FrodoKEM", version = "0.16.0", default-features = false }
+oqs-native-hqc = { path = "Modules/HQC", version = "0.16.0", default-features = false }
+oqs-native-kat-random = { path = "Modules/KATRandom", version = "0.16.0", default-features = false }
+oqs-native-lms = { path = "Modules/LMS", version = "0.16.0", default-features = false }
+oqs-native-mayo = { path = "Modules/MAYO", version = "0.16.0", default-features = false }
+oqs-native-ml-dsa = { path = "Modules/MLDSA", version = "0.16.0", default-features = false }
+oqs-native-ml-kem = { path = "Modules/MLKEM", version = "0.16.0", default-features = false }
+oqs-native-mqom = { path = "Modules/MQOM", version = "0.16.0", default-features = false }
+oqs-native-ntru = { path = "Modules/NTRU", version = "0.16.0", default-features = false }
+oqs-native-ntru-prime = { path = "Modules/NTRUPrime", version = "0.16.0", default-features = false }
+oqs-native-sha2 = { path = "Modules/SHA2", version = "0.16.0", default-features = false }
+oqs-native-sha3 = { path = "Modules/SHA3", version = "0.16.0", default-features = false }
+oqs-native-slh-dsa = { path = "Modules/SLHDSA", version = "0.16.0", default-features = false }
+oqs-native-snova = { path = "Modules/SNOVA", version = "0.16.0", default-features = false }
+oqs-native-sorting-network = { path = "Modules/SortingNetwork", version = "0.16.0", default-features = false }
+oqs-native-system-random = { path = "Modules/SystemRandom", version = "0.16.0", default-features = false }
+oqs-native-uov = { path = "Modules/UOV", version = "0.16.0", default-features = false }
+oqs-native-xmss = { path = "Modules/XMSS", version = "0.16.0", default-features = false }
 
 # Swift casing in every crate: see standards.md, section "Names and casing".
 [workspace.lints.rust]
