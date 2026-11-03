@@ -1,8 +1,8 @@
 # Large trees
 
-The parity results of the stateful sets with a tree of height 20 or more, which `parity run` skips without `--large-trees`. Each run checks the base case and 1000 variations, or the signatures that the key holds, against the C library with the seed of the gate. A row takes its result from the run that it names, on the commit `99c8748`, whose code is the code of the release.
+The parity results of the stateful sets with a tree of height 20 or more, which `parity run` skips without `--large-trees`. Each run checks the base case and 1000 variations, or the signatures that the key holds, against the C library with the seed of the gate. A row of the `Large trees` workflow takes its result from the run that it names, on the commit `99c8748`. A row of a local run ran on the commit `63fb0c0` of `develop`. The code of the port and of the parity program is the same on both commits.
 
-The 19 sets of height 20 run in the `Large trees` workflow, one job per set, on a push to a branch under `large-trees/`. The four LMS sets of height 25 take longer than the six hours of a hosted job, so a push to a branch under `large-trees-25/` runs them on a self-hosted runner with the label `large-trees`.
+The 19 sets of height 20 run in the `Large trees` workflow, one job per set, on a push to a branch under `large-trees/`. The four LMS sets of height 25 take longer than the six hours of a hosted job, so they run on a local machine, one process per set, with `parity run --cases 1000 --large-trees --only <set>`. A push to a branch under `large-trees-25/` runs them on a self-hosted runner with the label `large-trees` instead.
 
 | Set | Where | Result | Run |
 |---|---|---|---|
@@ -25,9 +25,9 @@ The 19 sets of height 20 run in the `Large trees` workflow, one job per set, on 
 | `XMSSMT-SHA2_60/3_256` | `Large trees` workflow | base case and 1000 variations identical, 171 minutes | [run 40157881401](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40157881401) |
 | `XMSSMT-SHAKE_40/2_256` | `Large trees` workflow | base case and 1000 variations identical, 116 minutes | [run 40157881401](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40157881401) |
 | `XMSSMT-SHAKE_60/3_256` | `Large trees` workflow | base case and 1000 variations identical, 174 minutes | [run 40157881401](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40157881401) |
-| `LMS_SHA256_H25_W1` | self-hosted runner | not run yet |  |
-| `LMS_SHA256_H25_W2` | self-hosted runner | not run yet |  |
-| `LMS_SHA256_H25_W4` | self-hosted runner | not run yet |  |
-| `LMS_SHA256_H25_W8` | self-hosted runner | not run yet |  |
+| `LMS_SHA256_H25_W1` | local run, macOS on Apple silicon | base case and 1000 variations identical, 382 minutes | local |
+| `LMS_SHA256_H25_W2` | local run, macOS on Apple silicon | base case and 1000 variations identical, 357 minutes | local |
+| `LMS_SHA256_H25_W4` | local run, macOS on Apple silicon | base case and 1000 variations identical, 581 minutes | local |
+| `LMS_SHA256_H25_W8` | local run, macOS on Apple silicon | running | local |
 
-The four sets of height 25 have not run. From the times of the sets of height 20, each takes about 32 times as long as its set of height 20, from about 7 hours for `LMS_SHA256_H25_W2` to about four days for `LMS_SHA256_H25_W8`. A run on a machine that a session shares ended with a restart of the machine before any set finished.
+The four sets of height 25 ran at once, one process per set, on a Mac with Apple silicon. A set of height 25 takes about 26 times as long there as its set of height 20 in the workflow, so `LMS_SHA256_H25_W8` needs about 3 days of processor time. Its machine slept for part of the run, so the wall time of the run is longer. The C library of that run builds the ARM code of some other families, such as ML-DSA and Falcon. LMS has no ARM code, so both sides of these four sets run the same portable code as in the workflow.
