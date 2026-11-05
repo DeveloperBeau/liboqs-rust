@@ -17,13 +17,37 @@ impl OracleBuild {
 
     /// The CMake options. The library is the portable C code of every algorithm, with no CPU
     /// extension and no OpenSSL, and with key generation and signing of the stateful schemes.
-    pub const configurationOptions: [&'static str; 10] = [
+    ///
+    /// `OQS_OPT_TARGET=generic` alone is not enough. liboqs turns on each CPU extension that the
+    /// compiler enables by default, and a compiler that targets x86-64-v3 by default enables
+    /// AVX2, BMI1, BMI2, FMA and POPCNT. So each extension that liboqs detects is off here,
+    /// except SSE and SSE2, which every x86-64 processor has.
+    pub const configurationOptions: [&'static str; 29] = [
         "-DCMAKE_BUILD_TYPE=Release",
         "-DBUILD_SHARED_LIBS=OFF",
         "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
         "-DOQS_BUILD_ONLY_LIB=ON",
         "-DOQS_DIST_BUILD=OFF",
         "-DOQS_OPT_TARGET=generic",
+        "-DOQS_USE_ADX_INSTRUCTIONS=OFF",
+        "-DOQS_USE_AES_INSTRUCTIONS=OFF",
+        "-DOQS_USE_AVX_INSTRUCTIONS=OFF",
+        "-DOQS_USE_AVX2_INSTRUCTIONS=OFF",
+        "-DOQS_USE_AVX512_INSTRUCTIONS=OFF",
+        "-DOQS_USE_AVX512BW_INSTRUCTIONS=OFF",
+        "-DOQS_USE_AVX512DQ_INSTRUCTIONS=OFF",
+        "-DOQS_USE_AVX512F_INSTRUCTIONS=OFF",
+        "-DOQS_USE_VPCLMULQDQ_INSTRUCTIONS=OFF",
+        "-DOQS_USE_BMI1_INSTRUCTIONS=OFF",
+        "-DOQS_USE_BMI2_INSTRUCTIONS=OFF",
+        "-DOQS_USE_FMA_INSTRUCTIONS=OFF",
+        "-DOQS_USE_PCLMULQDQ_INSTRUCTIONS=OFF",
+        "-DOQS_USE_POPCNT_INSTRUCTIONS=OFF",
+        "-DOQS_USE_SSE3_INSTRUCTIONS=OFF",
+        "-DOQS_USE_ARM_AES_INSTRUCTIONS=OFF",
+        "-DOQS_USE_ARM_SHA2_INSTRUCTIONS=OFF",
+        "-DOQS_USE_ARM_SHA3_INSTRUCTIONS=OFF",
+        "-DOQS_USE_ARM_NEON_INSTRUCTIONS=OFF",
         "-DOQS_USE_OPENSSL=OFF",
         "-DOQS_ENABLE_SIG_STFL_XMSS=ON",
         "-DOQS_ENABLE_SIG_STFL_LMS=ON",
@@ -156,6 +180,49 @@ mod tests {
             OracleBuild::declaredVersion("set(OQS_VERSION_MAJOR 0)\n"),
             None
         );
+    }
+
+    #[test]
+    fn configurationTurnsOffEveryCPUExtensionThatLiboqsDetectsBeyondSSE2() {
+        // The names that `.CMake/detect_gcc_clang_intrinsics.c` of liboqs 0.16.0 prints, and
+        // the AVX512 group that `.CMake/gcc_clang_intrinsics.cmake` derives from three of them.
+        let detected = [
+            "ADX",
+            "AES",
+            "AVX",
+            "AVX2",
+            "AVX512",
+            "AVX512BW",
+            "AVX512DQ",
+            "AVX512F",
+            "VPCLMULQDQ",
+            "BMI1",
+            "BMI2",
+            "FMA",
+            "PCLMULQDQ",
+            "POPCNT",
+            "SSE3",
+            "ARM_AES",
+            "ARM_SHA2",
+            "ARM_SHA3",
+            "ARM_NEON",
+        ];
+        for name in detected {
+            let option = format!("-DOQS_USE_{name}_INSTRUCTIONS=OFF");
+            assert!(
+                OracleBuild::configurationOptions.contains(&option.as_str()),
+                "{option} is missing"
+            );
+        }
+        for baseline in ["SSE", "SSE2"] {
+            let prefix = format!("-DOQS_USE_{baseline}_INSTRUCTIONS=");
+            assert!(
+                !OracleBuild::configurationOptions
+                    .iter()
+                    .any(|option| option.starts_with(&prefix)),
+                "{prefix} is set, but every x86-64 processor has {baseline}"
+            );
+        }
     }
 
     #[test]
