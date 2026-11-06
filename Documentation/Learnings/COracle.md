@@ -113,6 +113,12 @@
 - Finding: a fetch took 2 minutes 35 seconds on 4 processors. The tool gave CMake the relative folders `target/oracle/<version>/source` and `target/oracle/<version>/build`, so the CMake cache recorded the path through the link of the worktree that ran the last fetch. A fetch from another worktree changed that path, and CMake configured and compiled every file again. The new build also rewrote the `liboqs.a` that the tests of the other worktrees link.
 - Rule: a tool that gives a path to a program that records it gives the path with every link resolved. `OracleBuild` takes the folders from `FileReading::resolvedPath`.
 
+## The generic target of liboqs takes the CPU extensions of the compiler default
+
+- Trap: `OQS_OPT_TARGET=generic` gives no `-march` flag, and liboqs then turns on each CPU extension that the compiler defines by default. A compiler that targets x86-64-v3 by default makes liboqs build its AVX2 code.
+- Finding: the GCC of the `ubuntu-26.04` runner image of 2026-11 targets x86-64-v3 by default. The BIKE AVX2 code of liboqs 0.16.0 gives other bytes than its portable code, and its decapsulation fails its own known answers. The snapshot, the known answers and the parity of the three BIKE sets failed, and every other family passed, because their AVX2 code gives the bytes of their portable code. A local build with `CFLAGS=-march=x86-64-v3` gave the same three failures.
+- Rule: `OracleBuild::configurationOptions` turns off by name each CPU extension that `.CMake/detect_gcc_clang_intrinsics.c` of liboqs detects, except SSE and SSE2, which every x86-64 processor has. With the rule, the local build with `CFLAGS=-march=x86-64-v3` passes the BIKE checks. A new liboqs version can detect more extensions, so check that file when `LIBOQS_VERSION` changes. `OracleBuild.rs` is part of the cache key of the oracle, so a change of the options builds the oracle again.
+
 ## An empty Rust slice is not a null pointer
 
 - Trap: an oracle that passes `as_ptr()` of an empty context gives the C library a pointer that is not null, and liboqs reads the pointer as well as the length.

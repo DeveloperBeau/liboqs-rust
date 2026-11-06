@@ -16,7 +16,7 @@ The parity tests compare each Rust algorithm with the C algorithm of the same na
 `cargo xtask fetch-oracle` runs these steps in the repository root:
 
 1. When `target/oracle/<version>/source` is missing, it clones liboqs at the tag of the version with `git clone --depth 1`. A source of another version is an error, because the oracle must be the version of the repository.
-2. It configures the build in `target/oracle/<version>/build` with CMake. `OracleBuild::configurationOptions` holds the options: a release build of the portable C code of every algorithm as a static library, with no CPU extension and no OpenSSL, and with key generation and signing of the stateful schemes.
+2. It configures the build in `target/oracle/<version>/build` with CMake. `OracleBuild::configurationOptions` holds the options: a release build of the portable C code of every algorithm as a static library, with no CPU extension and no OpenSSL, and with key generation and signing of the stateful schemes. Each CPU extension that liboqs detects is off by name, except SSE and SSE2, so the library is the same portable code with any compiler default. See `Documentation/Learnings/COracle.md`.
 3. It builds the library. A second run takes a few seconds when nothing changed.
 4. It downloads each test vector file of `Documentation/Registers/TestVectors.md` that is missing from `target/oracle/<version>/vectors/` or that has another SHA-256, and then checks the SHA-256 of every file.
 
