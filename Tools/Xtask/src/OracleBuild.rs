@@ -15,15 +15,21 @@ impl OracleBuild {
     /// The repository of liboqs.
     pub const repositoryURL: &'static str = "https://github.com/open-quantum-safe/liboqs.git";
 
-    /// The CMake options. The library is the portable C code of every algorithm, with no CPU
-    /// extension and no OpenSSL, and with key generation and signing of the stateful schemes.
+    /// The CMake options. The library is the portable C code of every algorithm, with no
+    /// OpenSSL, and with key generation and signing of the stateful schemes.
+    ///
+    /// `OQS_OPT_TARGET=generic` gives no `-march` flag, so liboqs compiles the implementations
+    /// of whatever the compiler enables by default. `x86-64` is the baseline liboqs documents
+    /// for that target. It has SSE and SSE2, and those stay on. It does not turn an instruction
+    /// off. The C sources stay out of the repository. `fetch-oracle` clones them into
+    /// `target/oracle` when the tests run.
     pub const configurationOptions: [&'static str; 10] = [
         "-DCMAKE_BUILD_TYPE=Release",
         "-DBUILD_SHARED_LIBS=OFF",
         "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
         "-DOQS_BUILD_ONLY_LIB=ON",
         "-DOQS_DIST_BUILD=OFF",
-        "-DOQS_OPT_TARGET=generic",
+        "-DOQS_OPT_TARGET=x86-64",
         "-DOQS_USE_OPENSSL=OFF",
         "-DOQS_ENABLE_SIG_STFL_XMSS=ON",
         "-DOQS_ENABLE_SIG_STFL_LMS=ON",
@@ -155,6 +161,18 @@ mod tests {
         assert_eq!(
             OracleBuild::declaredVersion("set(OQS_VERSION_MAJOR 0)\n"),
             None
+        );
+    }
+
+    #[test]
+    fn configurationUsesTheBaselineTargetAndDoesNotDisableItsInstructions() {
+        assert!(OracleBuild::configurationOptions.contains(&"-DOQS_OPT_TARGET=x86-64"));
+        assert!(!OracleBuild::configurationOptions.contains(&"-DOQS_OPT_TARGET=generic"));
+        assert!(
+            !OracleBuild::configurationOptions
+                .iter()
+                .any(|option| option.contains("_INSTRUCTIONS=")),
+            "the baseline target keeps the instructions it has"
         );
     }
 
