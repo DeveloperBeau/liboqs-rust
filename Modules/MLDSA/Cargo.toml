@@ -1,0 +1,41 @@
+[package]
+name = "oqs-native-ml-dsa"
+description = "ML-DSA of FIPS 204, a native port of the ML-DSA algorithms of liboqs."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# The port is under MIT, and mldsa-native is under Apache-2.0 OR ISC OR MIT.
+license = "MIT AND (Apache-2.0 OR ISC OR MIT)"
+authors.workspace = true
+repository.workspace = true
+readme = "README.md"
+keywords = ["ml-dsa", "dilithium", "fips204", "post-quantum", "liboqs"]
+categories.workspace = true
+# The tests use the unpublished test crates, so the package leaves them out.
+exclude = ["tests/"]
+
+[package.metadata]
+ring = "features"
+
+[lib]
+name = "OQSNativeMLDSA"
+path = "src/lib.rs"
+
+[dependencies]
+oqs-native-domain = { workspace = true }
+oqs-native-entities = { workspace = true }
+oqs-native-sha3 = { workspace = true }
+
+[dev-dependencies]
+oqs-native-algorithm-tests = { path = "../AlgorithmTests" }
+oqs-native-kat-random = { path = "../KATRandom" }
+# The pre-hash vectors hash each message with the SHA-2 functions.
+oqs-native-sha2 = { path = "../SHA2" }
+
+[features]
+default = ["std"]
+# Without `std` the crate builds with `core` and `alloc` only.
+std = ["oqs-native-domain/std", "oqs-native-entities/std", "oqs-native-sha3/std"]
+
+[lints]
+workspace = true

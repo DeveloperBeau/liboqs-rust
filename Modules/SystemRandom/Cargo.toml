@@ -1,0 +1,26 @@
+[package]
+name = "oqs-native-system-random"
+description = "Random bytes from the operating system for the native liboqs port."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme = "README.md"
+keywords = ["random", "urandom", "post-quantum", "liboqs"]
+# The crate reads the random source of the operating system, so it needs `std`.
+categories = ["cryptography"]
+
+[package.metadata]
+ring = "infrastructure"
+
+[lib]
+name = "OQSNativeSystemRandom"
+path = "src/lib.rs"
+
+[dependencies]
+oqs-native-domain = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true

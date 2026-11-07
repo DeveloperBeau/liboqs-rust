@@ -1,0 +1,457 @@
+# Algorithm families
+
+## A liboqs fact can differ between the parameter sets of a family
+
+- Trap: a port that writes one version text for a family differs from the C library for one parameter set.
+- Finding: `eachRegisteredMechanismHasTheFactsOfTheCMechanism` failed for `Kyber512`. liboqs names commit `74cad307` of the reference code as its version, and commit `28413dfb` for `Kyber768` and `Kyber1024`.
+- Rule: each parameter set takes each of its facts from the C file of that set, `kem_<name>.c` or `sig_<name>.c`, and the coverage test compares the whole description.
+
+## Two families with the same arithmetic can draw their random bytes differently
+
+- Trap: a key pair that draws its 64 bytes in one request gives other keys than the C code, which draws them in two.
+- Finding: ML-KEM draws `d || z` in one request of 64 bytes. Kyber draws `d` and later `z` in two requests of 32 bytes, so the NIST DRBG gives other bytes for `z`.
+- Rule: the port of a family copies the order and the sizes of the random requests of its C code, and the known-answer test of each set proves them.
+
+## A debug test build is slow for cryptography
+
+- Trap: the test suite of a family takes ten times longer than it needs to.
+- Finding: the ML-KEM tests took 10 seconds at the optimization level 0 and 1.3 seconds at level 1.
+- Rule: the workspace builds `dev` with `opt-level = 1`. The overflow checks and the debug assertions stay on, so an overflow that the C code does not have still fails a test.
+
+## A rejection test that changes one byte cannot see an exclusive or
+
+- Trap: the comparison of the re-encryption with the ciphertext folds the byte differences with an or. A fold with an exclusive or passes every test that changes one byte.
+- Finding: mutation testing replaced the or with `^` in the decapsulation of ML-KEM and of Kyber, and every test still passed. When two bytes differ by the same value, the exclusive or gives zero, and the mechanism accepts the changed ciphertext.
+- Rule: the rejection tests of a family also change the same bit in two bytes, so that the two differences cancel under an exclusive or. `aCiphertextWithTheSameBitChangedInTwoBytesIsRejected` is the template.
+
+## The two changes of a rejection test go in the unit of the comparison
+
+- Trap: the two-byte rejection test of ML-KEM changes the same bit in two bytes. FrodoKEM compares 16-bit values, not bytes. With 15-bit packing, the same bit of two bytes can be two different bits of two values, and then an exclusive or does not cancel the two differences.
+- Finding: with the fold of `ct_verify` changed to an exclusive or, every test that changes one byte of a FrodoKEM ciphertext still passed. `aCiphertextWithTheSameBitChangedInTwoValuesIsRejected` failed. It flips the low bit of the values 0 and 8 of `B'` and of `C`.
+- Rule: the two changes of the rejection test change the same bit of two values of the unit that the comparison folds. In a packed matrix, the low bits of the values 0 and 8 are the same bit of two bytes for any width.
+
+## A reduction that only one parameter set can see
+
+- Trap: the C code of FrodoKEM reduces some results modulo `q = 2^D` and keeps 16 bits in others. For `D = 16` each reduction is the identity, so no test of such a set sees a missing reduction.
+- Finding: with the reduction of `B'` before the comparison of decapsulation removed, every test of FrodoKEM-976 and FrodoKEM-1344 passed. The tests of FrodoKEM-640, with `D = 15`, failed.
+- Rule: the port reduces exactly where the C code reduces. A test of each reduction runs a set whose modulus is below `2^16`.
+
+## The known answers of a large family are slow in the dev profile
+
+- Trap: the `all` run of `kat_kem` has 100 counts. For the twelve FrodoKEM sets it takes about 220 seconds of processor time in the dev profile, and the parity test of the registry grows with each slow family too.
+- Finding: one count of FrodoKEM-640-AES took 0.04 seconds and one count of FrodoKEM-1344-SHAKE 0.55 seconds in the dev profile. The SHAKE sets are slower than the AES sets because the Keccak permutation is slow at the first optimization level. A release build ran the twelve `all` runs in 26 seconds on two threads. `RegisteredParity.rs` went from under a second to about 12 seconds.
+- Rule: the default suite runs the `single` digest of each set. Each `all` digest is ignored with the reason in its attribute, and a release run with `--ignored` proves it. The fuzz test of a slow family runs few cases, and the parity program runs the seeded variations in a release build.
+
+## The known-answer generator of HQC cannot see how the requests split the bytes
+
+- Trap: an HQC port that draws the message and the salt of an encapsulation in one request passes every known-answer digest of liboqs.
+- Finding: the known-answer programs give HQC the SHAKE256 generator of `tests/test_helpers.c`, whose output is one stream. A merge of the two requests passed `KATKEM.rs` and failed only `aKeyPairDrawsOneRequestAndAnEncapsulationTwoAsTheCCode`, which records the requests, and the snapshot line of `HQC-1`, which uses the NIST DRBG.
+- Rule: a family whose known answers come from a stream generator also proves the sizes of its requests with a recording random source and with the snapshot base case.
+
+## The reduction of the C code is not the reduction of the ring
+
+- Trap: an HQC product that is exact in the ring `F2[X]/(X^n - 1)` gives other bytes than the C library for some hostile public keys.
+- Finding: the C code keeps the bits above `n` of the last byte of `s` and of `u`, and `vect_mul` folds the product bits from `n` to `2 n` once and drops the bits past `2 n`. With a public key of only ones, 10 of 1500 encapsulations of `HQC-1` differed from the C library for a product that reduces its factors modulo `X^n - 1` before it multiplies them. None differed with the reduction of the C code.
+- Rule: a port keeps the arithmetic of the C code for every input, not only the mathematical result for valid inputs. The parity checks use valid keys, so a test with chosen hostile inputs, such as `HostileInputParity.rs`, proves the edge.
+
+## A rejection loop on a stream never meets its own boundary
+
+- Trap: the bound of a rejection loop can be wrong by one while every end-to-end test passes.
+- Finding: an HQC candidate equal to the rejection threshold comes once in `2^24` candidates. With `>` in place of `>=`, the known-answer, correctness, fuzz and memory tests all passed. Only `rejectionSkipsTheThresholdAndRepeatedPositions`, which feeds chosen candidates, failed.
+- Rule: a rejection loop takes its candidates from a function, so that a unit test can feed the values at the boundary.
+
+## A bit by bit polynomial product is slow in a test build
+
+- Trap: a port that copies the bit by bit schoolbook product of the HQC C code makes the test suite slow.
+- Finding: the six known-answer digests of HQC took 25 seconds on one thread with the bit by bit product at the base of the Karatsuba split, and 3.7 seconds with a product of whole words. Both give the same exact product, so the bytes are the same.
+- Rule: the base of a binary polynomial product multiplies whole words, with a test against the definition. The output depends only on the exact product, so the form of the product is free.
+
+## A decoder test of correctable words cannot see the decoding beyond the capacity
+
+- Trap: the decoders of HQC give a defined output for every word, and the decapsulation of an honest ciphertext with a decryption failure depends on it. A test that decodes only words with at most `delta` errors cannot see a change of that output.
+- Finding: five mutants of the Berlekamp algorithm of `ReedSolomon::errorLocator` and two of `ReedMuller::peakPosition` passed every test of the first mutation run. They change the tracking of the degree and the choice between peaks, and every correctable word of the tests still decoded. `decodingOfEveryWeightGivesTheMessageOfTheCFunction`, `decodingOfManyErrorsAndTiesGivesTheBytesOfTheCFunction` and `decodingOfAnyWordGivesTheMessageOfTheCFunction` compare words of every weight, ties and noise with `reed_solomon_decode`, `reed_muller_decode` and `code_decode`, and kill all seven.
+- Rule: a decoder test also compares words that the code cannot correct with the C function, from no error to every symbol wrong. For a decoder that picks a peak, the words include ties.
+
+## A position of an invalid key can count as another position
+
+- Trap: a test that expects an out-of-range position of a secret key to break the decoding fails, because the decapsulation accepts the ciphertext.
+- Finding: `aChangedSecretKeyGivesTheSecretOfSigma` first set a position of `h0` of a BIKE-L1 key to `r`. A rotation by `r` coefficients reads the copies of the syndrome at their start, so the position counted as position 0, and one wrong position of 71 did not stop the decoder. The C code rotates in the same way.
+- Rule: a test of an invalid input takes its expected result from the C library or from the rule of the C code, not from the idea that an invalid input fails.
+
+## A test with a decodable ciphertext cannot see most steps of a decoder
+
+- Trap: the known answers of valid ciphertexts, and of simple hostile ones, pass with a decoder that skips a step.
+- Finding: a BIKE decoder without the gray step, or with a delta of 2 in place of 3, passed every known-answer test and the decoder tests for a ciphertext of ones and for a key with positions out of range. The later iterations repair a missing step for a decodable ciphertext, and the simple hostile inputs give the same output with or without the step. A valid ciphertext with 40 more errors gives an output that changes with each step.
+- Rule: the tests of a decoder include an input beyond its reach, with the answer of the C code. Run each step of the decoder once as deliberately wrong code against the tests.
+
+## A test of a rare path must prove that its input takes the path
+
+- Trap: a test passes for wrong code, because its input never takes the path that the test is about.
+- Finding: the reduction of BIKE drops the coefficients of a product from `2 r` up. The first test of that rule used factors whose exact product had no coefficient at `2 r` or above. The test of the mask of the error vector used one seed whose error vector had no position in the last word of `e0`, so the sampler passed without the mask.
+- Rule: a test of a rare path asserts that its input reaches the path, for example that the exact product has a coefficient from `2 r` up, or that a count of the cases over many seeds is above zero.
+
+## A loop that the release build unrolls stays a loop in the test build
+
+- Trap: the tests of a family are slow, although the release build is fast.
+- Finding: the carry-less product of BIKE first looped over the five classes of the bit positions. A product of two BIKE-L5 polynomials took 4.7 ms in the test build, and 1.6 ms with the 25 integer products written out. The `all` known-answer run of BIKE-L5 fell from about 20 seconds to 7 seconds.
+- Rule: write the innermost arithmetic of a family out in full, and measure it in the test build as well as in the release build.
+
+## A test of a word that is not zero must reach its top bit
+
+- Trap: the comparison of decapsulation of BIKE gathers the differences of two error vectors in one 64-bit word and tests the word with `(x | -x) >> 63`. The mutant `(x ^ -x) >> 63` gives the same answer for every value but `2^63`, so every test passed with it.
+- Finding: a ciphertext whose decoded error differs from the rebuilt error only in the coefficients 63 and 127 gathers the difference `2^63` alone. The C code compares bytes and rejects it, and the mutant accepted it.
+- Rule: a rejection test of a comparison that gathers into a word also puts the whole difference in the top bit of the word. `aDecodedErrorThatDiffersOnlyInTheTopBitOfTwoWordsIsRejected` is the template.
+
+## The tests of a signature family spend their time in SHAKE
+
+- Trap: the correctness test of a lattice signature takes minutes in the `dev` profile, although the code of the family is fast.
+- Finding: `SignatureCorrectnessTest` took 93 seconds on one thread for the three ML-DSA sets at the optimization level 1. A probe found the time in SHA-3: the SHAKE128 sampling of one matrix polynomial took 27 microseconds, and one NTT 2 microseconds. At the level 3, SHAKE was seven to nine times faster, and the NTT changed little. A signature of SLH-DSA-SHAKE-128s, which calls the permutation about two million times, took 13 seconds at the level 1, 1.3 seconds with `oqs-native-sha3` at the level 3, and 1.0 seconds in a release build.
+- Rule: the `dev` profile builds `oqs-native-sha3` with `opt-level = 3`, and the other crates with level 1 unless the workspace manifest names them. The override changes only the optimization, so the overflow checks and the debug assertions stay on. The same test now takes 18.5 seconds on one thread. Measure a new family in both profiles before you plan its tests.
+
+## A refused case that breaks two rules cannot see the loss of one
+
+- Trap: a decoder test whose malformed inputs each break two rules still passes when the check of one rule is gone.
+- Finding: the hint decoding of ML-DSA refuses a count above omega, a count that falls, places of a row that do not rise and a byte after the last place that is not zero. Two deliberate defects passed the first test: a bound of omega + 1 and no check of a falling count. Each refused case of those rules also had places that did not rise, so the other check refused it.
+- Rule: each refused case of a decoder breaks one rule only, and an accepted case sits at the edge of each rule. `hintUnpackingRefusesEachMalformedEncodingOfMLDSANative` is the template.
+
+## An invalid sign vector of Wycheproof has no signature
+
+- Trap: a test that compares the optional signature of the port with the optional signature of a vector counts a refusal as a match.
+- Finding: the first `WycheproofVectors.rs` of ML-DSA compared `signature.ok()` with the signature of the vector. For tcId 5 of `mldsa_44_sign_noseed_test.json`, the port refused a context of 256 bytes, the invalid vector has an empty signature, and `None == None` counted as accepted.
+- Rule: a vector test accepts only a success whose output equals the output of the vector, as `is_ok_and` does in the Wycheproof tests of ML-KEM. A refusal never matches.
+
+## The vector tests of liboqs use hash functions that the hash API of liboqs does not have
+
+- Trap: a port of the pre-hash vector tests cannot hash the message of every vector with the hash API of liboqs.
+- Finding: `calc_hash` of `tests/test_acvp_vectors.py` hashes the message of a pre-hash vector with Python `hashlib`, with twelve hash functions. The hash API of liboqs has eight of them. SHA-224, SHA-512/224, SHA-512/256 and SHA3-224 are missing, and the C code of SLH-DSA has its own copies.
+- Rule: a test that needs a hash function that the hash API of liboqs lacks takes it from the shared crate of its hash family, written from the standard, with known answers from the standard and from `hashlib`. The pre-hash parameter sets of SLH-DSA name the same four functions.
+
+## A bound of the signing loop that no input reaches
+
+- Trap: the number of attempts of the rejection loop of an ML-DSA signature can change, and every test passes.
+- Finding: the first mutation run replaced `-` with `+` or `/`, and `/` with `*`, in `(2^16 - 1 - l) / l`, and no test failed. A signature needs a few attempts, and no input makes thousands of attempts fail. With `/` the loop of ML-DSA-44 stopped after 4095 attempts in place of 16382.
+- Rule: a bound of a loop that the tests cannot reach is a constant of `Parameters`, with a test against the value of the C code. `eachConstantIsTheConstantOfFIPS204AndOfTheHeaderOfMLDSANative` is the template.
+
+## A seed search finds the bound of a rejection sampler
+
+- Trap: the uniform sampler of ML-DSA keeps a candidate equal to q when `<` becomes `<=`, and every test passes.
+- Finding: a 23-bit candidate is q once in 2^23 candidates, and no stream of the tests held one. A C program searched the seeds of `LinearCongruentialSequence` and found 13544 and 37803 in about a second. Their streams hold q as the 199th and as the 16th candidate. `uniformSamplingSkipsACandidateOfQAndGivesThePolynomialOfTheCFunction` compares the polynomials of the two seeds with `poly_uniform` of mldsa-native.
+- Rule: when the value at the bound of a rejection sampler comes once in a few million candidates, search for seeds whose stream holds it, and assert in the test that the stream holds it. For a rarer value, the loop takes its candidates from a function, as the rule of the HQC rejection loop says.
+
+## A retry loop hides a wrong refusal
+
+- Trap: a key generator that refuses a candidate and draws the next one gives keys that pass every known-answer test when a refusal rule is wrong at its boundary, because no stream of the tests has a candidate at the boundary.
+- Finding: the coefficient range of the Falcon key generator with `-limit..limit` in place of `-limit + 1..limit`, and its norm bound with `<=` in place of `<`, passed the known answers of the keys of every degree, the decisions of ten streams of the C loop and the `all` digests of `KATSig.rs`. The C loop refuses a coefficient of `-limit` and a norm of exactly the bound.
+- Rule: each refusal of a retry loop is a function with a test of both sides of its boundary, such as `theNormOfThePairIsBelowTheBoundUpTo16822`. The loop reports the reason of each refusal, and a test compares the sequence of reasons with the decisions of the C loop, such as `eachCandidateIsRefusedOrAcceptedAsTheCCodeDecides`.
+
+## Two forms of a scheme can accept the signatures of each other
+
+- Trap: a verification that refuses every signature whose length is not the length of its set refuses signatures that the C code accepts.
+- Finding: `do_verify` of both forms of Falcon accepts a compressed value that fills the signature, and a value of the padded length whose remaining bytes are zero. So `Falcon-512` accepts a padded signature of 666 bytes, and `Falcon-padded-512` accepts a compressed signature of any length. `bothFormsOfADegreeShareTheirKeysAndVerifyTheSignaturesOfTheOther` proves it.
+- Rule: take each length rule of a verification from the C code, not from the description lengths, and test the lengths on both sides of each rule.
+
+## A hostile key can make a signer run forever
+
+- Trap: a fuzz test of signing with hostile keys hangs when a key passes every check of the C code and reaches a loop that never ends.
+- Finding: a `Falcon-512` secret key with `F = 0` decodes, and its `G` is 0, so it passes the checks of `do_sign`. The C library did not return in 120 seconds, and the port did not return in 300 seconds. In the fuzz tests, every random secret key fails the checks, because it has a forbidden value or a `G` out of range.
+- Rule: the fuzz tests of a scheme with a retry loop use hostile inputs that the checks refuse, and the architecture page of the family names the inputs that reach the loop. A guard that the C code does not have is a decision for the owner.
+
+## A failure that no key reaches can be reachable at its own level
+
+- Trap: a failure check that the documentation calls unreachable has no test, and the mutant that disables the check survives.
+- Finding: `SolverFailure::depthOne` said that no known input reaches it, and `||` replaced with `&&` in its check survived the first mutation run of `oqs-native-falcon`. `solve_NTRU_binary_depth1` with deeper values that no deeper level of a key gives fails for 3 of 15 seeds, and the port fails for the same three. `depthOneGivesTheValuesOfSolveNTRUBinaryDepth1AndFailsWhereItFails` and `intermediateLevelsGiveTheValuesOfSolveNTRUIntermediateAndFailWhereItFails` give such values to each level.
+- Rule: before the documentation calls a failure path unreachable, run its C function on hostile inputs of its own level. A path that such inputs reach gets a known-answer test at that level.
+
+## A search limit needs an input at the limit and one past it
+
+- Trap: the echelon form of MAYO searches for the pivot of a column in at most 33 rows. A port with 32 or 34 rows passes the tests of a random matrix and of a matrix whose first entry is far past the limit.
+- Finding: with the bound changed from 32 to 31 or to 33, every test of the crate passed, also the known-answer signatures of the 100 counts of each set and a crafted matrix whose first column is zero in its first 40 rows. The pivot of a random column is in one of the first rows, and row 40 is past both bounds. Two matrices whose first entry of the first column is at row 32, the last row of the search, and at row 33 caught the two changes, each at its own case.
+- Rule: a test of a search limit puts the input exactly at the limit and one place past it, with the answer of the C code for both. `pivotAtSearchEnd` and `pivotPastSearch` in `EchelonForm.rs` are the template. See also the rejection loop of HQC above.
+
+## A random change cannot see a comparison that skips one element
+
+- Trap: the verification of MAYO compares the m elements of the value of the public map with the m elements of the target. A comparison of m - 1 elements passes every test that changes a signature, a message or a key.
+- Finding: with the last element left out of the comparison, every test of the crate passed. Each changed input gives a value that differs from the target in nearly every element, so the other elements still refuse it. A solver that solves the linear system for a right-hand side with one element changed gives a signature whose value differs from the target in that element alone. With it, the comparisons without the first, the middle or the last element each failed.
+- Rule: the test of a comparison of two vectors gives an input that differs in one element only, at the first, a middle and the last place, and asserts that the difference is at that place alone. `aSignatureWhoseValueDiffersFromTheTargetInOneElementIsRefused` is the template.
+
+## The static functions of the C code give known answers too
+
+- Trap: a unit test of a step of a family, such as the matrix of the linear system of MAYO, needs a known answer, and liboqs does not export the C function, because it is `static`.
+- Finding: `nm` on `liboqs.a` lists `sample_solution`, `m_upper` and the public functions of MAYO, but not `compute_A`, `compute_rhs`, `EF` or `m_calculate_PS_SPS`. A C program that includes `mayo.c` and `arithmetic.c` calls them. Built with `MAYO_BUILD_TYPE_REF` in place of `MAYO_BUILD_TYPE_OPT`, the copy has the names `pqmayo_MAYO_1_ref_*`, which do not clash with the copy in `liboqs.a`. Its `mayo_expand_sk` and `sample_solution` gave the same digests as the exported functions of `liboqs.a`.
+- Rule: when a C function is static, build its source file into the known-answer program with the flags of the oracle build of each set, from the `CMakeLists.txt` of the family, and with another namespace. Check one answer against an exported function of `liboqs.a`, so the program is known to build the same code.
+
+## A copy of a whole buffer agrees with a copy of its part only while the rest is zero
+
+- Trap: `sample_solution` of MAYO copies the k o unknowns of the randomizer into the solution, and the randomizer has one more element, which the signature sets to zero. The port copied the whole randomizer. Every test passed, because every randomizer of the tests ended with a zero.
+- Finding: the mutation run missed a mutant that clears the last column of the matrix only in the first row before the product `A r`. Its change reaches the product only through the last element of the randomizer. A known-answer case of `sample_solution` with the element 9 kills the mutant. The same case also failed on the copy of the whole randomizer, before the port copied only the unknowns.
+- Rule: copy the same range as the C code. Give the known-answer test of an internal function a value that is not zero in each element that the function reads, also in an element that its caller keeps at zero. `randomizerTail` in `EchelonForm.rs` is the template. See also "An input that the caller never gives hides a mutant" in `MutationTesting.md`.
+
+## A Toom-Cook product is exact only in its low bits
+
+- Trap: a unit test that compares the NTRU product with the exact cyclic product fails for five of the six sets, and a port that computes the exact product gives other 16-bit coefficients than the C code.
+- Finding: `poly_Rq_mul` of the sets up to `q = 8192` is Toom-Cook in four parts, whose interpolation divides by 2, 4 and 8. The product of `x^(n - 1)` and `x` gave 32769 at the coefficient 0 in the C code and in the port, which is 1 only modulo `2^13`. `NTRU-HRSS-1373` uses four layers of Karatsuba, whose product is exact modulo `2^16`.
+- Rule: the port keeps every step of the product of the C code, so each 16-bit coefficient equals the C coefficient. A test of the arithmetic compares the exact product only in the bits that the method keeps, and the known answers of the C function in all 16 bits.
+
+## The constant bytes of a fuzz case can give a key that the C code cannot use
+
+- Trap: the fuzz cases 0 and 1 of `KEMFuzzTest` fail for NTRU-HPS, because the shared secrets differ.
+- Finding: the bytes 0x00 and 0xFF are both 0 modulo 3, so the key pair samples `f = 0`, which has no inverse. The C code checks no key and gives the same keys, which do not decapsulate. sntrup761 makes a usable key of the same bytes.
+- Rule: a mechanism whose C code cannot use the key of the constant bytes runs the seeded cases with `KEMFuzzTest::runCases` from 2 up, and a separate test states what the constant bytes give, as `constantRandomBytesGiveTheKeyFZeroAsInTheCCode` does.
+
+## Each test of an or-fold needs its own pair of equal failures
+
+- Trap: `owcpa_check_r` gathers two tests of each coefficient of `r` with an or: the bits from 2 up of `r + 1`, and the bit 2 of `r + 2`. A rejection test with two coefficients 3 cannot see an exclusive or in the first test, because 3 also fails the second.
+- Finding: with `^=` in place of `|=` in the first test, every test of the crate passed, the pair of coefficients 3 among them. The value -2 fails only the first test, and a pair of coefficients -2 then failed the unit test of the check and `aBlindingPolynomialOutsideTheTernaryValuesIsRejected`.
+- Rule: when a fold gathers several tests of each unit, the rejection tests change two units with a value that fails only one test, for each test. The value 2 fails only the second test of NTRU, and -2 only the first.
+
+## A sum-zero ciphertext keeps the balance of the message
+
+- Trap: the balance test of `owcpa_check_m` of NTRU-HPS, as many coefficients 1 as -1, cannot fail alone in a rejection test that changes the message of a ciphertext.
+- Finding: the packing holds only the first `n - 1` coefficients of `c`, and the last is minus their sum, so `c + x^j - x^k` keeps the balance and `c + x^j` changes `r` too. With the balance test removed, or with the two tests of the check joined with an exclusive or, every rejection test passed. For a key with `f(1) = 0`, `c + d + k Phi_n` with `k n + d(1) = 0` modulo `q` decrypts to `m + d` and the same `r`, because `f Phi_n = f(1) Phi_n`. `anUnbalancedMessageIsRejectedByNTRUHPS` searches such a key, and both defects then failed it.
+- Rule: a test of a check that a random key cannot fail alone searches the key that can, says why in the test, and a run against the deliberately wrong check proves that the input takes the path.
+
+## The ranges of a mixed-radix code leave thresholds of the decoder unused
+
+- Trap: the decoder of sntrup761 reads one or two bytes for each pair of ranges and rounds the merged range, and the two lists of ranges of sntrup761 never reach the thresholds of the C code. A mutant at a threshold passes every test of the keys and the ciphertexts.
+- Finding: two mutants of `RadixEncoding::decode` survived: `>` replaced with `>=` at the product `256 * 16383`, and `(m + 255) >> 8` replaced with `(m - 255) >> 8` in a pair of two bytes. At no level of the recursion do the ranges 4591 and 1531 give a product of `256 * 16383`, or a product of two bytes whose first rounding is 1 or 2 modulo 256. A list of two values at the first threshold did not show its mutant either, because the mutant reads the same three bytes and gives the same values for a valid encoding.
+- Rule: a test of a mixed-radix decoder takes the bytes of the C encoder for ranges at each threshold, and puts another pair after the pair at the threshold, so that a wrong number of bytes moves the next pair. `decodingReadsTheBytesOfEncodeAtEachThresholdOfTheRanges` is the template.
+
+## liboqs has no known answers of `kat_sig` for some families
+
+- Trap: a port that plans the `kats.json` digests of each set as its known-answer test finds none for SLH-DSA.
+- Finding: `combine_message_signature` of `tests/kat_sig.c` has no signed-message form for SLH-DSA, so the program fails, `tests/KATs/sig/kats.json` has no entry, and `tests/test_kat.py` skips every SLH-DSA scheme, because the ACVP vectors test it instead.
+- Rule: read the skips of the upstream test scripts before you plan the tests of a family. Replicate the skip in `KATSig.rs`, and take the known answers from the source that liboqs uses instead.
+
+## An upstream vector script can skip vectors by mistake
+
+- Trap: a Rust test that copies the vector loop of `tests/test_acvp_vectors.py` also copies its gaps.
+- Finding: `slh_test_sig_name` replaces `-` with `_` in the hash name, so `SHA2-512/224` and `SHA2-512/256` keep their slash and match no liboqs name. liboqs never runs those 48 signature vectors and 26 verification vectors. `VectorsSig.rs` maps them to `SHA2_512_224` and `SHA2_512_256`, and they pass.
+- Rule: map every vector of a file to its scheme, assert the count of each kind of vector, and write each upstream skip in the documentation of the test.
+
+## A hedged signature can draw its randomness before it fails
+
+- Trap: a port that checks the context before it draws its random bytes leaves the random source in another state than the C code.
+- Finding: each SLH-DSA wrapper calls `OQS_randombytes(addrnd, n)` before `slh_sign` refuses a context of more than 255 bytes.
+- Rule: copy the place of each random request relative to each check of the C code, and test the requests of the failed operation, as `aContextOfMoreThan255BytesIsRefusedAfterTheRandomRequest` does.
+
+## The C library sets the time budget of the test suite
+
+- Trap: the parity tests of the suite, which check every registered algorithm, take an hour once a slow family is registered.
+- Finding: the C library signs a small set of SLH-DSA in 0.55 to 1.6 seconds in a release build. `RegisteredParity.rs` runs 11 cases of each scheme, `SnapshotParity.rs` the base case of each, and `runOverTheRegistryReportsItsSize` ran `parity run` over the whole registry with a limit of 120 seconds.
+- Rule: `SuiteSample` of `oqs-native-algorithm-tests` holds the algorithms of the default suite, and every test of every algorithm is behind `#[ignore]` with the reason. A slow family adds its rule to `SuiteSample`, and `parity run` stays the full gate.
+
+## A padding check of the C code can accept every input
+
+- Trap: a port that checks the padding bits of each unpacked vector, as the comments of the C code say it does, gives another result than the C function for the restricted vectors of RSDP.
+- Finding: `generic_unpack_3_bit` of the CROSS code computes its mask as `0xFF << (n * 3) & 0x7`. The shift binds before the and, so the mask is zero and the check passes for any padding. `unpack_fz_vec` of the oracle library returned 1 for seeded bytes with set padding bits, and the port with a mask of the real padding bits failed that known answer and two other tests. A changed padding bit is still refused, because the first commitment of a round hashes the bytes of the signature. A port that packed the unpacked values again would hash other bytes and accept the change: `aPaddingBitOfARestrictedVectorChangesTheCommitment` failed for that defect.
+- Rule: port each check as the C code computes it, and take its known answer from the C function. When a check of the C code accepts every input, find the step that still refuses the input, and test that step with an input that breaks no other rule.
+
+## An upstream bound must hold for every input before a port relies on it
+
+- Trap: a port that keeps a fixed room for a variable number of items, as the C code does, panics where the C code would write past the room.
+- Finding: the room of a CROSS signature for its seed path and its Merkle proof is `TREE_NODES_TO_STORE`, from a script of the CROSS team that liboqs does not ship. It is a bound and not the exact maximum: 108 for t = 256 and w = 215, where the longest seed path has 105 seeds. `theStoredNodeCountHoldsTheLongestPathAndProofOfAnyChallenge` computes the longest path and proof of each set over every challenge, by dynamic programming over the tree, and checks it against the room.
+- Rule: when a port relies on a bound of the upstream code, a test proves the bound for every input, not only for the inputs of the known answers.
+
+## A check of a value that a commitment binds cannot fail alone in a changed signature
+
+- Trap: the group check of the CROSS verification can be lost, and every test that changes a signature still passes.
+- Finding: the mutation run replaced `&=` with `|=` in the group check of `Verifier::isValidSignature`, and no test failed. A changed exponent of a published vector also changes the first commitment of its round, so the digest of the commitments refuses the signature as well. The second form z of a zero exponent gives the same arithmetic as 0, so a signer that leaves out `fz_dz_norm_n` or `fz_dz_norm_m` makes a signature that breaks the group check alone. `CROSS_verify` of liboqs refused such signatures of a copy of the C signer, and the same verification without the group check accepted them.
+- Rule: when a verification checks a value that a commitment or a digest also binds, a test signs with a signer that breaks only that rule, from a constructor that only the tests have, such as `Signer::keepingTheSecondFormOfZero`. A copy of the C signer with the same step left out gives the digest of the signature, and the C verification without the check accepts it, so the input is known to reach the check.
+
+## A changed entry of a quadratic map counts only where its variables are not zero
+
+- Trap: a test that changes an entry of a public key and expects the verification to refuse the signature passes or fails with the point of the signature, not with the code.
+- Finding: the first `aSignatureIsValidOnlyWithItsMessageItsKeyAndTheLengthsOfTheSet` of UOV changed the first byte of P1, the entry of the first variable squared. The first element of the point of the OV-Is signature was zero, which happens for one signature in 16 in GF(16), so the changed key still accepted the signature. An assertion of the precondition showed it.
+- Rule: a test that changes an entry (i, j) of a public map picks i and j from the variables of the point that are not zero, or asserts that they are not zero.
+
+## The loop of a C signature can fail after its last attempt succeeds
+
+- Trap: a port of a rejection loop that returns the first success signs where the C code fails.
+- Finding: `ov_sign` of UOV counts an attempt before it runs it, and returns -1 when the count reaches 256 after the loop. So a success of the attempt with the counter 255 is a failure. No test input reaches the last attempt, because an attempt fails only when its linear system is singular, which a random system is about once in 255 in GF(256) and once in 15 in GF(16).
+- Rule: copy the count and the bound of a loop of the C code, and test the loop with an attempt function that succeeds at the first counter, at the last two counters and never, as `theFirstSuccessGivesItsResultExceptAtTheLastAttempt` does.
+
+## A generator that keeps the rest of its block is one stream
+
+- Trap: a port that makes P1 and P2 of UOV with two calls of AES in counter mode, each from the counter of the next whole block, gives other bytes for P2 when P1 does not end on a block boundary.
+- Finding: `prng_gen_publicinputs` keeps the unused bytes of its last 16-byte block for its next call. P1 of OV-Ip has 103224 bytes, half a block past a boundary. A C program called the generator in pieces of 7, 100, 16 and 33 bytes and in one call of 156 bytes, and both gave the same digest.
+- Rule: make the output of one generator of the C code as one stream, and prove it against the C generator called in pieces that do not end on a block boundary.
+
+## Products that load and store the bytes of each entry are slow in a test build
+
+- Trap: the key pair of a family with large matrices of vectors takes most of a second in the dev profile, also when each product is fast in a release build.
+- Finding: the first UOV port added each product to the bytes of the secret key, with a load and a store of eight bytes for each word of each product. A key pair of OV-V took 0.68 seconds of processor time in the dev profile. With the sums of a row of S in words, and the powers of each entry of P1 computed once for every element of a row of O, it took 0.1 to 0.18 seconds.
+- Rule: keep the sums of a target row in words, and compute the work that a factor shares with many products once. Measure the key pair in the test build as well as in the release build.
+
+## A higher optimization level of AES does not make the UOV verifications fast
+
+- Trap: a test of the UOV sets with a compressed public key spends its time in the expansion of P1 and P2, and an override of the optimization level of AES looks like the fix.
+- Finding: the 102 verifications of `SignatureCorrectnessTest` for OV-V-pkc expand 2.4 MB with AES each. They took 2.5 seconds of processor time in the dev profile, and 2.1 seconds with `opt-level = 3` for `oqs-native-aes`. The bitsliced AES is straight-line code, which the first level already compiles well.
+- Rule: measure an override of the optimization level before you add it. The workspace keeps AES at the level of the dev profile.
+
+## The parameters of a family can live in the build system
+
+- Trap: a port that takes the numbers of each set from the headers of its folder ports one set twelve times.
+- Finding: the twelve folders `src/sig/snova/snova_SNOVA_<set>_opt` of liboqs are the same byte for byte. Their `params.h` holds the defaults v = 24, o = 5 and l = 4, and the sets differ only in the compile definitions of `src/sig/snova/CMakeLists.txt`, such as `-Dv_SNOVA=37 -Do_SNOVA=17 -Dl_SNOVA=2 -Dsk_is_seed=1 -DPK_EXPAND_SHAKE=0`. `compile_commands.json` of the oracle build shows the definitions that the C compiler got, among them `OPTIMISATION=1`, which picks the portable code.
+- Rule: compare the folders of a family before porting them one by one, and take the parameters of each set from the compile definitions of the oracle build.
+
+## An overflow check keeps a loop of the test build from vectorizing
+
+- Trap: a higher optimization level for the slow crate of a family does not make its tests faster.
+- Finding: the verification of `SNOVA_60_10_4` took about 52 ms of processor time in the test build, at the optimization level 1 and at level 3 alike. The dev profile checks each product of two `u32` values for overflow, and the check stops the loop vectorizer. With both factors stored in 16 bits and widened to 32 bits, the product cannot overflow, so the compiler drops the check: the verification took about 30 ms at level 1 and 18 ms at level 3. The products are the same, so the bytes are the same.
+- Rule: in a hot loop, give the factors types whose product cannot overflow the type of the result, such as two `u16` values widened to `u32`, as `FieldArithmetic::spreadProduct` does. Do not use a wrapping operation where the C code does not wrap. Measure a change of the optimization level of the dev profile before making it.
+
+## A shared machine makes wall-clock times wrong
+
+- Trap: a family that seems too slow for the test suite is fast enough, or the other way around, because other builds share the processors.
+- Finding: with a load average of about 30 on four processors, the wall-clock times of the SNOVA operations were up to seven times their processor times.
+- Rule: measure the processor time of a test, such as the user time of the process, before a decision on the speed of a family.
+
+## A read that looks wrong in the C code is the behavior to port
+
+- Trap: a port that reads the coefficients of the fixed matrices Q1 and Q2 of SNOVA from the place that the layout suggests gives other keys for the ranks 2 and 3.
+- Finding: `gen_ABQ` of `snova.c` reads them from the byte `alpha l^2` of the output of SHAKE256, inside the bytes of the matrices A, and not from the byte `m alpha l^2` after the matrices A and B. With the second offset, the known answers of `expand_public_pack` and the `single` digests of `SNOVA_37_17_2`, `SNOVA_25_8_3`, `SNOVA_56_25_2` and `SNOVA_49_11_3` failed, and the eight other sets passed.
+- Rule: port each offset of the C code as it is, and take a known answer of the internal function for each set, as `keysAndExpandedKeysAreTheKeysOfTheCFunctions` does. A test of one set cannot see a rule of another rank.
+
+## The last byte of an odd count of elements has an unread half
+
+- Trap: a test that expects every bit change of a signature to be refused fails for three SNOVA sets, and a verification that refuses the change differs from the C library.
+- Finding: `convert_bytes_to_GF16s` reads an odd last element from the low half of the last byte only. The signatures of `SNOVA_24_5_5`, `SNOVA_25_8_3` and `SNOVA_29_6_5` and the public keys of `SNOVA_24_5_5` and `SNOVA_49_11_3` have an odd count, and the C library accepts each of them with the high half of that byte changed. `UnreadBitParity.rs` shows it on both sides.
+- Rule: take the reading rule of each packing from the C code, and test both halves of the last byte of each set with an odd count, as `theHighHalfOfTheLastByteOfAnOddCountOfVariablesIsNotRead` does. The claim SUF-CMA of a description says whether the bit flips of `test_sig.c` change the signature too.
+
+## A length of type int in a C helper limits the inputs
+
+- Trap: a port that hashes the whole message seems to match the C library for every message.
+- Finding: `oqs_snova.c` hashes the message with `shake256(message, message_len, ...)`, whose length is an `int`. The object code of the oracle build sign-extends the low 32 bits of `message_len` (`movslq`), so for a message of `2^31` bytes or more the C code reads past the message or hashes only a part of it. No test reaches that length.
+- Rule: check the type of each length that a C helper takes. When the C code is undefined or wrong for some inputs, the port keeps the correct result, and the architecture page of the family names the difference.
+
+## A restored source file can be older than the build of the wrong code
+
+- Trap: a check of a test against deliberately wrong code copies a source file, changes it, runs the tests and moves the copy back. Cargo can keep the test binary of the wrong code, so a later run of the package fails on code that is right, or passes on code that is no longer there.
+- Finding: the copy of `PublicMap.rs` kept the time at which it was made, 0.3 seconds before cargo started the build of the wrong offset. After the copy moved back, the file was older than that build, so cargo kept the unit test binary of the wrong offset. `cargo test -p oqs-native-snova` then failed two known answers of `SNOVA_37_17_2` on the restored code, while `cargo test --workspace`, which builds another binary with the features of the workspace, passed.
+- Rule: give a restored file a new modification time, for example with `touch`, and run the tests of the package again after each check against wrong code.
+
+## A store of the C code can keep the old bits of a promoted byte
+
+- Trap: a port of the pivot search of Classic McEliece that writes the moved window back as 64 clean bits differs from the C library for some keys of 6960119f.
+- Finding: `mov_columns` of 6960119f writes the first byte of the window as `(tmp[0] << tail) | mat[i][block_idx] << (8 - tail) >> (8 - tail)`. C promotes the byte to `int`, so the two shifts keep the whole old byte, and the first five bits of the window become the or of the old and the moved bits. A key takes this path only when a pivot of the window leaves the diagonal in its first five columns, about once in `2^27` keys, so the known answers and the parity variations never see it. The C function, copied into a test program, gave the digest of the port on a matrix with two zero columns at the start of the window, and a port with a clean store failed the test.
+- Rule: read each shift of the C code with the promotion rules of C, also where the intent of the code looks clear. A path that random inputs do not reach takes its known answer from the C function, copied into a test program when the function is `static`.
+
+## A sampler that retries never ends with constant random bytes
+
+- Trap: the fuzz case 0 of `KEMFuzzTest` gives only the bytes 0x00 and the case 1 only the bytes 0xFF, and the encapsulation of Classic McEliece never ends with them.
+- Finding: the bytes 0x00 give `t` equal positions, and the bytes 0xFF give values of all ones, which lie at or above `n` or repeat, so every attempt of `gen_e` fails, also in the C code. A counting source repeats its bytes every 256 bytes, and the first test of the random requests of the encapsulation hung for the same reason.
+- Rule: a family whose sampler retries until its random bytes are valid runs `KEMFuzzTest::runCases` from case 2, and its tests of the random requests draw seeded bytes.
+
+## A rejection test with a valid key cannot choose the check that refuses it
+
+- Trap: the decoder of Classic McEliece refuses a changed ciphertext of a valid key pair, but the test cannot tell which check refused it, so it cannot see the loss of one check or an exclusive or in the fold of the checks.
+- Finding: a secret key with control bits of zero has the support `L_i = bitrev(i)`, with the element 0 at place 0, and the Goppa polynomial `y^t + 1` sees every place below `m t`. With `w` errors below `t`, the locator is `x^(t - w)` times the locator of the errors, so the decoder adds the place 0. Then `t - 1` errors with place 0 fail the weight check alone, `t - 1` errors without it fail the syndrome check alone, and `t - 2` errors without it under `y^t + c` with `1 / c^2 = (t - 1) xor t` fail both with the same bits. Each of three defects, no weight, no syndrome and an exclusive or in the fold, failed its own test, and the C library gave each decision.
+- Rule: the rejection tests of a decoder build their inputs from a key whose decoding is known by hand, so that each test breaks one check. The two changes of the fold test change the same bits of two values of the fold, here the weight difference and one 16-bit value of the double syndrome.
+
+## A file restored from an older copy keeps the build of the defect
+
+- Trap: a run of deliberately wrong code that moves a copy of the file back leaves the file with the time of the copy, which is older than the last build, so Cargo keeps the build of the defect.
+- Finding: after the defect runs of the decapsulation of Classic McEliece, the fuzz test refused a ciphertext that the C library accepted. The library still held the last defect, a swapped mask of the shared secret. The tests passed again after the files were touched.
+- Rule: a defect run restores the file with a new time, by writing its bytes or by touching it, and the tests run again on a clean build after the last defect.
+
+## The key pairs of a code-based family dominate the dev profile
+
+- Trap: the tests of Classic McEliece and the parity tests make dozens of key pairs, and each takes seconds at the first optimization level.
+- Finding: one key pair, encapsulation and decapsulation of each of the ten sets took 20 seconds in the dev profile at level 1 and 10.5 seconds at level 3, with the same seeds. A key pair spends its time in the Gaussian elimination over a matrix of up to 1.7 MB and in the sorting networks of the control bits. The decapsulation computed the factors `1 / g(L_i)^2` once for each of its two double syndromes, and computing them once halved its time.
+- Rule: the dev profile builds `oqs-native-classic-mceliece` at the third level, as it builds `oqs-native-sha3`. The override changes only the optimization, so the overflow checks and the debug assertions stay on.
+
+## A refused input can fail a later step as well
+
+- Trap: a test of a refusal of the key generation passes without the check, because its input also fails a later step.
+- Finding: the first test of the rule of Classic McEliece that two equal order values give no key changed one value of a random input. Its matrix had no systematic form, so the key generation gave no key without the check as well, and both mutants of the check survived the first mutation run. `twoEqualOrderValuesGiveNoKeyAlsoWhenTheirOrderGivesAKey` starts from the input of a known key of `pk_gen` and gives the index 991 the value of the index 283, which comes just before it in the order of the values. The order of the indices and the matrix stay the same.
+- Rule: a test of a refusal starts from an input that the code accepts, breaks only the rule of the test, keeps every other value that the code reads, and asserts that the rest stays the same. See also "A refused case that breaks two rules cannot see the loss of one".
+
+## A check that a later check repeats cannot fail alone
+
+- Trap: the verification of MQOM refuses a nonce whose challenge fails the proof of work. A test that changes the nonce cannot see the loss of that check, because another nonce also gives other hidden leaves, and then the opening of the signature fails its own check.
+- Finding: with the check of the w bits removed, the other tests of the crate passed, the changed nonces of `eachCheckOfTheVerificationRefusesAChangeThatReachesIt` and every test of `TestSig.rs` and `FuzzTestSig.rs` among them. In the same way, with the comparison of com1 always true, every test of `TestSig.rs` passed, because a changed opening gives other evaluations and the comparison of com2 refuses them. A signer that takes the first nonce that fails the proof of work makes a signature whose opening and slopes prove the hidden leaves of that nonce. `aNonceThatFailsTheProofOfWorkIsRefusedAlthoughItsProofIsValid` signs with it, asserts that the later checks accept the proof, and failed without the check.
+- Rule: the test of each check of a verification builds an input that passes every other check, through the steps of the signer where needed, and asserts that the other checks accept it. The decoder of Classic McEliece above follows the same rule with a key whose decoding is known by hand.
+
+## A search from zero needs a case where zero wins
+
+- Trap: `SampleChallenge` tries the nonces from 0 up. A signature that searches from 1 passes every test whose signatures take a nonce above 0.
+- Finding: with the search from 1, the other tests of the fast suite passed, also the `single` digests of `KATSig.rs` and the known answers of `Sign`, because none of their signatures takes the nonce 0. With w = 3, the nonce 0 meets the proof of work for about one challenge in eight. `aSignatureTriesTheNoncesFromZero` signs until a signature takes it, and it failed with the search from 1.
+- Rule: a search of the C code has a test whose answer is the first value of the search, as well as the tests at its limit of the MAYO entry above.
+
+## A replicated reader of a response file can be quadratic
+
+- Trap: the known-answer tests of a family with long keys take most of a minute, although the code of the family is fast.
+- Finding: `ReadHex` of `tests/kat_sig_stfl.c` shifts the whole value by four bits for each hex digit, and the first `ResponseFile` did the same. The response files of XMSS^MT hold secret keys of up to 38,099 bytes, so one value cost billions of byte shifts. The known-answer tests of XMSS took 46 seconds in the dev profile. A reader that places each digit once gives the same bytes, as a test against the shifts of the C reader shows, and the same tests took 0.74 seconds.
+- Rule: a replicated test program keeps the result of the C code, not its cost. A test compares the faster form with the C form.
+
+## A response file of liboqs can hold a key pair that its generator does not give
+
+- Trap: a key pair test that compares the key pair of the NIST generator seeded with the bytes 0 to 47 with the response file fails for nine XMSS sets, although the port gives the bytes of the C library.
+- Finding: the response files of the six 192-bit XMSS sets and of XMSS-SHAKE256_10_256, XMSS-SHAKE256_16_256 and XMSS-SHAKE256_20_256 hold seeds that the generator does not give. A C program on the oracle made the key pairs of the sets of height 10 with that generator, and got the bytes of the port and not the bytes of the files. `kat_sig_stfl.c` signs with the secret key of the file and never makes a key pair, so liboqs does not see the difference.
+- Rule: the key pair test of a stateful family takes its answers from a C program on the oracle. It uses a response file only for a set where that program gives the bytes of the file.
+
+## A count that the C code returns as a char
+
+- Trap: a port that keeps the count of `bds_treehash_update` as an unsigned int passes every signature test.
+- Finding: the C function returns the count of the updates that are left as a `char`, and the caller reads it back as an unsigned int. The count goes below zero when three trees of an XMSS^MT set of tree height 5 end at once. A `char` is signed on x86-64, and its sign extension equals the wrap of an unsigned int for each count from -128 to 127. The key of a key generation keeps the count between -9 and 10, so only the unit test of the conversion failed without it. A target with an unsigned `char` gets 255 minus the updates used instead, and the signature tests also pass with that form.
+- Rule: the port copies the conversion of each C return type, and a unit test pins it at the values where it changes the result.
+
+## A cast in one call of the C code
+
+- Trap: a port that passes the tree index of each layer in 64 bits gives other signatures for the XMSS^MT sets with a high tree index.
+- Finding: in the layer loop of `xmssmt_core_sign`, one call of `set_tree_addr` passes the tree index through `uint32_t`, and the other calls pass it in 64 bits. The tree index of the lowest layer of XMSSMT-SHA2_60/3_256 has more than 32 bits from index 2^52 on. No sequence from index 0 reaches that index, so only a test at index 2^52 + 5 failed without the cast.
+- Rule: each cast of the C code is a fact of the port, with a test at a value where the cast changes the result.
+
+## The last index of an XMSS key signs with a wiped key
+
+- Trap: a port that refuses the last index of a key, or signs it with the seeds of the key, differs from the C library.
+- Finding: `xmss_core_sign` and `xmssmt_core_sign` wipe the key after its identifier once the index reaches 2^h - 1. At that index they still sign, with zero seeds, and write back the index 2^h and the counters of the state before the wipe. That signature does not verify, and the count of the signatures left wraps to 2^64 - 1. Past the last index the call fails, and the key stays zero. A zero key has the index 0, so the C library signs with it again.
+- Rule: the port follows the C code at the end of a key. The tests sign at the last index, past it and with the wiped key, with the answers of a C program.
+
+## The identifier in an XMSS key chooses the parameters
+
+- Trap: a port that signs with the parameters of its set differs from the C library for a key that holds the identifier of another set.
+- Finding: `xmss_sign` and `xmssmt_sign` read the parameters from the identifier in the key, and hash with the core hash that the set compiled. A key with the identifier of XMSS-SHAKE_10_256 signs with SHA-256 under XMSS-SHA2_10_256. When the parameters of the identifier need another n, a longer key or a longer signature, the C code leaves its buffers.
+- Rule: the port takes the parameters from the identifier, refuses each case where the C code leaves its buffers with `OQSError::operationFailed`, and tests each refusal with a case that breaks that rule alone. A longer XMSS key always comes with a longer signature, so the signature rule takes an XMSS^MT case: a key of XMSSMT-SHA2_20/4_256 in the buffer of XMSSMT-SHA2_60/3_256.
+
+## The counters of a serialized state are input
+
+- Trap: a port that trusts the counters of the BDS state in a secret key panics, or reaches outside the key, for a forged key.
+- Finding: the stack offset, the stack usage, the stack levels and the next leaf of each state come from the key. The C code adds them to pointers into the key, so a forged value reads or writes outside the buffer. A stack offset of 2^32 - 1 in the next tree of the lowest layer of an XMSS^MT key puts the next leaf 2^32 - 32 bytes after the stack.
+- Rule: the port keeps the arrays of a state as offsets into the key, computes each place with the 32-bit arithmetic of the C code, and refuses an access outside the key with `OQSError::operationFailed`. A signature works on a copy of the key, so a refusal leaves the key as it was.
+
+## The stateful programs make key pairs that the suite sample does not count
+
+- Trap: the default suite of a stateful family that runs `StatefulSignatureCorrectnessTest` on each set of the suite sample takes minutes, and the run of the parity program over the sample passes its bound.
+- Finding: the program makes three key pairs of each set, and an XMSS^MT set of 60/6 builds six trees of height 10 for each of them. On every XMSS set the test took 233 seconds of processor time, and seven minutes on a loaded machine. With the 19 XMSS sets of the sample registered, `runOverTheSuiteSampleOfTheRegistryReportsItsSizeAndEachAlgorithm` took six minutes against a bound of 120 seconds.
+- Rule: the default suite runs the correctness program on the sets whose key pairs build no tree above height 5, the sets that read their key pairs from the response file among them, and an ignored test runs it on every set. A test that runs the whole sample through the parity program has a bound that fits the key pairs of the sample.
+
+## A forged stack of the BDS state overwrites its own levels
+
+- Trap: a forged state that should make the merges of `bds_state_update` reach a given height cannot keep its stack levels in the levels array. The new leaf and the merged nodes overwrite them.
+- Finding: a merge at the height h of the tree needs h + 1 levels below the new leaf, so the leaf goes to slot h + 1 of a stack of h + 1 nodes. That slot is the stack offset and the stack levels of the key, so the leaf replaces the levels before the merges read them. The CI run of `oqs-native-xmss` missed the mutant of the refusal of such a merge.
+- Rule: give the forged state a stack offset so far past the stack that the levels that the merges read are bytes of the authentication path, and the slots of the leaf and of the merged nodes come after them. The test names both ranges. In the state of the next tree of the lowest layer of XMSSMT-SHA2_20/4_256 the offset 13 reads the levels at bytes 203 to 209 of the state and writes from byte 256 on.
+
+## hash-sigs reads the parameter set from the key
+
+- Trap: a port that signs and verifies with the parameter set of the scheme differs from the C library for a key or a public key of another set.
+- Finding: the C library signed a fresh key of `LMS_SHA256_H5_W8` under the names `LMS_SHA256_H5_W1` and `LMS_SHA256_H5_W8_H5_W8` with the same signature of 1296 bytes as under its own name. Its verification under `LMS_SHA256_H5_W1` accepted a signature of `LMS_SHA256_H5_W8_H5_W8`.
+- Rule: the port reads the levels of a key from its private key, and the levels of a verification from the public key and the signature. The name of the scheme decides only the key pair, the description and the largest signature that fits the C buffer.
+
+## A guard against a value that fails anyway needs the value that breaks the arithmetic
+
+- Trap: the check of the leaf index of an LMS signature against `2^h` had no test that failed without it.
+- Finding: a wrong index gives a wrong root, so the verdict is false with or without the check. With the check removed, every test passed until a test gave the index `2^32 - 1`, whose node number overflows `u32`, so the test build panicked.
+- Rule: the test of a guard that only protects the arithmetic takes the extreme values, so that the overflow checks of the test build see a missing guard.
+
+## A hash that copies each byte on its own is slower than the C code
+
+- Trap: LMS hashes millions of inputs of 55 bytes for one tree, so the port of a key pair was slower than the C code with the shared SHA-256.
+- Finding: 10 million hashes of 55 bytes took 5.3 to 5.8 s with the byte loop of `SHA256::absorb`, 4.0 to 4.2 s with copies of whole pieces, and 4.0 to 5.2 s in the C code, on the same busy machine.
+- Rule: a shared hash function copies whole pieces of its input. A family that hashes short inputs measures the shared function on its own input size against the C code.
+
+## A parity run of a stateful scheme needs a working key on both sides
+
+- Trap: `parity run --only` over the LMS sets of trees of height 10 took six to eleven minutes for each set, and a set of height 15 would take about a day.
+- Finding: the C side signed the 1000 variations with one `OracleWorkingKey`, but the Rust side signed each one with `StatefulSigning::sign`, which loads the private key of LMS for each signature, at the cost of about one key generation: 0.4 s for each variation of `LMS_SHA256_H10_W1` and about 85 s for `LMS_SHA256_H15_W8`.
+- Rule: the parity check of a registered LMS set signs on the Rust side with an `LMSWorkingKey` too, through `StatefulParity::signingLMSWithAWorkingKey`. The tests of the crate prove that the working key and `sign` give the same bytes at each count, and the harness tests keep the plain check for schemes with defects.

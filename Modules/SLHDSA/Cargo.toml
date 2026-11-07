@@ -1,0 +1,45 @@
+[package]
+name = "oqs-native-slh-dsa"
+description = "SLH-DSA of FIPS 205, a native port of the SLH-DSA algorithms of liboqs."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# The port is under MIT, and slhdsa-c is under Apache-2.0 OR ISC OR MIT.
+license = "MIT AND (Apache-2.0 OR ISC OR MIT)"
+authors.workspace = true
+repository.workspace = true
+readme = "README.md"
+keywords = ["slh-dsa", "sphincs", "fips205", "post-quantum", "liboqs"]
+categories.workspace = true
+# The tests use the unpublished test crates, so the package leaves them out.
+exclude = ["tests/"]
+
+[package.metadata]
+ring = "features"
+
+[lib]
+name = "OQSNativeSLHDSA"
+path = "src/lib.rs"
+
+[dependencies]
+oqs-native-domain = { workspace = true }
+oqs-native-entities = { workspace = true }
+oqs-native-sha2 = { workspace = true }
+oqs-native-sha3 = { workspace = true }
+
+[dev-dependencies]
+oqs-native-algorithm-tests = { path = "../AlgorithmTests" }
+oqs-native-kat-random = { path = "../KATRandom" }
+
+[features]
+default = ["std"]
+# Without `std` the crate builds with `core` and `alloc` only.
+std = [
+    "oqs-native-domain/std",
+    "oqs-native-entities/std",
+    "oqs-native-sha2/std",
+    "oqs-native-sha3/std",
+]
+
+[lints]
+workspace = true

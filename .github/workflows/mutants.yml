@@ -1,0 +1,175 @@
+name: Mutants
+
+# The mutation tests of one package, in ten shards. A push to a branch `mutants/<package>`,
+# such as `mutants/oqs-native-falcon`, or `mutants/<package>.<label>` runs them on that
+# commit. Each shard prints its outcomes and keeps its `mutants.out` folder as an artifact,
+# and the summary job adds the outcomes of the ten shards.
+# Documentation/Registers/MutationResults.md records the results.
+on:
+  push:
+    branches: ['mutants/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mutants-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    # The one build of the C oracle and the one install of cargo-mutants. The shards take
+    # both from the caches that this job fills.
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Restore cargo-mutants
+        id: mutants
+        uses: actions/cache@v6
+        with:
+          path: ~/.cargo/bin/cargo-mutants
+          key: cargo-mutants-27.1.0-${{ runner.os }}
+      - name: Install cargo-mutants
+        if: steps.mutants.outputs.cache-hit != 'true'
+        run: cargo install cargo-mutants --version 27.1.0 --locked
+      - name: Restore the C oracle
+        id: oracle
+        uses: actions/cache@v6
+        with:
+          path: target/oracle
+          key: oracle-${{ runner.os }}-${{ hashFiles('LIBOQS_VERSION', 'Tools/Xtask/src/OracleBuild.rs', 'Tools/Xtask/src/TestVector.rs', 'Documentation/Registers/TestVectors.md') }}
+      - name: Build the C oracle
+        # fetch-oracle runs CMake again on a present build, which compiles the library again.
+        # A cache hit holds the whole oracle of the key, the vectors among them.
+        if: steps.oracle.outputs.cache-hit != 'true'
+        run: cargo xtask fetch-oracle
+
+  mutants:
+    needs: prepare
+    runs-on: ubuntu-26.04
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Restore cargo-mutants of the prepare job
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cargo/bin/cargo-mutants
+          key: cargo-mutants-27.1.0-${{ runner.os }}
+          fail-on-cache-miss: true
+      - name: Restore the C oracle of the build job
+        uses: actions/cache/restore@v6
+        with:
+          path: target/oracle
+          key: oracle-${{ runner.os }}-${{ hashFiles('LIBOQS_VERSION', 'Tools/Xtask/src/OracleBuild.rs', 'Tools/Xtask/src/TestVector.rs', 'Documentation/Registers/TestVectors.md') }}
+          fail-on-cache-miss: true
+      - name: Mutation tests of the shard
+        run: |
+          # A branch `mutants/<package>.<label>` runs the package again on another commit.
+          # A package name has no dot, and git keeps no branch `mutants/<package>/<label>`
+          # next to the branch `mutants/<package>`.
+          package="${GITHUB_REF_NAME#mutants/}"
+          package="${package%%.*}"
+          options=()
+          if [ "$package" = "oqs-native" ]; then
+            # The coverage tests of the parity crate are the tests that see a wrong registry.
+            options=(--test-package oqs-native,oqs-native-parity --timeout 900)
+          fi
+          # The copies of the tree that cargo-mutants builds have no `target` folder.
+          export OQS_ORACLE_DIR="$PWD/target/oracle/$(cat LIBOQS_VERSION)"
+          # A mutant can make a loop endless while the loop adds to a list, and the list then
+          # takes the memory of the runner before the time limit of the test, so the runner
+          # shuts down. Cargo starts each test program through prlimit, which caps its address
+          # space at 6 GiB. A failed allocation stops the test program, and the mutant counts
+          # as caught. The largest test program of the workspace, a parity test whose threads
+          # have large stacks, reserves about 3.2 GiB.
+          export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER="prlimit --as=6442450944 --"
+          status=0
+          cargo mutants --package "$package" "${options[@]}" --shard ${{ matrix.shard }}/10 -j 2 --output shard || status=$?
+          # Exit code 2 reports missed mutants and 3 reports timeouts, which the register
+          # records. Any other failure fails the job.
+          if [ "$status" != 0 ] && [ "$status" != 2 ] && [ "$status" != 3 ]; then
+            exit "$status"
+          fi
+      - name: Outcomes of the shard
+        if: always()
+        run: |
+          for outcome in caught missed timeout unviable; do
+            echo "$outcome $(cat shard/mutants.out/$outcome.txt 2>/dev/null | wc -l)"
+          done
+          for outcome in missed timeout; do
+            echo "== $outcome"
+            cat shard/mutants.out/$outcome.txt 2>/dev/null || true
+          done
+      - name: Keep the outcomes
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutants-shard-${{ matrix.shard }}
+          path: shard/mutants.out
+
+  summary:
+    needs: mutants
+    if: always()
+    permissions:
+      actions: write
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Fetch the outcomes of the shards
+        uses: actions/download-artifact@v8
+        with:
+          pattern: mutants-shard-*
+          path: shards
+      - name: Outcomes of the package
+        run: |
+          echo "shards $(ls shards | wc -l)"
+          for outcome in caught missed timeout unviable; do
+            echo "$outcome $(cat shards/*/$outcome.txt 2>/dev/null | wc -l)"
+          done
+          for outcome in missed timeout; do
+            echo "== $outcome"
+            cat shards/*/$outcome.txt 2>/dev/null | sort || true
+          done
+      - name: Diffs and logs of the missed and timed-out mutants
+        # The log of the run keeps what the register needs of each mutant that was not caught,
+        # its diff and the end of its test log, so the shard artifacts can go.
+        run: |
+          for shard in shards/*; do
+            python3 - "$shard" <<'PYTHON'
+          import json, pathlib, sys
+          shard = pathlib.Path(sys.argv[1])
+          for outcome in json.loads((shard / "outcomes.json").read_text())["outcomes"]:
+              if outcome.get("summary") not in ("MissedMutant", "Timeout"):
+                  continue
+              name = outcome["scenario"]["Mutant"]["name"]
+              print(f"::group::{outcome['summary']}: {name}")
+              diff = shard / outcome.get("diff_path", "")
+              if diff.is_file():
+                  print(diff.read_text())
+              log = shard / outcome.get("log_path", "")
+              if log.is_file():
+                  print("\n".join(log.read_text(errors="replace").splitlines()[-40:]))
+              print("::endgroup::")
+          PYTHON
+          done
+      - name: Delete the shard artifacts
+        # A run whose shards all ended keeps nothing that the log does not hold. A run with a
+        # failed shard keeps them, so a re-run of that shard leaves the summary its other shards.
+        if: needs.mutants.result == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --paginate "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" --jq '.artifacts[].id' |
+            while read -r id; do
+              gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id"
+              echo "deleted artifact $id"
+            done

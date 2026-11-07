@@ -1,0 +1,40 @@
+[package]
+name = "oqs-native-lms"
+description = "LMS and HSS of RFC 8554, a native port of the LMS stateful signature algorithms of liboqs."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# The port is under MIT, and the hash-sigs code of Cisco carries the BSD 3-clause license in its
+# `license.txt`. See THIRD_PARTY_NOTICES.md.
+license = "MIT AND BSD-3-Clause"
+authors.workspace = true
+repository.workspace = true
+readme = "README.md"
+keywords = ["lms", "hss", "hash-based", "post-quantum", "liboqs"]
+categories.workspace = true
+# The tests use the unpublished test crates, so the package leaves them out.
+exclude = ["tests/"]
+
+[package.metadata]
+ring = "features"
+
+[lib]
+name = "OQSNativeLMS"
+path = "src/lib.rs"
+
+[dependencies]
+oqs-native-domain = { workspace = true }
+oqs-native-entities = { workspace = true }
+oqs-native-sha2 = { workspace = true }
+
+[dev-dependencies]
+oqs-native-algorithm-tests = { path = "../AlgorithmTests" }
+oqs-native-kat-random = { path = "../KATRandom" }
+
+[features]
+default = ["std"]
+# Without `std` the crate builds with `core` and `alloc` only.
+std = ["oqs-native-domain/std", "oqs-native-entities/std", "oqs-native-sha2/std"]
+
+[lints]
+workspace = true

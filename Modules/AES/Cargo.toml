@@ -1,0 +1,27 @@
+[package]
+name = "oqs-native-aes"
+description = "Constant-time bitsliced AES-128 and AES-256 encryption in ECB and CTR modes, and Rijndael with a 256-bit block, as liboqs uses them."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme = "README.md"
+keywords = ["aes", "aes-ctr", "constant-time", "post-quantum", "liboqs"]
+categories.workspace = true
+
+[package.metadata]
+ring = "sharedComponents"
+
+[lib]
+name = "OQSNativeAES"
+path = "src/lib.rs"
+
+[features]
+default = ["std"]
+# Without `std` the crate builds with `core` only.
+std = []
+
+[lints]
+workspace = true

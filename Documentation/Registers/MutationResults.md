@@ -1,0 +1,960 @@
+# Mutation results
+
+This register holds the result of the latest mutation run of each crate, and the named test that kills a mutant of each rule. A change that adds a rule adds its row in the same change.
+
+## How to run
+
+1. Run `cargo mutants --package <name> -j 4` from the repository root, with the variable `CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER` of the `Mutants` workflow, which caps the memory of each test program.
+2. Read the summary line. `.cargo/mutants.toml` holds the settings.
+3. Give each missed mutant a test, or record here why the mutant is equivalent.
+4. Run the facade as `cargo mutants --package oqs-native --test-package oqs-native,oqs-native-parity --timeout 900 -j 4`. The coverage tests of the parity crate are the tests that see a wrong registry. The baseline times only the tests of the mutated package, so the explicit timeout keeps the slower tests of the parity crate from reading as timeouts.
+5. A push to a branch `mutants/<package>`, such as `mutants/oqs-native-falcon`, runs step 1 for that package in ten shards of the `Mutants` workflow, and step 4 for `mutants/oqs-native`. A branch `mutants/<package>.<label>`, such as `mutants/oqs-native-falcon.2`, runs the package again on another commit. Each shard prints its counts and its missed and timed-out mutants, and keeps its `mutants.out` folder as an artifact for the summary job. The summary job prints the counts of the ten shards together, with every missed and timed-out mutant, and the table of the crate takes them from there. It also prints the diff and the end of the test log of each missed and timed-out mutant, each in a group of the log, and then deletes the artifacts of the shards when every shard ended. A run with a failed shard keeps them until their retention ends. A crate with more than a few hundred mutants runs there.
+
+A mutant is "caught" when a test fails. A "timeout" is a mutant that makes a loop run forever: the suite does not end, so it counts as caught. An "unviable" mutant does not build and proves nothing.
+
+## Latest result for `xtask`
+
+The run of 2026-10-23 on the branch `foundation/workspace`. The table counts each mutant once. `NamingCheck.rs` changed after the full run, so its row comes from a second run of that file alone.
+
+| File | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `src/CargoManifest.rs` | 115 | 113 | 0 | 2 | 0 |
+| `src/Command.rs` | 8 | 7 | 0 | 1 | 0 |
+| `src/DeclarationScanner.rs` | 137 | 130 | 0 | 7 | 0 |
+| `src/DiskFileSystem.rs` | 10 | 10 | 0 | 0 | 0 |
+| `src/Finding.rs` | 1 | 1 | 0 | 0 | 0 |
+| `src/HygieneCheck.rs` | 22 | 20 | 0 | 2 | 0 |
+| `src/IdentifierCasing.rs` | 14 | 14 | 0 | 0 | 0 |
+| `src/MarkdownTable.rs` | 18 | 17 | 0 | 1 | 0 |
+| `src/NamingCheck.rs` | 37 | 33 | 0 | 4 | 0 |
+| `src/RingCheck.rs` | 13 | 9 | 0 | 4 | 0 |
+| `src/RustToken.rs` | 15 | 15 | 0 | 0 | 0 |
+| `src/RustTokenizer.rs` | 91 | 80 | 8 | 3 | 0 |
+| `src/TokenTree.rs` | 29 | 24 | 0 | 5 | 0 |
+| `src/VersionCheck.rs` | 18 | 17 | 0 | 1 | 0 |
+| `src/WorkspaceLayout.rs` | 9 | 8 | 0 | 1 | 0 |
+| `src/lib.rs` | 5 | 3 | 0 | 2 | 0 |
+| `src/main.rs` | 1 | 1 | 0 | 0 | 0 |
+| All | 543 | 502 | 8 | 33 | 0 |
+
+No mutant is missed, and no mutant is recorded as equivalent. The eight timeouts are in the low-level loops of `RustTokenizer`: with the mutant, the tokenizer stops moving and the suite does not end.
+
+The run of 2026-10-25 of the whole crate, after the version check of the `[workspace.dependencies]` entries joined `CargoManifest.rs` and `VersionCheck.rs`, is the `Mutants` workflow of CI, in ten shards, on the branch `mutants/xtask.crates`: [run 40158650583](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40158650583). It had 586 mutants: 539 caught, 8 timeouts, 39 unviable and none missed. The eight timeouts are the eight of `RustTokenizer` above, and every mutant of the new code of the version check is caught.
+
+## Expected result for each rule
+
+Each row names one mutant of a rule and the tests that fail under it. The test names are the expected result: if a later run does not fail these tests for this mutant, the tests have lost their link to the rule.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| A local dependency is one with a path | `RingCheck::findings`, line 138: operator replaced with `&&` | `allowedEdgeHasNoFinding`, `everyRingPairMatchesTheHandWrittenTable` and 12 more |
+| A crate depends only on the rings of its register row | `RingCheck::findings`, line 102: operator deleted | `allowedEdgeHasNoFinding`, `crateWithoutRingAndCrateWithUnknownRingAreFindings` and 16 more |
+| Each kind of name has its own casing rule | `NamingCheck::problem`, line 154: match arm deleted | `libraryNameMustBeUpperCamelCaseAndALibraryMustSetIt`, `mixedAcronymIsAFinding` and 7 more |
+| A mixed acronym such as Kem is found | `titleCaseWords`, line 32: operator replaced with `\|\|` | `titleCaseWordsSplitsMixedAcronymsAndSkipsWholeAcronyms`, `swiftCasingHasNoFinding` |
+| Each part of a version is digits only | `VersionCheck::isReleaseVersion`, line 93: operator replaced with `\|\|` | `malformedOrMissingVersionIsAFinding`, `versionWithAnEmptyOrNonNumericPartIsAFinding` |
+| The workspace version equals LIBOQS_VERSION | `VersionCheck::findings`, line 37: match guard replaced with `false` | `agreeingVersionsHaveNoFinding`, `crateWithItsOwnVersionIsAFinding` and 5 more |
+| A semicolon is a finding in prose only | `HygieneCheck::textFindings`, line 129: operator replaced with `\|\|` | `absolutePathIsAFinding`, `cleanProseHasNoFinding` and 11 more |
+| An empty word variable falls back to the local file | `HygieneCheck::forbiddenWords`, line 32: operator deleted | `forbiddenWordIsAFindingInTextAndInPathsInAnyLetterCase`, `forbiddenWordsComeFromTheVariableFirstAndElseFromTheLocalFile` and 4 more |
+| A character literal is told apart from a lifetime | `RustTokenizer::readQuote`, line 124: operator replaced with `!=` | `characterLiteralsAndLifetimesAreToldApart`, `quoteInsideACharacterLiteralDoesNotStartAString` and 4 more |
+| Block comments nest | `RustTokenizer::skipBlockComment`, line 80: operator replaced with `+=` | `blockCommentsNestAndEndAtTheirOwnClose`, `linesAreCountedThroughCommentsStringsAndRawStrings` and 3 more |
+| Commas inside angle brackets do not split an item | `TokenTree::commaSeparatedItems`, line 59: operator replaced with `-=` | `commaSeparatedItemsSplitOnlyOutsideAngleBrackets`, `structureFieldsWithVisibilityAndAttributesAreFound` |
+| The body of a macro_rules macro is not entered | `DeclarationScanner::scanMacro`, line 189: operator replaced with `-` | `keywordsAtTheEndOfTheInputRecordNothing`, `macroBodyIsSteppedOverAndTheScanGoesOnAfterIt` and 2 more |
+| Generic parameters end at the matching close | `DeclarationScanner::scanGenerics`, line 222: operator replaced with `-=` | `commentsStringsCharactersAndLifetimesHideNoNames`, `functionWithGenericsAndParametersIsFound` and 9 more |
+| An extern block is not entered | `DeclarationScanner::skipExtern`, line 206: operator replaced with `*` | `externBlockAndExternFunctionNamesAreLeftOut` |
+| Each command word selects its check | `Command::parse`, line 25: match arm deleted | `parseReadsEachCommandWord`, `parseRejectsUnknownMissingAndExtraArguments` and 5 more |
+| A finding gives exit status 1 | `run`, line 133: operator deleted | `runPassesWithStatusZeroAndThePassLine`, `runPrintsTheWordListNoteOnlyForAHygieneScanWithoutWords` and 2 more |
+| A member pattern matches child folders only | `WorkspaceLayout::matches`, line 58: operator replaced with `!=` | `loadFindsMembersOfWildcardAndPlainPatternsOnly`, `libraryNameMustBeUpperCamelCaseAndALibraryMustSetIt` and 15 more |
+| A bracket inside a string does not continue a value | `CargoManifest::openBracketCount`, line 260: match guard replaced with `true` | `bracketsInsideAStringDoNotContinueTheValue` |
+
+## Latest result for `oqs-native-entities` and `oqs-native-domain`
+
+The run of 2026-10-23 on the branch `foundation/entities-domain`.
+
+| File | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| All files of both crates | 26 | 23 | 0 | 3 | 0 |
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| Dropped secret bytes are wiped | `<impl Drop for SecretBytes>::drop`: body replaced with `()` | `dropWipesTheBytesBeforeTheMemoryIsFreed` |
+| The wipe writes zero over every byte | `wipe`: body replaced with `()` | `wipeWritesZeroOverEveryByte`, `dropWipesTheBytesBeforeTheMemoryIsFreed` |
+| Debug text never shows secret bytes | `<impl fmt::Debug for SecretBytes>::fmt`: body replaced | `debugTextShowsTheLengthButNeverTheBytes` |
+| Inputs have the exact length | `InputLength::checked`: `==` replaced with `!=` | `checkedRejectsAShorterAndALongerInputWithBothLengths`, `checkedReturnsAnInputOfTheExpectedLength` |
+| A scheme without context support accepts only an empty context | `Signing::isValidSignatureWithContext`: `&&` replaced with `\|\|` | `verificationWithContextAcceptsOnlyAnEmptyContext` |
+
+The `xtask` files that this branch changed (`Command.rs`, `UnsafeCodeCheck.rs`, `lib.rs`) gave 18 mutants: 13 caught, 5 unviable, 0 missed.
+
+## Latest result for `oqs-native-sha3`, `oqs-native-sha2` and `oqs-native-aes`
+
+The run of 2026-10-23 on the branch `foundation/primitives`.
+
+| File | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `Modules/AES/src/AES128.rs` | 3 | 3 | 0 | 0 | 0 |
+| `Modules/AES/src/AES256.rs` | 3 | 3 | 0 | 0 | 0 |
+| `Modules/AES/src/Bitsliced.rs` | 511 | 510 | 0 | 0 | 1 |
+| `Modules/AES/src/ExpandedKey.rs` | 15 | 15 | 0 | 0 | 0 |
+| `Modules/SHA2/src/SHA256.rs` | 53 | 53 | 0 | 0 | 0 |
+| `Modules/SHA2/src/SHA384.rs` | 5 | 5 | 0 | 0 | 0 |
+| `Modules/SHA2/src/SHA512.rs` | 5 | 5 | 0 | 0 | 0 |
+| `Modules/SHA2/src/SHA512Core.rs` | 50 | 49 | 1 | 0 | 0 |
+| `Modules/SHA3/src/KeccakF1600.rs` | 34 | 34 | 0 | 0 | 0 |
+| `Modules/SHA3/src/KeccakSponge.rs` | 30 | 30 | 0 | 0 | 0 |
+| `Modules/SHA3/src/SHA3256.rs`, `SHA3384.rs`, `SHA3512.rs` | 15 | 15 | 0 | 0 | 0 |
+| `Modules/SHA3/src/SHAKE128.rs`, `SHAKE256.rs` | 8 | 4 | 0 | 4 | 0 |
+| `Modules/SHA3/src/SHAKEReader.rs` | 1 | 1 | 0 | 0 | 0 |
+
+The run of 2026-10-24 of `oqs-native-aes`, with Rijndael-256 added for MQOM, is the `Mutants` workflow of CI, in ten shards, on the branch `mutants/oqs-native-aes`: [run 40045151722](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40045151722). It had 618 mutants: 617 caught, no timeout, no unviable mutant and 1 missed. The missed mutant is `Bitsliced.rs`, `substitute`, line 95, `^` replaced with `|` in `let t37 = t36 ^ t34;`, the one equivalent mutant below, as this section requires of a later run. The other 617 mutants, those of `Rijndael256.rs` among them, are caught.
+
+### The one equivalent mutant
+
+`Bitsliced.rs`, `substitute`, the line `let t37 = t36 ^ t34;`: `^` replaced with `|` survives. The two signals of the Boyar and Peralta circuit never have a set bit in common, so `^` and `|` give the same value. The proof is the test `bitslicedSubstitutionMatchesTheTableForEveryByte`, which checks all 256 inputs of the S-box against the table of FIPS 197: the mutant passes it, so it is equal to the correct S-box for every input. A later run must show this mutant, and only this one, as missed.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The S-box is the AES S-box | `substitute`: each other operator of the circuit replaced | `bitslicedSubstitutionMatchesTheTableForEveryByte`, `aes128EncryptsTheBlockOfFIPS197` |
+| The counter is 32 bits, big-endian, and wraps | `ExpandedKey::fillCounterKeystream`: `wrapping_add` operands and the byte swap | `counterWrapsAtThirtyTwoBitsAndKeepsTheFirstTwelveBytes`, `counterKeystreamIsTheEncryptionOfCounterBlocks` |
+| Counter blocks continue the stream | `AES256::fillCounterBlocks`: counter update removed | `counterBlocksContinueTheKeystreamAndAdvanceTheCounter` |
+| Only AES-256 substitutes the fourth key word | `scheduleKey`: `==` replaced with `!=` | `aes256EncryptsTheBlockOfFIPS197` |
+| SHA-2 pads at each block edge | `SHA256::absorbPadding`: `>=` replaced with `>` | `splitInputGivesTheOneShotDigestAtEveryLength` |
+| The SHAKE stream does not depend on the call sizes | `KeccakSponge::squeeze`: block test replaced | `shake128SmallAbsorbAndSqueezeCallsGiveTheSameStream` |
+
+## Latest result for `oqs-native-kat-random` and `oqs-native-system-random`
+
+The run of 2026-10-23 on the branch `foundation/random`: 12 mutants, 12 caught, 0 missed.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The DRBG gives the NIST seeds | `NISTKATRandom::update` and `incrementCounter`: each operator replaced | `nistGeneratorGivesTheSeedsOfTheNISTKnownAnswerFiles` |
+| Each request ends with an update | `NISTKATRandom::fillRandomBytes`: the update removed | `nistGeneratorOutputDependsOnHowRequestsSplitTheBytes` |
+| Personalization masks the entropy | `NISTKATRandom::new`: the mask removed | `personalizationIsMixedIntoTheSeedMaterial` |
+| The HQC generator absorbs the domain byte | `HQCKATRandom::new`: the domain byte removed | `hqcGeneratorIsSHAKE256OfTheSeedAndTheDomainByte` |
+| The system source fills the buffer | `SystemRandom::fillRandomBytes`: body replaced with `()` | `readsGiveFreshBytesThatAreNotZero` |
+
+## Latest result for the oracle, the known-answer programs, the registry and the parity harness
+
+The runs of 2026-10-23 on the branch `foundation/oracle`, with `OQS_ORACLE_DIR` set to the oracle folder, because `cargo mutants` builds a copy of the workspace without `target`.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-c-oracle` | 138 | 112 | 0 | 26 | 0 |
+| `oqs-native-algorithm-tests` | 63 | 59 | 0 | 4 | 0 |
+| `oqs-native` | 21 | 2 | 0 | 7 | 12 |
+| `oqs-native-parity` | 183 | 169 | 1 | 8 | 5, then 1 |
+| `xtask`, the files of the oracle build | 26 | 21 | 0 | 5 | 0 |
+
+The second run of `oqs-native-parity` covered the four files that changed after the first: 113 mutants, 108 caught, 1 timeout, 3 unviable and 1 missed.
+
+### Equivalent mutants
+
+- `oqs-native`, `Registry.rs`: the 12 missed mutants replace a list with an empty list, a lookup with `None`, or the name of an algorithm with another text. The three lists are empty until the first family registers an algorithm, so no test can see a difference yet. `eachAlgorithmIsFoundByItsOwnName` and the coverage tests of `Tools/Parity` kill each of them once its list holds an algorithm. The family pull requests record the runs that kill them.
+- `oqs-native-parity`, `VariationGenerator::usesContextForm`: `==` replaced with `!=` in `self.below(2) == 0`. The coin decides the form of a variation with an empty context. The mutant inverts a fair coin, which gives the same distribution, so no test can tell the two apart.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| Every C call checks the input lengths first | `checkedLength`: `==` replaced with `!=` | `wrongLengthsAreErrorsBeforeAnyCCall` |
+| The oracle lists only the enabled algorithms | `enabledNames`: `== 1` replaced with `!= 1` | `descriptionsHoldTheFactsOfTheCLibrary` |
+| A second oracle on one thread stops at once | `COracle::new`: the assertion removed | `secondOracleOnOneThreadStopsAtOnceAndDoesNotWaitForItself` |
+| The known-answer text prints an empty value as `00` | `KnownAnswerText::appendBytes`: the empty case removed | `linesFollowTheFormatOfTheCPrograms` |
+| HQC uses the SHAKE256 generator | `KnownAnswerRandom::generator`: the condition replaced | `hqcUsesTheSHAKEGeneratorAndEveryOtherNameTheNISTGenerator` |
+| Each layout of `kat_sig` joins its parts in its order | `SignedMessageForm::signedMessage`: each arm replaced | `signedMessagesJoinThePartsInTheOrderOfTheForm`, `falconFormMovesTheSaltBeforeTheMessageAndTheHeaderAfterIt` |
+| A failure on one side only is a mismatch | `agreeOnFailure`: body replaced with `Ok(())` | `aFailureOnOneSideIsAMismatchThatNamesTheSide` |
+| A changed input changes exactly one bit | `VariationGenerator::withChangedBit`: `^=` replaced with `\|=` or `&=`, `/` replaced with `%` | `aChangedBitChangesExactlyOneBitAndReachesEveryBit` |
+| A non-empty context always uses the context form | `VariationGenerator::usesContextForm`: `\|\|` replaced with `&&`, `>` replaced | `aNonEmptyContextAlwaysUsesTheContextFormAndAnEmptyOneUsesBoth` |
+| The variations reach each message length range | `VariationGenerator::messageLength`: `+` replaced with `*` | `messageLengthsCoverEachRangeAndStayInTheLimit` |
+| A snapshot check counts each failure | `ParityJob::snapshotCheck`: `+=` replaced | `snapshotCheckCountsEachFailureAndEachMissedDigest` |
+| The oracle build clones only a missing source | `OracleBuild::steps`: the clone condition replaced | `missingSourceIsClonedAtTheVersionTagAndThenBuilt`, `presentSourceOfTheVersionIsBuiltWithoutAClone` |
+| The oracle build stops at the first failed step | `fetchOracle`: the early return removed | `fetchOracleStopsAtTheFirstFailedStep` |
+
+## Latest result for ML-KEM, Kyber and the behavior programs
+
+The runs of 2026-10-23 on the branch `family/ml-kem`, with `OQS_ORACLE_DIR` set to the oracle folder.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-ml-kem` | 339 | 292 | 4 | 40 | 3 |
+| `oqs-native-algorithm-tests` | 242 | 217 | 8 | 17 | 0 |
+| `oqs-native` | 21 | 5 | 0 | 7 | 9 |
+| `xtask`, the files of the vector download | 26 | 21 | 0 | 5 | 0 |
+
+The first run of `oqs-native-ml-kem` missed 7 of 350 mutants, and the first run of `oqs-native-algorithm-tests` missed 80 of 271, most of them in the signature programs, which had no tests yet. The table holds the second runs, after the new tests and the simpler JSON reader. The four timeouts of ML-KEM are in the rejection loop of `sampledUniform`, which then never ends. The eight of the test support are in the JSON reader, whose position then stops moving.
+
+### Equivalent mutants
+
+- `oqs-native-ml-kem`, `Polynomial.rs`, `twelveBitPair`: `|` replaced with `^`, twice. The operands of the first `|` hold bits 0 to 7 and bits 8 to 11, and the operands of the second hold bits 0 to 3 and bits 4 to 11. They have no set bit in common, so `|` and `^` give the same value for every input.
+- `oqs-native-ml-kem`, `Polynomial.rs`, `rootPowers`: `|` replaced with `^` in `(reversed << 1) | bit`. The shift clears bit 0, and the other operand is bit 0 alone, so the two operators give the same value.
+- `oqs-native`, `Registry.rs`: 9 of the 12 mutants that P0 recorded. Eight replace the signature list or the stateful list with an empty list, a lookup with `None`, or a name with another text, and those lists stay empty until the first signature family. The ninth replaces the KEM list with an empty list. It survived because this run had only the tests of the facade. The FrodoKEM run below adds the tests of `Tools/Parity`, which kill it. `eachAlgorithmIsFoundByItsOwnName` kills the other two mutants of the KEM list, the names and the lookup.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The decapsulation compares every byte of the re-encryption | `MLKEM::decapsulation`, line 112, and `Kyber::decapsulate`, line 121: the or of the fold of the differences replaced with `^` | `aCiphertextWithTheSameBitChangedInTwoBytesIsRejected` |
+| ML-KEM refuses a public key with a coefficient of q or more | `MLKEM::encapsulation`, line 64: `!` deleted | `fuzzTestKEMPassesForEveryParameterSet`, `aPublicKeyWithACoefficientAboveTheModulusIsRejected` |
+| The modulus check refuses q and accepts q - 1 | `Polynomial::isCanonicalEncoding`, line 216: `<` replaced with `<=` | `decodingOfTwelveBitsReducesModuloQAndTheCheckSeesIt` |
+| Sampling keeps only the values below q | `Polynomial::sampledUniform`, line 259: `<` replaced with `<=` | `uniformSamplingGivesCanonicalValuesThatDependOnTheIndexBytes` and the known-answer tests of each set |
+| Compression rounds to the nearest value | `Polynomial::compressed`, line 223: `+` replaced with `-` | `compressionRoundsToTheNearestValueForEveryCoefficient` |
+| A wrong length gives the length error with the expected length | `KEMFuzzTest::run`, line 93, and `SignatureFuzzTest::run`, line 68: match guard replaced with `true` | `fuzzTestReportsAWrongSecretAndAWrongLengthCheck`, `fuzzTestReportsEachFailingStepWithTheCaseAndTheSeed` |
+| Each bit flip must fail the verification | `SignatureCorrectnessTest::checkBitFlips`: body replaced with `Ok(())` | `correctnessTestReportsTheFirstAcceptedBitFlip`, `correctnessTestFlipsTheSignatureOnlyForAnSUFCMAScheme` |
+| The index of a flip is the random `u64` modulo the number of bits | `checkBitFlips`, line 124: `%` replaced with `/` or `+` | `correctnessTestReportsTheFirstAcceptedBitFlip` and 4 more |
+| The signature flips belong to the second part only | `checkBitFlips`, line 126: `==` replaced with `!=` | `correctnessTestFlipsTheSignatureOnlyForAnSUFCMAScheme` |
+| SLH-DSA steps through the context lengths by a prime | `SignatureCorrectnessTest::run`, line 44: `%` replaced with `/` | `correctnessTestSignsUnderEachContextLengthAndStepsThroughThemByAPrimeForSLHDSA` |
+| The hostile values of a case can be made again | `FuzzRandom::hostile`, line 42: each operator replaced or deleted | `hostileValuesStartSplitMix64AtTheSeedAndTheComplementOfTheCase` |
+| A wrong length is longer for an even case and shorter for an odd case | `FuzzRandom::wrongLength`, lines 48 and 50: each operator replaced | `wrongLengthsAreLongerForEvenCasesAndShorterForOddCases` |
+| The vector folder is the folder of `OQS_ORACLE_DIR`, or else of the workspace | `TestVectorFiles::folder`: body replaced | `folderIsTheVectorFolderOfTheOracleFolder` |
+
+## Latest result for the known-answer program of the stateful schemes
+
+The runs of 2026-10-23 on the branch `foundation/stateful-known-answers`, on the files that the branch changed, with `OQS_ORACLE_DIR` set to the oracle folder.
+
+| Crate and files | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-algorithm-tests`: `ResponseFile.rs`, `StatefulKnownAnswerDigests.rs`, `StatefulKnownAnswerTest.rs`, `KnownAnswerText.rs`, `TestVectorFiles.rs` | 91 | 87 | 1 | 1 | 2 |
+| `oqs-native-c-oracle`: `OracleStatefulScheme.rs` and `isValidStatefulSignature` | 19 | 16 | 0 | 3 | 0 |
+| `oqs-native-parity`: `ParityJob.rs` | 25 | 22 | 1 | 2 | 0 |
+
+The timeout of the test support stops the position of `ResponseFile::value`, so the reader never ends. The timeout of the parity harness inverts the selection of `ParityJob::cSnapshot`, so its test takes the snapshot of every C algorithm.
+
+### Equivalent mutants
+
+- `oqs-native-algorithm-tests`, `ResponseFile::value`, lines 41 and 43: `|` replaced with `^` where a digit shifts into the value. The left operand is shifted left by four bits, so its low four bits are zero, and the right operand holds only four low bits, the high half of the next byte or the digit. The two operators give the same value. The two lines now join the fields with `+`, see the section of the stateful test programs below.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| A response value takes the last digits of its line, with zeros in front of a short one | `ResponseFile::value`: body replaced with `None` | `aValueKeepsTheLastDigitsWithZerosInFrontOfAShortOne`, `readingSkipsTheCharactersBeforeTheFirstDigitAndStopsAtTheFirstOther` and 1 more |
+| The length of an LMS value counts the characters of its line | `ResponseFile::valueLength`: body replaced with `0` | `lengthsCountTheCharactersOfTheLineAndNumbersReadDecimals` |
+| Each check of the C program fails the run | `StatefulKnownAnswerTest::signedText`: body replaced with `Ok(String::new())` | `signedRunFailsAtEachCheckOfTheCProgram`, `signedRunPrintsTheValuesTheSignatureAndTheCountsOfTheAdvancedKey` |
+| An LMS run prints the values of the file in lower case | `StatefulKnownAnswerTest::verifiedText`: body replaced with `Ok(String::new())` | `verifiedRunOfLMSPrintsTheValuesOfTheFileInLowerCase`, `verifiedRunFailsWithoutAMessageOrAKeyAndOnAFailedVerification` |
+| A response file name writes each `/` as `-` | `TestVectorFiles::responseFilePath`: body replaced | `responseFilesAreInTheLiboqsSourceWithADashForEachSlash` |
+| The stateful adapter saves the advanced key before it releases the signature | `OracleStatefulScheme::sign`: body replaced with `Ok(vec![])` | `statefulAdapterSavesTheAdvancedKeyBeforeItReleasesTheSignature` |
+| The C verification of a stateful signature is the verdict | `COracle::isValidStatefulSignature`: body replaced with `true` | `statefulVerificationReadsARawLMSPublicKeyAsTheCLibraryDoes` and 2 more |
+
+## Latest result for FrodoKEM and eFrodoKEM
+
+The runs of 2026-10-23 on the branch `family/frodokem`, with `OQS_ORACLE_DIR` set to the oracle folder. The facade ran with the tests of `oqs-native-parity` as well, because the coverage tests of the parity crate are the tests that see a wrong registry.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-frodokem` | 256 | 244 | 1 | 11 | 0 |
+| `oqs-native`, with the tests of `oqs-native-parity` | 21 | 6 | 0 | 7 | 8 |
+| `oqs-native-parity`, `ParityJob.rs` | 28 | 25 | 1 | 2 | 0 |
+
+The timeout of FrodoKEM multiplies in place of an addition in the noise length of `FrodoKEM::encryption`, so the encryption asks for some thousand times more noise and the test does not end in its time. The timeout of the parity harness inverts the selection of `ParityJob::cSnapshot`, as before.
+
+### Equivalent mutants
+
+- `oqs-native`, `Registry.rs`: the 8 missed mutants replace the signature list or the stateful list with an empty list, a lookup in those lists with `None`, or the name of a scheme of those lists with another text. Both lists stay empty until the first signature family, so no test can see a difference yet.
+
+The empty list of KEMs is now caught by `knownAnswersOfOneAlgorithmPassWithItsLine`, a test of `Tools/Parity`. The run of F1 had only the tests of the facade, so that mutant survived it, and its record below is corrected.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The comparison of decapsulation gathers every difference | `ConstantTime::mismatchSelector`, line 13: the or replaced with `^` | `twoEqualDifferencesInTwoValuesStillDiffer` |
+| The selection takes the key for zero and the rejection secret for minus one | `ConstantTime::select`, line 29: each operator replaced | `selectionTakesTheFirstInputForZeroAndTheSecondForMinusOne` |
+| The noise sampler gives the values of the C code | `ErrorDistribution::sample`: body replaced with `()` | `samplesOfEveryValueEqualTheSamplesOfTheCCode` and 2 more |
+| A reduction keeps the low bits of the modulus | `MatrixArithmetic::reduce`: the and of the mask replaced with an or | `sumsDifferencesAndReductionsKeepTheLowBitsOfTheModulus` |
+| Packing writes the high bit of each value first | `Packing::pack`, line 16: `/` replaced | `packingWritesTheHighBitOfEachValueFirst` and 3 more |
+| A row of the public matrix comes from its row index and the seed | `MatrixGeneration::forEachRow`: body replaced with `()` | `aSHAKERowIsTheHashOfTheRowIndexAndTheSeed`, `anAESRowIsTheEncryptionOfTheRowAndColumnBlocks` |
+| The lengths are the lengths of the liboqs header | `Parameters::secretKeyLength`, line 103: `-` replaced | `lengthsAreTheLengthsOfTheLiboqsHeader` |
+| A known-answer job fails on a wrong Rust digest | `ParityJob::knownAnswerJobs`: body replaced with `vec![]` | `knownAnswerJobsFollowTheDigestFilesAndTheSelection` |
+
+## Latest result for the linked oracle folder
+
+The run of 2026-10-23 on the branch `foundation/crate-builds`, of the functions that changed: `resolvedPath` and `OracleBuild::steps`.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `xtask`, `resolvedPath` and `OracleBuild::steps` | 6 | 4 | 0 | 2 | 0 |
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The disk adapter resolves the links of a path and keeps the end that does not exist yet | `DiskFileSystem::resolvedPath`: body replaced with `Default::default()` | `resolvedPathFollowsALinkAndKeepsTheEndThatDoesNotExistYet` |
+| The oracle build gives CMake the folders with every link resolved | Run by hand: `OracleBuild::steps` with the folders not resolved | `linkedOracleFolderIsClonedAndBuiltAtTheFolderThatTheLinkNames` |
+
+## Latest result for the blocks of the parity run
+
+The run of 2026-10-23 on the branch `foundation/parity-blocks`, of the functions that changed: `ParitySettings::caseBlocks`, `ParityOptions::parse`, `ParityJob::parityJobs`, `ParityJob::checkBlock` and `run` of the program, with the explicit timeout of the parity crate.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-parity`, the functions of the blocks | 26 | 17 | 0 | 9 | 0 |
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The blocks of an algorithm cover its cases in order, and the last block takes the rest | `ParitySettings::caseBlocks`: `+` replaced with `-` or `*` | `caseBlocksSplitTheVariationsInOrderAndTheLastBlockTakesTheRest` |
+| Only the first block checks the base case | `ParityJob::checkBlock`: `==` replaced with `!=` | `parityJobsSplitTheVariationsOfEachAlgorithmIntoBlocksThatTheShardsSplit` |
+| A block size is a count above zero | `ParityOptions::parse`: `>` replaced | `wrongOptionsAreErrorsThatNameTheOption` |
+| A whole run keeps the summary of one job for each algorithm | `parityJobs`: the guard of the whole range replaced with `true` or `false` | `parityJobsSplitTheVariationsOfEachAlgorithmIntoBlocksThatTheShardsSplit`, `parityJobsReportExactlyTheBrokenAlgorithms` |
+
+## Latest result for HQC
+
+The runs of 2026-10-23 on the branch `family/hqc`, with `OQS_ORACLE_DIR` set to the oracle folder. The second run took the 38 missed and timed-out mutants of the first run again with `--iterate`, after the new tests, with a timeout of 600 seconds. The facade ran with the tests of `oqs-native-parity` as well.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-hqc`, first run | 864 | 793 | 9 | 33 | 29 |
+| `oqs-native-hqc`, second run of the 38 | 38 | 13 | 7 | 0 | 18 |
+| `oqs-native-hqc`, both runs | 864 | 806 | 7 | 33 | 18 |
+| `oqs-native`, with the tests of `oqs-native-parity` | 21 | 6 | 0 | 7 | 8 |
+
+The 18 missed mutants of the second run are the equivalent mutants below, and the 7 timeouts are the endless loops of the rejection sampler. The 8 missed mutants of the facade replace the signature list or the stateful list, which stay empty until the first signature family, as in the FrodoKEM run.
+
+Seven of the nine timeouts stop the rejection loop of key generation, `rejectionSupport`: the deleted `!` of line 154, `barrettReduced` replaced with 0 or with 1, and four mutants of `Parameters::rejectionThreshold`, which replace the body with 0 or with 1, `*` with `/`, or `<<` with `>>`. With each of them no candidate gives a new position, so the loop never ends. The mutant of `rejectionThreshold` that replaces `/` with `%` ends. Its threshold is above every candidate, `derivedValuesAreTheValuesOfParametersHeader` fails at once, and `barrettReductionIsTheRemainderForEveryCandidateBelowTheThreshold` then reduces about 1.7 billion candidates in place of 50 million. The ninth timeout, `ReedSolomon::errorLocator` line 96, is an equivalent mutant. Every test that ended passed, and the suite did not end in 36 seconds on a loaded machine. It is in the list below.
+
+The decoder tests of the first run decoded words with at most `delta` errors. The new tests compare the decoders and the FFT with the internal C functions of liboqs 0.16.0, also for words that the code cannot correct, for ties of the Reed-Muller peak and for any values. They kill 12 of the 29 missed mutants. The other 17 are equivalent.
+
+### Equivalent mutants
+
+- `AdditiveFFT.rs`, `errorPositions`, line 68: `^=` replaced with `|=`. Line 67 sets every entry to zero, and line 68 is the first write of entry 0. An or and an exclusive or with zero give the same value.
+- `AdditiveFFT.rs`, `errorPositions`, lines 72 and 74: `^=` replaced with `|=`. For the indices from 1 to 127, the points `sums[index]` and `sums[index] ^ 1` are the 254 field elements other than 0 and 1, each once. `evaluationsAreTheValuesAtEveryFieldElement` checks that the points of the FFT are every element once. The logarithm takes these points to 254 different entries from 1 to 254, so each entry is written once, after line 67 set it to zero.
+- `AdditiveFFT.rs`, `errorPositions`, line 73: `^` replaced with `|` in `sums[index] ^ 1`. The basis of line 17 holds 128, 64, 32, 16, 8, 4 and 2, so bit 0 of each subset sum is zero, and the two operators give the same value.
+- `AdditiveFFT.rs`, `radix`, lines 102, 120 and 130: the match arm of 16, 8 or 4 coefficients deleted. That size then takes the general conversion of line 140, `radix_big` of the C code. The split `f(x) = f0(x^2 + x) + x f1(x^2 + x)`, with `f0` and `f1` of half the size of `f`, has one solution, because `f0(x^2 + x)` has an even degree and `x f1(x^2 + x)` has an odd degree. Both conversions only add coefficients. `radixConversionIsTheSplitOfItsDefinitionAtEverySize` checks the case and the general conversion of each size against the definition for each polynomial with a single coefficient 1, so the two give the same split for every polynomial. The test passes with each of the three mutants.
+- `AdditiveFFT.rs`, `recursiveEvaluations`, line 225: `-` replaced with `/` in `basisLength - 1`. The loop of line 226 then also writes the entry `basisLength - 1` of `gammas` and `deltas` when that entry is below 6. Lines 231 and 240 read only the first `basisLength - 1` entries, and the two arrays belong to the call.
+- `BinaryVector.rs`, `supportWithoutRejection`, line 177: `|` replaced with `^`. The fold tells whether a later position equals the position at `index`. The later positions are distinct, so at most one term is 1, and the two operators give the same value. Each position is at least its own index: line 171 adds a number of at least 0 to the index, and line 179 sets a position to its own index. The loop goes down from the second last index. Before the step of an index, the positions after it are distinct. The step keeps the position when it equals none of them, or sets it to the index, which is below each of them. So the positions from the index on are distinct after the step. The proof needs `n` below `2^32`, so that the cast of line 171 keeps the number, and `n` is at most 57637.
+- `CarrylessMultiplication.rs`, `karatsubaProduct`, lines 46, 47 and 48: `*` replaced with `+` in `2 * count`. The split happens only for more than 16 words (line 40). Then the mutant gives the low, high or middle product `count + 2` words in place of `2 count`, which still holds the `2 lowCount` or `2 highCount` words of that product. The regions stay apart, and only the scratch of the next level grows. The lines after the split read the words of each product only after the product wrote them, and each product first sets its whole result to zero (lines 79 and 101). So the result depends only on the factors.
+- `CarrylessMultiplication.rs`, `karatsubaProduct`, lines 81 and 87: `^=` replaced with `|=`. Line 79 sets the result to zero. The loop of line 80 writes the words below `2 lowCount`, and the loop of line 83 writes the words from `2 lowCount` to `2 count`, each word once. So each word is zero before its write.
+- `ReedMuller.rs`, `peakPosition`, line 96: `>` replaced with `>=` in `value > 0`. The mask changes only for the value 0, where `value` and `-value` are both 0, so line 97 gives the absolute value 0 either way.
+- `ReedMuller.rs`, `peakPosition`, line 103: `+` replaced with `-`. The peak position is from 0 to 127, and the cast to `u8` keeps the number modulo 256, where `p + 128` and `p - 128` are equal.
+- `ReedSolomon.rs`, `errorLocator`, line 96: `+` replaced with `*` in the size of `savedSigma`. The array then has 29 entries in place of 30. Lines 108 and 135 use only the first `delta` entries, and `delta` is at most 29. The first run reported this mutant as a timeout.
+- `ReedSolomon.rs`, `errorLocator`, line 111: `+` replaced with `*` in `step + 1`. Step `mu` then adds the shifted polynomial and sums the discrepancy up to the coefficient `mu`, in place of `mu + 1`. Let `mu0` be the first step whose discrepancy is not zero, and `a` that discrepancy, `S_(mu0 + 1)`. Before `mu0` the shifted polynomial is `x^(mu + 1)`, but its factor is zero. After `mu0` the shifted polynomial is `x^(mu - rho)` times the locator before step `rho`, whose degree is at most `rho`, and after a step `mu` above `mu0` the degree of the locator is at most `mu`. So each coefficient `mu + 1` that the mutant leaves out is zero, except the term `a x^(mu0 + 1)` of step `mu0` and the discrepancy term `sigma_1 S_1` after step 0. For `mu0` of `delta` or more, both forms stop at `delta`. For `mu0 = 0`, the degree cannot grow at step 1, and step 1 gives the same `sigma_1` in both forms. For `mu0` from 1 to `delta - 1`, `S_1` is zero. The degree is `mu0 + 1` after step `mu0`, and a later step `mu` up to `2 mu0 + 1` has the candidate degree `mu - mu0`, so the degree does not grow and the shifted polynomial is `x^(mu - mu0)`. The discrepancies of the two forms agree up to step `2 mu0`. At step `2 mu0 + 1` the discrepancy of the mutant differs by `a^2`, so that step adds `a x^(mu0 + 1)` to the locator of the mutant, and from there on the two forms are the same. `decodingOfWordsWhoseFirstSyndromesAreZeroGivesTheMessageOfTheCFunction` feeds words whose discrepancies are zero before each step `m` from 1 to `2 delta`, and it passes with the mutant.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The Reed-Solomon decoder gives the message of the C code for a word that it cannot correct | `ReedSolomon::errorLocator`, line 130: `^=` replaced with `\|=` or `&=`, and `^` replaced with `&`, line 137: `&` replaced with `\|` or `^` | `decodingOfEveryWeightGivesTheMessageOfTheCFunction`, `decodingOfWordsWhoseFirstSyndromesAreZeroGivesTheMessageOfTheCFunction`, `decodingOfAnyWordGivesTheMessageOfTheCFunction` |
+| The Reed-Muller peak is the first largest absolute value | `ReedMuller::peakPosition`, line 101: `^=` replaced with `\|=`, and `^` replaced with `\|` | `peakFollowsEachLargerAbsoluteValueInTurn`, `decodingOfManyErrorsAndTiesGivesTheBytesOfTheCFunction`, `decodingOfAnyWordGivesTheMessageOfTheCFunction` |
+| The FFT gives the values of the C code also for coefficients at and above the count | `AdditiveFFT::evaluations`, line 48, and `recursiveEvaluations`, line 255: `/` replaced with `*` | `evaluationsGiveTheValuesOfTheCFunctionForEveryCount` |
+| The error positions take the zero tests of the C code for any values | `AdditiveFFT::errorPositions`, line 68: `^=` replaced with `&=`, line 69: `^=` replaced with `\|=` | `errorPositionsGiveThePositionsOfTheCFunctionForAnyValues` |
+| The radix conversion of two coefficients is the split of its definition | `radix`, line 136: match arm 1 deleted | `radixConversionIsTheSplitOfItsDefinitionAtEverySize` |
+
+## Latest result for BIKE
+
+The runs of 2026-10-23 on the branch `family/bike`, with `OQS_ORACLE_DIR` set to the oracle folder. A restart of the machine stopped the run of the crate after 238 mutants, and the run went on with `--iterate`, which skips the mutants that the first part caught or found unviable. The facade ran with the tests of `oqs-native-parity` as well.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-bike` | 539 | 475 | 0 | 59 | 5, then 4 |
+| `oqs-native`, with the tests of `oqs-native-parity` | 21 | 6 | 0 | 7 | 8 |
+| `oqs-native-bike`, `BIKE::decapsulation` after the new test | 16 | 15 | 0 | 1 | 0 |
+
+The missed mutant of the comparison of decapsulation is a test gap, and `aDecodedErrorThatDiffersOnlyInTheTopBitOfTwoWordsIsRejected` now kills it. The other four are equivalent.
+
+### Equivalent mutants
+
+- `oqs-native-bike`, `Sampler::positions`, line 38: `+` replaced with `*` in `positions[index + 1..]`. The slice then starts at `index`, whose entry is still 0 when the candidate is compared. A candidate is at least `index`, so it equals 0 only when `index` is 0, and then the candidate and the index are both 0, so the result is the same.
+- `oqs-native-bike`, `Sampler::positions`, line 40: `|` replaced with `^` in the fold that finds a repeated value. The later positions are different from each other, so a candidate equals at most one of them, and the or and the exclusive or of the matches agree.
+- `oqs-native-bike`, `Decoder::thresholdOfWeight`, line 169: `*` replaced with `+` or with `/` in `high * factorLow`. A syndrome weight is at most r, so `high` is at most 4 in the three sets, and the mutant changes the high word of the product by at most 5 before the shift by 26. `theHighWordOfTheCCodeGivesTheThresholdOfTheExactHighWordForEveryWeight` checks every weight from 0 to r of each set, and both mutants give the threshold of the C code for each of them.
+- `oqs-native`, `Registry.rs`: the 8 missed mutants replace the signature list or the stateful list with an empty list, a lookup in those lists with `None`, or the name of a scheme of those lists with another text. Both lists stay empty until the first signature family, as in the FrodoKEM run.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The comparison of decapsulation counts a difference in the top bit of a word | `BIKE::decapsulation`, line 144: `\|` replaced with `^` | `aDecodedErrorThatDiffersOnlyInTheTopBitOfTwoWordsIsRejected` |
+| The comparison of decapsulation gathers every difference | `BIKE::decapsulation`, line 141: `\|` replaced with `^` | `aDecodedErrorThatDiffersInTheSameBitOfTwoWordsIsRejected` |
+| The Karatsuba product is the product of the definition for every split | `karatsubaProduct`: each operator replaced | `karatsubaProductEqualsTheSchoolbookProductForEverySplit` |
+| The power of a polynomial is the power of the C code | `PolynomialRing::power`: `<=` replaced with `>` | `permutedPowerGivesThePowerOfTheCCodeAndOfRepeatedSquaring` |
+| The weight of a syndrome counts only the coefficients below r | `Syndrome::weight`: each operator replaced | `weightCountsTheCoefficientsBelowR` |
+| The sampler gives the positions of the C sampler | `Sampler::positions`: the scaling and the repeat rule replaced | `decoderGivesTheErrorOfTheCDecoderForACiphertextBeyondItsReach`, `decoderGivesTheErrorsOfTheCDecoderForHostileInputs` |
+
+## Latest result for ML-DSA
+
+The first runs of 2026-10-23 on the branch `family/ml-dsa`, with `OQS_ORACLE_DIR` set to the oracle folder. The load average of the machine was 15 to 28, and the disk filled up before the run of the crate ended. The runs of the shared crates took the files that the port added or changed, and the facade ran with the tests of `oqs-native-parity` as well. The second runs took the crate, the facade and the whole parity crate in the ten shards of the `Mutants` workflow of CI, on the commit of the new tests below: [the crate](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40028751030), [the facade](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40028751411) and [the parity crate](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40028751618).
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-ml-dsa`, first run | 624 | 547 | 21 | 43 | 11 |
+| `oqs-native-ml-dsa`, second run in CI | 626 | 558 | 12 | 40 | 16 |
+| `oqs-native-sha2`, `SHA224.rs`, `SHA256.rs`, `SHA512224.rs` and `SHA512256.rs` | 69 | 68 | 1 | 0 | 0 |
+| `oqs-native-sha3`, `SHA3224.rs` | 5 | 5 | 0 | 0 | 0 |
+| `oqs-native-algorithm-tests`, `VectorRandom.rs` | 7 | 7 | 0 | 0 | 0 |
+| `oqs-native-parity`, `SignatureParity.rs` | 11 | 9 | 0 | 1 | 1 |
+| `oqs-native-parity`, second run of the whole crate in CI | 207 | 189 | 1 | 16 | 1 |
+| `oqs-native`, with the tests of `oqs-native-parity` | 21 | 9 | 0 | 7 | 5 |
+| `oqs-native`, with the tests of `oqs-native-parity`, second run in CI | 21 | 10 | 0 | 7 | 4 |
+
+The full disk spoiled the results of five mutants of `decomposed` in `Polynomial.rs`: `*` replaced with `+` or with `/` at both places of line 117, and `-` replaced with `+` in `low - modulus`, line 118. Two of them never ran, so the counts of the table add up to 622. Applied by hand, each mutant of line 117 fails 26 tests and the mutant of line 118 fails 17, among them `decompositionAndHintsFollowFIPS204ForEveryValue` and the known answers of every count of each set.
+
+Eleven of the 21 timeouts are endless loops of the samplers. Applied by hand, each kept the unit tests that sample a polynomial running for 300 seconds, where the whole unit test binary ends in under a second.
+
+- `sampledUniform`, line 390, and `sampledShort`, line 420: `<` replaced with `<=`. The loop goes on at 256 coefficients and takes no candidate.
+- `sampledUniform`, line 393, and `sampledShort`, line 424: `==` replaced with `!=`. The inner loop stops before its first candidate.
+- `sampledUniform`, line 403, and `sampledShort`, line 429: `+=` replaced with `*=`. The count stays at 0.
+- `sampledUniform`, line 400: `&` replaced with `|`. Each candidate is at least `2^23 - 1`, which is above q.
+- `boundedCoefficient`, line 441: the body replaced with `None`, and line 444: `<` replaced with `>`. No half byte gives a coefficient for eta 2, so `sampledShort` never ends. `boundedCoefficientsAreTheCoeffFromHalfByteOfFIPS204` fails at once.
+- `sampledInBall`, line 483: `+=` replaced with `*=`. The position stays at byte 8 of the stream, and the loop never ends when that byte is above `256 - tau`.
+- `sampledInBall`, line 484: `<=` replaced with `>`. At the index 255 no byte is above the index.
+
+One more timeout ends with a failed test, but only after hours. In `sampledUniform`, line 401, `<` replaced with `==` lets only a candidate of exactly q count, and such a candidate comes once in 2^23 candidates. One polynomial then takes about 2^31 candidates, about 30 seconds in the test build. `samplesStayInTheirRangesAndDependOnTheirSeeds` fails after one such polynomial, because its coefficients are q. `keyPairsHaveTheLayoutOfFIPS204` samples 204 of them, so the unit tests end after more than an hour.
+
+The other nine timeouts are equivalent mutants. Applied by hand, each passed every test of the crate. A caught mutant usually stops the suite at the first test binary that fails, and an equivalent mutant runs every binary, so on the loaded machine the equivalent mutants passed the time limit. They are in the list below.
+
+Of the 11 missed mutants, four are test gaps. `eachConstantIsTheConstantOfFIPS204AndOfTheHeaderOfMLDSANative` and `uniformSamplingSkipsACandidateOfQAndGivesThePolynomialOfTheCFunction` kill them. The other seven are equivalent.
+
+The second run of the crate confirms the first. Its 16 missed mutants are the 16 equivalent mutants below, among them the nine that the first run reported as timeouts, and its 12 timeouts are the 11 endless loops and the mutant of line 401 above.
+
+The timeout of `oqs-native-sha2` replaces the body of `SHA256::withInitialState` with `Default::default()`. `default` calls `new`, which calls `withInitialState` again, so the calls never end. The missed mutant of `SignatureParity.rs` makes `checkEveryCase` return `Ok(())`. The parity jobs check blocks with `checkCase`, so only tests that expect success called `checkEveryCase` for a scheme, and `aSignatureDefectInTheBaseCaseNamesTheSnapshotField` now runs it on a broken scheme. The missed mutant and the timeout of the second run of the parity crate are the coin of `VariationGenerator::usesContextForm` and the selection of `ParityJob::cSnapshot`, which the sections of the parity harness and of the stateful known answers record.
+
+The first run of the facade missed the mutant that replaces `Registry::signatureSchemes` with an empty list. The coverage test looked up each C name with `Registry::signatureScheme`, and the parity program checks the schemes of the list, so an empty list checked no scheme and every test passed. `everyCAlgorithmIsRegisteredOrListedAsNotYetPorted` now reads the three lists, and the second run caught the mutant. The other four missed mutants replace the stateful list with an empty list, a lookup in it with `None`, or the name of a stateful scheme with another text. The stateful list stays empty until the first stateful family, as in the FrodoKEM run.
+
+### Equivalent mutants
+
+- `Parameters.rs`, the gamma2 of `mldsa44`, `mldsa65` and `mldsa87` at the lines 161, 175 and 189, which were the lines 154, 168 and 182 in the first run, `Parameters::commitmentBits`, line 54, and `Polynomial.rs`, `isNarrowRounding`, line 102: `-` replaced with `+` or with `/` in `(q - 1) / 88` and `(q - 1) / 32`. These are ten mutants, five missed and five timeouts. q - 1 = 8380416 is 88 times 95232 and 32 times 261888. q + 1 and q leave the remainders 2 and 1, so the quotients stay 95232 and 261888. The constant does not change, so the program does not change.
+- `Polynomial.rs`, `rootPowers`, line 47, and `decomposed`, line 118: `-` replaced with `/` in `(q - 1) / 2`. q is odd, so `q / 2` is 4190208 as well.
+- `Polynomial.rs`, `rootPowers`, line 47: `>` replaced with `>=`, and `-` replaced with `+` in `(modulusWide - 1) / 2`. The first mutant changes the centering only for an entry of 4190208 before the centering, and the second only for an entry of 4190209. No entry from 1 to 255 has one of these values. `twiddleFactorsAreTheTableOfMLDSANative` checks every entry against its definition and passes with both mutants, and `zetas` is a constant, so the program does not change.
+- `Polynomial.rs`, `rootPowers`, line 30: `%` replaced with `+` in `(1i64 << 32) % modulusWide`. The start value is then `2^32 + q`, which is congruent to `2^32 mod q`. Each entry from 1 to 255 multiplies the start value by 1753 at least once, because BitRev8 of its index is at least 1, and takes the product modulo q. The product stays below 2^43, so it does not overflow, and each remainder is the same. `twiddleFactorsAreTheTableOfMLDSANative` passes with the mutant.
+- `Polynomial.rs`, `decomposed`, line 118: `-` replaced with `+` in `(modulus - 1) / 2 - low`. The selection then subtracts q only above 4190209 in place of above 4190208, so the output changes only for a low part of exactly 4190209. For a standard representative, line 117 gives a low part from `-gamma2 + 1` to gamma2 when the high part does not wrap, and the value itself, from `q - gamma2` to `q - 1`, when the high part wraps to 0. gamma2 is at most 261888, so no low part is 4190209. `decompositionAndHintsFollowFIPS204ForEveryValue` checks every value from 0 to `q - 1` for both values of gamma2 and passes with the mutant. Only standard representatives reach `decomposed`. In `InternalAlgorithms.rs`, `attemptedSignature` and `isValidSignature` give `Polynomial::decomposed` and `Polynomial::hintedHigh` the output of `nonNegative`, which maps each coefficient of `inverseTransform`, below q in absolute value, into the range from 0 to `q - 1`.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| A signature makes the attempts of mldsa-native before it fails | `InternalAlgorithms::signature`, line 210 of the first run, now `Parameters::signingAttemptCount`: `-` replaced with `+` or `/`, `/` replaced with `*` | `eachConstantIsTheConstantOfFIPS204AndOfTheHeaderOfMLDSANative` |
+| The uniform sampler refuses a candidate of q | `Polynomial::sampledUniform`, line 401: `<` replaced with `<=` | `uniformSamplingSkipsACandidateOfQAndGivesThePolynomialOfTheCFunction` |
+| Decompose gives the high and the low part of FIPS 204 | `decomposed`, line 117: `*` replaced with `+` or `/`, line 118: `-` replaced with `+` in `low - modulus` | `decompositionAndHintsFollowFIPS204ForEveryValue` and the known answers of every count of each set |
+| The parity program checks the signature schemes of the registry list | `Registry::signatureSchemes`: the list replaced with an empty list | `everyCAlgorithmIsRegisteredOrListedAsNotYetPorted` |
+| The check of every case of a scheme reports a broken scheme | `SignatureParity::checkEveryCase`: the body replaced with `Ok(())` | `aSignatureDefectInTheBaseCaseNamesTheSnapshotField` |
+
+## Latest result for Falcon
+
+The run of 2026-10-23 on the branch `family/falcon`, in the ten shards of the `Mutants` workflow of CI, with `OQS_ORACLE_DIR` set to the oracle folder. The unmutated suite took 3.6 seconds, so the time limit of a mutant was about 18 seconds. The line numbers below are those of the code of the run. The owner runs the crate again after the changes of this section and adds the counts of that run.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-falcon`, ten shards | 2486 | 1202 | 1134 | 45 | 105 |
+
+The [second run](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40046895309), on the commit of the new tests and the new forms, had 2465 mutants: 1255 caught, 1120 timeouts, 46 unviable and 44 missed. The 44 missed mutants are the 33 equivalent mutants and the 11 open mutants below.
+
+1082 of the 1134 timeouts had a failed test before the time limit. The other 52 had no failed test at the limit. Each of them ran by hand as the unit test binary of the code of the run with its diff applied, with one thread for each test, for 300 seconds. The last 40 ran with the address space capped at 6 GiB. The first 12 ran before the cap, and their memory did not grow. None of the 52 passes.
+
+Two end with a failed test:
+
+- `BigInteger::bezout`, line 348: `-=` replaced with `+=`. The count of steps only grows, and the overflow check of the test build stops it. Seven tests fail, among them `bezoutGivesTheCoefficientsOfTwoCoprimeIntegers`.
+- `KeyGenerator::gaussianPolynomial`, line 187: `!` deleted. `eachCandidateIsRefusedOrAcceptedAsTheCCodeDecides` fails.
+
+The other 50 did not end in 300 seconds. Each leaves the tests of one loop unfinished, and no test fails:
+
+- The signer draws a new vector without end, because no vector is short. `complexQuotient`, line 36: `*` replaced with `/`. `Signer::sampleTree`, line 211: `*` replaced with `+` or with `/`. `Signer::loadBasis`, line 95: `*` replaced with `+`, and line 98: `*` replaced with `+` or with `/`. The quotient, the leaf of the tree or the slots of the basis are wrong. `decompositionGivesTheBitsOfPolyLDLFFTAlsoForAComplexG00` now fails at once for the mutant of line 36.
+- The trial of the sampler accepts no candidate, or almost none, so a test that samples a few hundred values takes hours or more. `GaussianSampler::isBernoulliExponentialTrue` replaced with `false`. Line 111: `&` replaced with `^` or with `|`, which makes the shift 63, so the threshold is 0 or 1 and a candidate passes only when eight random bytes are zero. Line 122: `>>` replaced with `<<`, which makes the first seven bytes of the threshold zero. `GaussianSampler::sample`, line 63: `-` replaced with `+`, which makes the fraction of a large center about twice the center. `halfGaussian`, line 92: `|` replaced with `&`, which makes the top limb of the random value zero, so the half-Gaussian value is 10 or more for each draw.
+- `KeyGenerator::gaussianPolynomial` never returns. `KeyGenerator::nextWord` replaced with 0 or with 1, `gaussianValue` replaced with -1, 0 or 1, line 159: `<<` replaced with `>>`, which draws no value below degree 1024, line 170: `|=` replaced with `&=`, `&` replaced with `^` or with `|` at either place, and `^` replaced with `&` or with `|`, and line 187: `-` deleted, which keeps only the value 127, give every coefficient of a degree below 1024 the same parity. N is even, so the sum of N such coefficients is even, and no last coefficient makes it odd. Line 163: `>>` replaced with `<<`, line 164: `&` replaced with `^` or with `|`, `!` deleted and `<<` replaced with `>>`, and line 173: `^` replaced with `&` or with `|`, give most values the same sign. At degree 2 a coefficient is the sum of 512 values, and the sum is then never within `-127..=127`. A simulation of 400 coefficients for each of these mutants found none in the range.
+- The key generator refuses every candidate. `KeyGenerator::isOrthogonalizedNormBelowBound` replaced with `false`. Line 167: `&` replaced with `|`, and line 169: `^` replaced with `&`, make the variance of a value 13 to 19 times smaller than with the code of the run, so the squared norm of the orthogonalized vector is above 100000, against the bound 16822. A simulation of 20 pairs at degrees 32 and 512 found none below 150000. Line 171: `|=` replaced with `&=` makes the variance about 100 times larger, so a pair either does not fit the encoding or has a squared norm far above 16823. Line 82: `!` deleted refuses each pair that fits the encoding, and up to degree 32 every pair fits. Line 93: `<<` replaced with `>>` makes the limit of `F` equal to -1, so every `F` is out of range.
+- A transform loop never ends. `HashToPoint::point`, line 64, `ModularPolynomial::transform`, line 104, and `PrimeModulus::transform`, line 189: the doubling of the step replaced with a halving. The step becomes 0, and the loop condition stays true. `PrimeModulus::powerOfR`, line 115: `+=` replaced with `*=`. The bit index stays 0.
+- The reduction loop of the solver never ends. `NTRUSolver::reduce`, line 577: `<` replaced with `==` or with `>`, and line 578: `-` deleted. A negative `dc` stays negative, and `dc >>= 1` stops at -1. Line 644: `-` replaced with `+`. The scale grows, so `scaleOfK <= 0` never holds before the overflow check, about 86 million steps later.
+- `FloatingPoint::sub`, line 346: `+` replaced with `-`. The subtraction calls itself through `self - -other`, so it never returns.
+- `Falcon::encodedValue`, line 109: `!` deleted, or the match guard replaced with `false`. A compressed set then draws a new vector without end when no vector fits, which `aCompressedSetFailsWhenTheVectorDoesNotFitAndAPaddedSetSignsAgain` gives.
+
+Of the 105 missed mutants, 36 are test gaps, and the new tests kill them. 22 join disjoint fields with `|`, which now are `+`. Each new mutant of the 22 sums, `-` and `*` at each place, fails a test, except `-` of `reversals` in `PrimeModulus.rs`, which does not build. 3 are in copies of the saturated norm in `KeyGenerator::isNormBelowBound` and `Signer::shortVector`, which now call `SignatureNorm::saturatedSquaredNorm`, the one owner of the decision. Each mutant of that function fails `saturatedSquaredNormIsTheSumBelow2To31AndElseSaturates`. 33 are equivalent, and 11 are open.
+
+### Equivalent mutants
+
+- `BigInteger.rs`, `bezout`, line 285: `+` replaced with `*` in `62 * length + 30`. The loop then makes more reductions. The C code states that each reduction removes at least 30 bits from the total length, so the count of `62 length + 30` bits in steps of 30 reaches the GCD. A hill climb over pairs of 2 to 12 words never needed more than 2 length of the 2 length + 1 reductions. After a reaches 1, it is odd, so a step never halves it. A subtraction of b from a needs an odd b whose top words are below those of a, and no b of at least 1 has such top words. So pa is then `2^31` and pb is 0, and a, u and v stay the same. For a GCD other than 1, or an even x or y, the result is false in both forms. The proof rests on the bound of the C code.
+- `BigInteger.rs`, `bezout`, lines 294 and 296: `^=` replaced with `|=`, and `^` replaced with `|` in `(a0 ^ aw)` and `(b0 ^ bw)`. a0 and b0 start at 0. `c0` is all ones exactly for the indices from the top down to the highest index where a or b is not zero, and above that index the words are 0. So a0 is still 0 when it takes the word of that index. An or and an exclusive or with 0 give the same value, and below that index `c0` is 0, so a0 keeps its value in both forms. The same holds for b0.
+- `BigInteger.rs`, `bezout`, line 314: `^` replaced with `|` in `difference ^ (...)`, and `^` replaced with `&` or with `|` in `aHigh ^ bHigh` and in `aHigh ^ difference`. aHigh and bHigh start below `2^62`. Line 321 subtracts bHigh from aHigh only when aHigh is above, line 325 subtracts aHigh from bHigh only when it is not above, and the shifts of lines 332 and 336 make them smaller, so both stay below `2^62`, and the comparison of line 314 is the comparison of the two values. Bit 63 of `aHigh ^ bHigh`, of `aHigh & bHigh` and of `aHigh | bHigh` is then 0, so the term in parentheses has bit 63 at 0 in each form, and bit 63 of the result is bit 63 of `difference`.
+- `BigInteger.rs`, `bezout`, line 355: `|` replaced with `^` in `nonOne | nonOne.wrapping_neg()`. Each reduction ends with `negate`, which masks every word of a to 31 bits, so `nonOne` is below `2^31`. For a `nonOne` that is not zero, bit 31 of its negation is 1 and its own bit 31 is 0, so both forms give bit 31 as 1. For 0 both give 0.
+- `BigInteger.rs`, `normalizeAroundZero`, line 86: `|` replaced with `^`. The half word and the word of x are below `2^31`, so the difference lies between `-2^31` and `2^31` and is never `2^31` modulo `2^32`. The first term is 1 only for a positive difference and the second term is all ones only for a negative one, so they are never both set.
+- `Encoding.rs`, `modularEncoded`, line 72: `*` replaced with `+` or with `/`. The value is only the capacity of the vector of the writer, and the bytes are the same.
+- `Encoding.rs`, `modularDecoded`, line 83: `*` replaced with `+` or with `/`. The length only serves the early check. For a shorter input, the loop of line 91 runs out of bytes before it has N values, and `bytes.next()?` returns `None`, the result of the check.
+- `Falcon.rs`, `generateKeyPair`, line 134: `-` replaced with `+`. Each trimmed encoding has the fixed length of N times its bits, and the room before each one is at least that length, so the room never refuses an encoding in either form.
+- `Falcon.rs`, `isValidSignature`, line 193: `<` replaced with `<=`. The mutant also refuses a signature of exactly 41 bytes. The code of the run refuses it at line 204, where the value after the nonce is empty.
+- `FloatingPoint.rs`, `scaled`, line 78: `|` replaced with `^`. For an absolute value below `2^63`, bit 63 of the value is 0, so both forms give bit 63 of the negation. Only `-2^63` has an absolute value of `2^63`, and no caller gives it. The callers of `of` outside the tests convert an `i8`, `u16` or `i32`, except `NTRUSolver::depthOne`, line 729, which converts a value that lines 724 and 725 keep strictly between `-2^63` and `2^63` as a binary64 value, so at least `-2^63 + 1024`. `scaled` has no other caller outside the tests.
+- `FloatingPoint.rs`, `squareRoot`, line 198: `|` replaced with `^`. Before the step of each bit b, the loop of lines 187 to 195 keeps the remainder equal to `(X - Q^2) / b` for `X = M 2^53`, where M is the mantissa below `2^55` and Q the root so far. After the step of b = 1 and its shift, it is `2 (X - Q^2)`. Q is the integer square root of X, so this is at most `4 Q`, below `2^56`. So bit 63 of the remainder is 0, and both forms give bit 63 of its negation.
+- `FloatingPoint.rs`, `isLessThan`, line 214: `^` replaced with `|` in `isBelow ^ isAbove`. The term counts only when both values are negative. Then line 210 keeps `right`, the difference of two negative 64-bit values does not overflow, and `left - right` and `right - left` are never both negative. So `isBelow` and `isAbove` are never both 1.
+- `FloatingPoint.rs`, `div`, line 422: `|` replaced with `^`. The loop keeps `xMantissa` below twice `yMantissa`: a subtraction leaves it below `yMantissa`, and the shift doubles it. `yMantissa` is below `2^53`, so the remainder is below `2^54` and its bit 63 is 0.
+- `GaussianSampler.rs`, `isBernoulliExponentialTrue`, line 111: `^=` replaced with `|=`. For a shift of 63 or less the mask is 0, and both forms keep the shift. For a larger shift, the code of the run gives 63, and the mutant gives the shift with its low six bits set. `wrapping_shr` on line 115, the only use of the shift, shifts by the value modulo 64, which is 63 in both forms.
+- `HashToPoint.rs`, `point`, line 61: `^` replaced with `|` in `sourceValue ^ swapped`. Without a swap, `swapped` is 0. With a swap, the target slot holds the refused marker `0xFFFF`, and `s | (s ^ 0xFFFF)` is `0xFFFF` for every 16-bit s. The target is always refused: let `J_r = p_r - r` be the jump of the accepted value of rank r at position `p_r`. The jumps do not decrease with the rank. Before the pass of the shift `2^t`, the value of rank r is at `r + 2^t floor(J_r / 2^t)`, and `jump` on line 49 is that position minus r. When it moves by `2^t`, the value of rank `r - 1` has already had its pass, and it lies at `r - 1 + 2^(t+1) floor(J_(r-1) / 2^(t+1))`. Bit t of `J_r` is 1, so that position is below the target `r + 2^t (floor(J_r / 2^t) - 1)`. The values of a lower rank lie below it, and the values of a higher rank lie above the position of r. So no accepted value is in the target slot.
+- `ModularPolynomial.rs`, `inverseTransform`, line 114, and `PrimeModulus.rs`, `inverseTransform`, line 207: `>` replaced with `>=`. The extra pass has `hm = 0`, so its loop body never runs. It changes only `t` and `m`, which no line reads after the loop.
+- `NTRUSolver.rs`, `halvedPair`, lines 174 and 198: `*` replaced with `+` in the split at `hn * tlen`. These lines run only when `isOutTransform` is false. Only `deepest`, line 242, calls `pairAtDepth` with false, and with the depth equal to the logn. `pairAtDepth` then passes false only to its last call of `halvedPair`, at line 223 or 229, with the logn 1. There `hn` is 1, and the inverse transforms of the split have the logn 0, which return at once.
+- `NTRUSolver.rs`, `reduce`, line 577: `<` replaced with `<=`. For `dc = 0` the mutant takes the other branch, but the loop of line 584 does not run, so the scale is 1 in both forms.
+- `NTRUSolver.rs`, `reduce`, line 634: `<` replaced with `<=`. At the first step the new maximum is `31 llen + 12 std + 10`, above `31 llen`. It falls by 25 each step until the scale reaches 0, and by less at that step. So before the scale reaches 0 it can equal `31 llen` only when `12 std + 10` is a multiple of 25, and at the scale 0 it is `avg + 6 std + 10`, far below `31 llen` at each depth. For the deviations 0, 1, 2, 4, 5, 8 and 13 of the depths of the intermediate levels, `12 std + 10` is 10, 22, 34, 58, 70, 106 and 166, and none is a multiple of 25. Once the maximum moved below `31 llen`, each new maximum is below the one before. So the two values are never equal.
+- `NTRUSolver.rs`, `reduce`, line 647: `<` replaced with `<=`. For a large length equal to `slen`, the fill of line 652 covers the empty range `slen..slen`.
+- `NTRUSolver.rs`, `depthOne`, line 691: `*` replaced with `/`, and `+` replaced with `-` in `v * slen + u`. At depth 1 `slen` is 1 and the line runs only for `u < slen`, so u is 0. `v / 1 + 0` and `v * 1 - 0` are both v.
+
+### Open mutants
+
+No test kills them, and no proof shows them equivalent. The evidence:
+
+- `BigInteger.rs`, `bezout`, lines 295 and 297: `^=` replaced with `&=` or with `|=`, and `^` replaced with `&` or with `|`, in the second word of a or of b. Line 301 and line 303: `|=` replaced with `&=`. These ten mutants change only the approximation of a or of b from its two top words. When the GCD is 1, every run that reaches a = 1 gives the same u and v, because u below y and v below x are unique. So the mutants differ only when the approximation makes the algorithm run out of reductions. Copies of `zint_bezout` with each mutation gave the result and the coefficients of `zint_bezout` for 400000 random pairs of six kinds and for 400000 pairs with tops of one to three bits. A hill climb over pairs of 2 to 12 words, which maximizes the last reduction after which a is not 1, found at most 2 length for the mutants that drop the second word, which are `^=` replaced with `&=`, `^` replaced with `&`, and lines 301 and 303, and at most 2 length - 1 for the others. The budget is 2 length + 1, and the code of the run needs at most 2 length - 1. The same climb found the pairs that kill line 299.
+- `NTRUSolver.rs`, `reduce`, line 604: `<=` replaced with `>`. The mutant swaps the plain product and the product in the transform. The two agree when each coefficient of `k f` lies within half the product of the `slen + 1` primes, about `2^(31 slen + 30)`. A coefficient of k is below `2^31` and a coefficient of f below `2^(31 slen - 1)`, so a sum of N such terms can pass the bound, and no line of the code keeps it within. A C copy of `solve_NTRU_intermediate` with the mutation gave the result of the C function for 3600 inputs with random deeper values and top polynomials of four kinds, at depths 2 to 8 and degrees up to 1024. For a key, the coefficients of f have about the bits of `BITLENGTH`, and the products stay several bits below the bound.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The binary GCD takes the top words where either value is not zero | `BigInteger::bezout`, line 299: `\|` replaced with `&` or with `^` | `bezoutGivesTheCoefficientsOfZintBezoutForEveryKindOfPair` |
+| A negated a or b negates its factors | `BigInteger::bezout`, line 340: `-` deleted, line 341: `-` deleted, or `>>` replaced with `<<` | `bezoutGivesTheCoefficientsOfZintBezoutForEveryKindOfPair` |
+| The count of reductions of the binary GCD is the count of the C code | `BigInteger::bezout`, line 285: `+` replaced with `-` | `bezoutGivesTheCoefficientsOfZintBezoutForEveryKindOfPair` |
+| The co-reduction gives the negations of `zint_co_reduce` | `BigInteger::coReduce`, lines 173 and 174: `>>` replaced with `<<`, line 177: `\|` replaced with `&`, `<<` replaced with `>>` | `coReductionGivesTheValuesOfZintCoReduceAlsoWhenItNegates` |
+| The modular finish adds or subtracts the modulus as `zint_finish_mod` does | `BigInteger::finishReduction`, line 190: `\|` replaced with `^` | `modularCoReductionGivesTheValuesOfZintCoReduceMod` |
+| The normalization around zero compares with half the modulus | `BigInteger::normalizeAroundZero`, line 83: `<<` replaced with `>>`, line 84: `&` replaced with `^` or with `\|` | `normalizationAroundZeroGivesTheValuesOfZintNormZeroAtHalfTheModulus` |
+| Rounding keeps each dropped bit in the sticky bit | `FloatingPoint::roundedToNearest`, lines 117 and 118: `\|` replaced with `^` | `roundingToNearestKeepsEachDroppedBitInTheStickyBit` |
+| The normalization shifts each mantissa until its top bit is set | `normalize64`, line 283: `\|` replaced with `^` | `normalizationShiftsEachMantissaUntilItsTopBitIsSet` |
+| A product keeps the sticky bit of equal low limbs | `FloatingPoint::mul`, line 388: `\|` replaced with `^` | `productsWhoseLowLimbsAreEqualKeepTheStickyBit` |
+| A zero factor gives the signed zero | `FloatingPoint::mul`, line 398: `+` replaced with `-` | `aZeroFactorInEitherPlaceGivesTheSignedZeroOfIEEE754` |
+| The inverse transform of degree 1 does not scale | `FourierTransform::inverseTransform`, line 106: `>` replaced with `>=` | `transformsOfEveryDegreeGiveTheBitsOfFFTAndIFFT` |
+| The LDL decomposition divides by a complex g00 | `complexQuotient`, line 34: `+` replaced with `-`, line 36: `-` deleted | `decompositionGivesTheBitsOfPolyLDLFFTAlsoForAComplexG00` |
+| The half-Gaussian value is the count of the table values above the random bits | `GaussianSampler::halfGaussian`, lines 90 and 91: `&` replaced with `^` or with `\|`, `>>` replaced with `<<`, line 96: `>>` replaced with `<<` | `halfGaussianIsTheCountOfTheTableValuesAboveTheRandomBits` |
+| The exponential trial saturates its shift at 63 | `GaussianSampler::isBernoulliExponentialTrue`, line 111: `^` replaced with `&` or with `\|`, `>>` replaced with `<<` | `bernoulliTrialIsBerExpOfTheCCodeAlsoWhereTheShiftSaturates` |
+| HashToPoint reads the samples of the C code and no more | `HashToPoint::point`, line 25: `+` replaced with `*` | `pointReadsTheSamplesOfTheCCodeAndNoMore` |
+| The approximation of a negative value carries across zero words | `NTRUSolver::approximations`, line 282: `>>` replaced with `<<` | `approximationsGiveTheValuesOfPolyBigToFpAlsoWhenTheCarryCrossesZeroWords` |
+| The bit lengths of f and g set the scales of the reduction | `NTRUSolver::reduce`, lines 537 and 538: `*` replaced with `+` | `intermediateLevelsGiveTheValuesOfSolveNTRUIntermediateAndFailWhereItFails` |
+| Depth 1 fails where `solve_NTRU_binary_depth1` fails | `NTRUSolver::depthOne`, line 725: `\|\|` replaced with `&&` | `depthOneGivesTheValuesOfSolveNTRUBinaryDepth1AndFailsWhereItFails` |
+| The saturated norm saturates once the sum reaches `2^31` | `SignatureNorm::saturatedSquaredNorm`: each operator of the overflow word replaced, and the start set to 0 | `saturatedSquaredNormIsTheSumBelow2To31AndElseSaturates` |
+
+## Latest result for MAYO
+
+The run of 2026-10-23 is the `Mutants` workflow of CI, in ten shards, on the branch `mutants/oqs-native-mayo.2`, which holds the code of the branch `family/mayo`: [run 40026053155](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40026053155).
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-mayo` | 963 | 948 | 0 | 6 | 9 |
+
+The [second run](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40037053418), on the commit of the new test and the new forms, had 942 mutants: 936 caught, no timeout, 6 unviable and no missed mutant.
+
+The run had no timeout. Five of the six unviable mutants replace a function with `Default::default()` for a type that has no default. The sixth replaces `+` with `-` in `Parameters::publicKeyLength`, and the subtraction then overflows when the compiler evaluates the lengths of the sets.
+
+Of the nine missed mutants, one is a test gap. With `*` replaced with `/` in line 126 of `EchelonForm.rs`, the index of the clearing is `row / columnCount + unknownCount`. In every set m is below k o + 1, so the index is the same for each row, and `sampledSolution` clears the last column of the matrix only in the first row before the product `A r`. The other rows then reach the product only through the element of the randomizer after the k o unknowns, and the unit tests gave only randomizers whose element there is zero, as the signature does. The known-answer program of the unit tests now also calls `sample_solution` with the element 9, in the case `randomizerTail` of `solutionGivesTheSolutionOfTheCCodeOrNone`, and the case kills the mutant. The same case showed that the solution started as a copy of the whole randomizer, where `x <- r` of the C code copies only the k o unknowns. The solution now starts as the unknowns and a zero. The signature sets the element to zero, so its output does not change.
+
+The other eight are equivalent. Each of their lines now has a form whose mutants change the output. The list below gives the proof for each mutant at the lines of the run. Applied by hand, each mutant of the new forms fails at least one unit test. The changed lines have had no second run of the workflow.
+
+With the new case, the known-answer program and the unit tests of the crate moved to the shared contract of `Documentation/Learnings/COracle.md`. The inputs come from `LinearCongruentialSequence` and the digests from `OutputDigest`, as its rule "The internal C functions give known answers for the arithmetic" asks. Before, each input was SHAKE256 of a label.
+
+### Equivalent mutants
+
+- `EchelonForm.rs`, `echelonForm`, line 66: `|` replaced with `^` in `isPivotRow | (isBelowPivotRow & pivotIsZero)`. Line 64 sets `isPivotRow` to all ones only for the pivot row, and line 65 sets `isBelowPivotRow` to all ones only for a row below it. So at most one of the two terms is not zero, and the or and the exclusive or give the same mask. The line now joins the two masks with `+`.
+- `EchelonForm.rs`, `sampledSolution`, line 149: `^=` replaced with `|=` in `columnBytes ^= u64::from(...) << (8 * offset)`, the word of the elements of a column in eight rows. Line 147 sets the word to zero, and the step `offset` writes the byte `offset` alone, because each element is one byte. So each byte is zero before its write. The word is now one assignment with `u64::from_le_bytes`.
+- `LinearSystem.rs`, `rightHandSide`, line 41: `%` replaced with `+` in `((sum[last] >> topShift) % 16) as u8`. `top` is only the first factor of `field::product` (line 48), which reads only the bits 0 to 3 of that factor (`Field.rs`, lines 8 to 11). Adding 16 does not change those bits. The line now takes the bits with `& 0x0F`.
+- `LinearSystem.rs`, `rightHandSide`, line 44: `^=` replaced with `|=` in `sum[limb + 1] ^= sum[limb] >> 60`. The shift of line 42, or of line 45 in the step before, leaves the low nibble of `sum[limb + 1]` zero, and `sum[limb] >> 60` is below 16. So the two operators give the same word. The line now adds the carry with `+=`.
+- `LinearSystem.rs`, `systemMatrix`, line 183: `-` replaced with `+` or with `/` in `(0..columnCount - 1).step_by(16)`. The starts are the multiples of 16 below the end of the range, and the mutants raise the end from k o to k o + 2 or k o + 1. k o is 80, 68, 110 and 144 in the four sets, so the only new start is k o, in `MAYO-1` and `MAYO-5`. For that start, line 185 gives the count 0, so the step writes nothing. Its read of line 184 takes a word of the next 16 rows, and `words` has room for them (line 116).
+- `LinearSystem.rs`, `systemMatrix`, line 185: `-` replaced with `/` in `16.min(columnCount - 1 - start)`. The count then grows by one at the last start when k o is not a multiple of 16, in `MAYO-2` and `MAYO-3`. So the step also writes the column k o, from the nibble of the column k o in the word. That element is zero. Lines 133 and 135 write only the columns below k o, the transposition of line 150 changes only the layout of the elements, and the reduction of lines 159 to 176 adds to an element only multiples of an element of the same column. Line 177 already set the last column to zero.
+- `MatrixProducts.rs`, `quadraticForms`, line 309: `+` replaced with `*` in `accumulator[start..start + limbCount]`, where line 306 sets `start` to an element of the signature times `limbCount`. Each element is below 16, because the only caller decodes the signature with `field::decode` (`InternalAlgorithms.rs`, line 255). For the element 0 the range is empty, so the bin 0 misses the entry, but `multiplyBins` never reads the bin 0 (`PackedVectors.rs`, lines 57 to 72 and line 87). For an element from 1 to 15 the range starts at the same word and is at least as long, because `limbCount` is at least 4. `add` zips the range with the entry of `limbCount` words (`PackedVectors.rs`, line 18), so it changes the same words. The longest range ends at word `15 limbCount^2`, inside the accumulator of `16 limbCount n` words. Each bin is now `mutableEntry` of the accumulator.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The solution does not depend on the element of the randomizer after the k o unknowns, as in the C code | `sampledSolution`, line 126: `*` replaced with `/` | `solutionGivesTheSolutionOfTheCCodeOrNone`, case `randomizerTail` |
+| The solution starts as the k o unknowns of the randomizer and a zero | `sampledSolution`: the copy of the unknowns deleted, by hand | `solutionGivesTheSolutionOfTheCCodeOrNone` |
+| The back substitution reads the elements of a column in eight rows at a time | `sampledSolution`: `+` replaced with `*` in `first + offset`, and with `-` before `column`, by hand | `solutionGivesTheSolutionOfTheCCodeOrNone` |
+| The pivot search joins the mask of the pivot row and the mask of a lower row while the pivot is zero | `echelonForm`: `+` of the two masks replaced with `-` or `*`, and `&` replaced with `\|` or `^`, by hand | `echelonFormGivesTheMatrixOfTheCCode`, `solutionGivesTheSolutionOfTheCCodeOrNone` |
+| The top element of the right-hand side is the low nibble above `topShift` | `rightHandSide`: `& 0x0F` replaced with `\| 0x0F` or `^ 0x0F`, by hand | `rightHandSideGivesTheAnswerOfTheCFunction` |
+| The shift of the right-hand side carries the top nibble of each word into the next word | `rightHandSide`: `+=` of the carry replaced with `-=` or `*=`, by hand | `rightHandSideGivesTheAnswerOfTheCFunction` |
+| The matrix of the system holds the k o unknowns of each row and a zero last column | `systemMatrix`: `-` replaced with `+` or `/` in `columnCount - 1`, and `*` replaced with `+` or `/` in `16 * block`, by hand | `systemMatrixGivesTheAnswerOfTheCFunction` |
+| Each bin of `S P S^T` is the bin of its row and its element | `quadraticForms`: each operator of `bin` replaced, by hand | `publicMapGivesTheValueOfTheCCode` |
+
+## Latest result for NTRU, NTRU Prime and the sorting network
+
+The runs of 2026-10-23 on the branch `family/ntru`, in the ten shards of the `Mutants` workflow of CI: [the NTRU crate](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40026053067), [the sorting network](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40026053272) and [the NTRU Prime crate](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40032859400). The first two runs took the branch before its rebase onto the memory cap of the workflow and the ML-DSA results, which did not change the code of the three crates. The two earlier runs of the NTRU Prime crate each lost shard 7 when the runner ran out of memory, because mutants of the byte loop of `RadixEncoding::encode` made the loop endless while it wrote bytes, and the run of the table has the memory cap.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-ntru` | 1011 | 990 | 0 | 9 | 12 |
+| `oqs-native-sorting-network` | 120 | 104 | 8 | 0 | 8 |
+| `oqs-native-ntru-prime` | 706 | 641 | 43 | 5 | 17 |
+
+The [second run of NTRU Prime](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40040181702), on the commit of the new tests, had 706 mutants: 645 caught, 43 timeouts, 5 unviable and 13 missed. The 13 missed mutants are the 13 equivalent mutants below, and the timeouts are the timeouts of the first run.
+
+The 12 missed mutants of NTRU and the 8 of the sorting network are equivalent mutants. Of the 17 missed mutants of NTRU Prime, four are test gaps, and `decodingReadsTheBytesOfEncodeAtEachThresholdOfTheRanges` and `residueModuloModulusIsCenteredUpToTheLimitOfThe32BitProductOfFqFreeze` now kill them. The other 13 are equivalent.
+
+Seven of the eight timeouts of the sorting network stop a loop of `SortingNetwork::sortWith`: `+=` replaced with `*=` at the lines 89, 98, 115, 126 and 131, `+=` replaced with `-=` at line 89, and `*` replaced with `/` in `2 * p` at line 98. Each keeps `top` at 1 or at 0, keeps `i` at 0 or `j` at its place, or adds 0 to `i` for a `p` of 4 or more, so its loop never ends. Applied by hand, each kept the unit test program running for 120 seconds, where it ends in under a second. The eighth, `*` replaced with `/` in `2 * p` at line 126, failed `sortUnsignedGivesTheUnsignedValuesInAscendingOrderForEveryLength` before the limit.
+
+Of the 43 timeouts of NTRU Prime, 35 failed a unit test before the limit: the 22 mutants of `PolynomialRing::ternaryReciprocal`, the four of the masks and the two of `residueModuloThree` in `ModularReduction`, the three of `Parameters::wordRequestLength`, the three of `Sampler::words` and `Sampler::smallFromWords`, and `PublicKeyEncryption::keyPair`, line 33, with `==` replaced with `!=`. In each, `theOperationsOfASequenceGiveTheBytesOfTheCCode`, which makes a key pair, had not ended, and in 33 of them `aCandidateGWithoutAnInverseIsDrawnAgain` had not ended either. The loop of `keyPair` draws `g` again until a candidate passes the check of line 33, and no candidate passed. The other eight failed no test before the limit:
+
+- `RadixEncoding::encode`, line 48: `>` replaced with `>=`, the lines 51 and 67: `>>` replaced with `<<`, and line 71: `+=` replaced with `*=`. The byte loop never ends while it writes bytes. In CI each test program printed "memory allocation of 2147483648 bytes failed" under the memory cap and had not ended at the limit of 10 seconds, so the run counts the mutant as a timeout. Applied by hand under the same cap, each unit test program stopped with SIGABRT after 17 to 19 seconds at a load average of 27, with "memory allocation of 8589934592 bytes failed" in `eachFormHasTheBytesOfTheCFunctions`.
+- `RadixEncoding::decode`, line 141: `+=` replaced with `*=` keeps `index` at 0, so the last loop never ends and writes nothing new. Applied by hand, it kept the unit test program running for 180 seconds.
+- `Sampler::randomWords` replaced with an empty list, and `Sampler::smallPolynomial` replaced with an empty list or with `[0]`. No candidate `g` has an inverse, so the loop of `keyPair` never ends. Applied by hand, each kept the unit test program running for 180 seconds.
+
+### Equivalent mutants of NTRU
+
+- `Packing.rs`, `sumZeroPolynomial`, line 117: `-` replaced with `/` in `count - 1`. The fold then also subtracts the coefficient `n - 1`, which is 0, because `modulusPolynomial` starts from `n` zeros (line 94) and writes only the first `n - 1` (line 98).
+- `PolynomialInversion.rs`, `inverseModuloThree`, line 91: `*` replaced with `/` in `2 * g[0] * f[0]`. `f[0]` is 1 at line 81 and changes only at line 97, where a swap gives `f` the values of `g`. A swap needs `g[0]` above 0 (line 92), and the lines 85, 98, 105, 111 and 112 keep `g` in `{0, 1, 2}`, so `f[0]` is 1 or 2. For 1 the two operators agree. For 2 the mutant gives `g[0]` and the code gives `4 g[0]`, which are equal modulo 3, so `smallResidueModuloThree` gives the same residue.
+- `PolynomialMultiplication.rs`, `karatsubaEvaluation`, line 134: `*` replaced with `/` in `4 * k`. `k` is a sixteenth of the padded length `32 ceil(n / 32)` (lines 56 and 114), at least 32 for every set, so `4 / k` is 0. The mutant reads `value[index]`, which line 132 copied to `value[4 * k + index]`. The loop writes only entries from `4 k` up, and the entry `4 k + index` only after it reads it.
+- `PolynomialMultiplication.rs`, `schoolbookProduct`, line 150: `-` replaced with `/` in `k - 1`. The inner loop then also adds `left[leftIndex] right[k - 1]` to the entry `leftIndex + k - 1`, and line 154 then sets that entry to the same product, as the C code does.
+- `PolynomialRing.rs`, `residueModuloThree`, line 31: `^` replaced with `|`. The mask of line 30 is 0 or -1, so one operand is 0. `residueModuloThreeIsTheRemainderForEverySixteenBitValue` checks every input and passes with the mutant.
+- `PolynomialRing.rs`, `ternaryFromModulus`, line 94: `-` replaced with `+` in `1 - (bits & 1)`. For the even exponents 12 and 14 both give the shift 1. For the odd exponents 11 and 13 the mutant adds 4 in place of 1 to a coefficient from `q / 2` up, which is the same modulo 3. Each value stays below `q + 4`, so the sum of line 70, in `reduceModuloThreeAndPhi`, stays below `3 (q + 4)` and does not wrap, and `reduceModuloThreeAndPhi` gives the same residues.
+- `PolynomialRing.rs`, `liftByXMinusOne`, line 143: `-` replaced with `/` in `3 - (count % 3)`, and line 152: `*` replaced with `/` in `2 * t`. Only `lift` of NTRU-HRSS calls the function (line 131), and `n` is 701 or 1373, both 2 modulo 3. So `t` is 1, which is also `3 / 2`, and `2 / t` equals `2 t`.
+- `Sampler.rs`, `fixedTypePolynomial`, line 64: `-` replaced with `+` or with `/` in `coefficientCount - 1`, and line 67: `/` replaced with `*` in `count / 4`. `count` sets only the capacity of `keys` and the number of groups that `take` keeps. Every set has `n = 1` modulo 4, so `n / 4` and `(n + 1) / 4` equal `(n - 1) / 4`. Every caller gives the function the `15 (n - 1) / 4` bytes of `fixedTypeSampleLength`: `NTRU.rs`, the lines 63 and 82, draw `sampleLength` bytes, and `Sampler.rs`, the lines 25 and 41, split them at `n - 1`. So `chunks_exact(15)` gives `(n - 1) / 4` groups, and a `take` of `4 (n - 1)` keeps each of them.
+- `Sampler.rs`, `correlatedPolynomial`, line 113: `-` replaced with `/` in `count - 1`. The map of line 114 then also takes the coefficient `n - 1`, which is 0, because `independentPolynomial` starts from `n` zeros (line 52) and every caller gives `n - 1` bytes: `keyPolynomials` splits the `2 (n - 1)` bytes of NTRU-HRSS at `n - 1` (line 25). The map takes 0 to 0.
+
+### Equivalent mutants of the sorting network
+
+Two facts about one pass of `sortWith`, with `p` fixed, give the proofs. A place `k` is low when `k mod 2p < p` and high otherwise. A merge at a low place `k` with the reach `q` compares the value at the high place `k + p` with the values at the low places `k + r`, for `r` from `q` down to `2p`, and keeps the smaller value at `k + p`.
+
+1. Each pass starts the loop of line 106 with `j = i` (the lines 103 and 104). Line 122 leaves `i` at the smallest multiple of `2p` above `n - q - p`, because `i` enters the loop at that value or below it, and the lines 128 to 132 leave `j = max(i, n - q)`. So the loop of line 108 runs only when `i < j = n - 2q < i + p`, and then `i + p < n - q`, so `j` reaches `i + p` at line 116 before line 109 holds. The lines 109 to 112 never run, and the level `q` merges the low places from `max(0, n - 2q)` to `n - q - 1` in ascending order.
+2. For an input of zeros and ones, a value at a low place only changes from 0 to 1 during the loop, and a value at a high place only from 1 to 0. The pass ends with the values of each class of places modulo `p` in ascending order, because the pass is the merge of Batcher's merge exchange, Algorithm M of Knuth, The Art of Computer Programming, volume 3, section 5.2.2, with its comparisons in an order that keeps the order of any two comparisons of one place. A 1 at a low place before a 0 at a high place of its class would stay to the end of the pass, so at each point of the loop a value at a low place is at most each value at a later high place of its class. A merge at a high place `k` compares the value at the low place `k + p` with the values at the later high places `k + r`, so it changes nothing. A second merge of a low place, with a reach no longer than its first merge, changes nothing as well: after the first merge the value at `k + p` is 0, or it is 1 and each value of its chain is 1, and no value changes back. A comparison commutes with each threshold of the values, so what holds for every input of zeros and ones holds for every input.
+
+The equivalent mutants:
+
+- `merge`, line 69: `>` replaced with `>=`. The extra comparison with `r = p` compares the running minimum with the value that line 67 read from `place + p`, which no step of the loop writes, so it changes nothing.
+- Line 88: `<` replaced with `<=`. For `n` a power of two, `top` becomes `n` in place of `n / 2`. The pass with `p = n` makes no comparison, and each later pass starts with a level `q = n` that merges nothing, because `n - q` is 0, and keeps `j = i = 0`.
+- Line 106: `>` replaced with `>=`. The extra level `q = p` merges with no comparison, because line 69 needs `r > p`, and each merge writes back the value that it read. By fact 1 the places stay below `n - p`.
+- Line 109: `-` replaced with `+`, and line 111: `>>=` replaced with `<<=`. The lines 109 to 112 never run (fact 1).
+- Line 107: `!=` replaced with `==`. With `j = i`, the loop of line 108 merges the places that the lines 122 to 131 merge, and leaves the same `i` and `j`. With `j` not equal to `i`, line 122 merges the whole block from `i`, so the places from `i` to `n - 2q - 1` get a second merge with the reach `q` after their merge at the level `2q` (fact 2).
+- Line 116: `+` replaced with `*` in `i + p`. The loop of line 108 leaves at line 116 only when `j` reaches `i p`. For `i = 0` or `p = 1` this never happens, so the loop merges every place up to `n - q - 1`, high places included, and leaves at line 109. For a larger `i`, `i p` is at least `i + 2p`, so the lines 122 to 131 start where the network starts them and merge again the places from `i + 2p` to `i p - 1`. After a level that leaves at line 109, the next level starts its loop at `n - 2q` with the same `i`. So each level merges every low place of its range, the first time in ascending order, and each other merge is at a high place or repeats a low place of that level or of an earlier level (fact 2).
+- Line 122: `-` replaced with `/` in `n - q`. `n / q` is at most `n - q` for `q` from 2 to `n - 1`, so line 122 stops at or before the block where the network stops, and line 129 then merges every place up to `n - q - 1`, high places included. Each later level starts its loop of line 108 at `n - 2q` and merges every place up to `n - q - 1`. Only the second level of a pass with `n - top` below `i + p` differs, and it merges the low places of its range in ascending order and some high places. So the low places of each level are those of the network in the same order, and each extra merge is at a high place (fact 2).
+
+The merges depend only on `n`. A check of the lists of merges confirms the three descriptions for every `n` up to 4096 and for 6688, 8192, 8193, 12289, 16383, 16385, 65535, 65537 and 100003: the merges of the network appear in the same order, and each other merge is at a high place or repeats a low place whose first merge had the same or a longer reach.
+
+### Equivalent mutants of NTRU Prime
+
+- `ModularReduction.rs`, `residueModuloModulus`, the lines 20 to 22: seven of the nine mutants of the estimates `q16`, `q20` and `q28`. `/` replaced with `%` in `q / 2` keeps `q16 = 14` and `q20 = 228`. The others give `q20 = 227` or 230, or `q28 = 58469` or 58471. Each line subtracts a multiple of `q`, so the value stays congruent to the input. For every input up to `2^31 / 14 = 153391689` in absolute value, where the product `14 x` of line 24 fits in 32 bits as in the C code, the lines 24 and 25 leave at most 9746 in absolute value with `q20 = 228`, 22688 with 227 and 25278 with 230. Line 26 gives the centered residue of every value up to 34432 in absolute value with `q28 = 58469` or 58470, and up to 29840 with 58471. So each mutant gives the centered residue, the value of `Fq_freeze`, for every such input. `residueModuloModulusIsCenteredForEveryInputOfTheCallers` checks every input of the callers, and it passes with each of the seven, as does `residueModuloModulusIsCenteredUpToTheLimitOfThe32BitProductOfFqFreeze`. The other two mutants of line 20 give `q16 = 13` or 16, and their products overflow 32 bits from 105412007 and from 77901825 in absolute value. The second test kills them.
+- `NTRUPrime.rs`, `decapsulate`, line 107: `^` replaced with `|` in `sessionPrefix ^ rejectedSessionPrefix`. The prefixes are 1 and 0 (`HashFunctions.rs`, the lines 10 and 13), which have no set bit in common.
+- `Parameters.rs`, `halfModulus`, line 23: `-` replaced with `/` in `(self.modulus - 1) / 2`. `q = 4591` is odd, so `q / 2` is 2295 as well.
+- `PolynomialRing.rs`, `ternaryReciprocal`, line 124: `*` replaced with `/` in `-g[0] * f[0]`. `f[0]` is 1 at line 114 and changes only at line 134, where a swap gives `f` the values of `g`. A swap needs `g[0]` not 0 (line 127), and `g` holds only the values `{-1, 0, 1}` of the small input and of line 142, so `f[0]` is 1 or -1, and a division by it is a product with it.
+- `PolynomialRing.rs`, `ternaryReciprocal`, line 140: `+` replaced with `*` in `0..p + 1`. The loop then leaves out the entry `p` of `g`. Line 149 sets `g[p]` to 0 at the end of each step, and a swap gives `f` the entry `g[p]`, so `f[p]` is -1 before the first swap and 0 after it. Before the first swap `delta` is above 0, so a step without a swap has `g[0] = 0` and `sign = 0` (the lines 124 to 128). So `sign f[p]` is 0 at every step, and line 142 gives `g[p]` its own value.
+- `PolynomialRing.rs`, `ternaryReciprocal`, line 144, and `reciprocalOfTriple`, line 197: `+` replaced with `*` in `0..p + 1`. The loop then leaves out the entry `p` of `r`. The entries `p` of `r` and `v` pass values only to each other, at the swap (the lines 136 to 138 and 188 to 190) and at the update of `r` (the lines 145 and 198). The shift of the lines 122 and 176 overwrites `v[p]` with `v[p - 1]` at the start of each step, and the result reads only `v[0]` to `v[p - 1]` (the lines 153 and 208). So the entry `p` of `r` never reaches the result.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| Decode takes one byte for a product of 256 times 16383, and the next pair reads from the next byte | `RadixEncoding::decode`, line 111: `>` replaced with `>=` | `decodingReadsTheBytesOfEncodeAtEachThresholdOfTheRanges` |
+| Decode rounds the range of a pair of two bytes up twice | `RadixEncoding::decode`, line 116: `+` replaced with `-` | `decodingReadsTheBytesOfEncodeAtEachThresholdOfTheRanges` |
+| The reduction modulo q is centered up to the limit of the 32-bit products of `Fq_freeze` | `ModularReduction::residueModuloModulus`, line 20: `+` replaced with `-`, `/` replaced with `*` in `q / 2` | `residueModuloModulusIsCenteredUpToTheLimitOfThe32BitProductOfFqFreeze` |
+| A candidate g without an inverse in R3 is drawn again | `PublicKeyEncryption::keyPair` of NTRU Prime, line 33: `==` replaced with `!=` | `aCandidateGWithoutAnInverseIsDrawnAgain` |
+| The comparison of the sort orders two values across the sign boundary | `SortingNetwork::ordered`, line 33: `-` replaced with `+` | `orderedGivesTheSmallerValueFirstAlsoAcrossTheSignBoundary` and 4 more |
+| The unsigned sort is the signed sort with the top bit flipped | `SortingNetwork::orderedUnsigned`, line 42: `^` replaced with `\|` | `orderedGivesTheSmallerValueFirstAlsoAcrossTheSignBoundary`, `sortUnsignedGivesTheUnsignedValuesInAscendingOrderForEveryLength` and 2 more |
+| The check of r accepts only 0, 1 and q - 1, and 0 at n - 1 | `PublicKeyEncryption::blindingFailure` of NTRU, the lines 124, 126 and 128: `\|=` replaced with `&=` | `theBlindingCheckAcceptsOnlyZeroOneAndMinusOne` and 1 more |
+| The ciphertext check reads only the unused bits of the last byte | `PublicKeyEncryption::ciphertextFailure`, line 111: `&` replaced with `\|` | `theCiphertextCheckReadsOnlyTheUnusedBitsOfTheLastByte` |
+| A failed check of NTRU gives the rejection secret | `NTRU::decapsulate`, line 117: `^=` replaced with `\|=` | `constantRandomBytesGiveTheKeyFZeroAsInTheCCode` |
+
+## Latest result for SLH-DSA
+
+The run of 2026-10-23 of the crate in the ten shards of the `Mutants` workflow of CI, on a commit of the branch `family/slh-dsa`: [the crate](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40026767732). The branch moved to a new base after the run, and no file of the crate changed. The workflow of the run did not yet cap the memory of the test programs, and every shard ended.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-slh-dsa`, first run in CI | 539 | 496 | 0 | 41 | 2 |
+
+The [second run](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40039245878), on the commit of the new test, had 539 mutants: 497 caught, no timeout, 41 unviable and 1 missed, the equivalent mutant of `chainDigits` below.
+
+The run had no timeout. One of the two missed mutants is a test gap, and `nodesOfEveryHeightUpToAWholeTreeAreTheNodesOfTheCFunction` now kills it. The other is equivalent.
+
+The test gap replaces `+` with `*` in the size of the stack of `FORS::node`, line 30, so the stack holds 14 nodes in place of 15. The node of height z needs z + 1 places. `FORS::sign` asks only for the heights from 0 to a - 1, so a signature needs at most 14 places, and the root of a whole tree of height 14 needs 15. `fors_node` of the C code takes every height up to a, because its stack of 14 nodes, `SLH_MAX_A`, and its output hold 15 nodes. The new test compares the nodes of every height from 0 to 14 of `SHA2_192S` and `SHAKE_256S` with the digests of `fors_node`. The C program that printed them includes `slh_dsa.c`, because the function is static, and takes the hash functions from `liboqs.a`. Its copy of `slh_sign_internal` gives the signatures of `liboqs.a`. With the mutant, the test fails with an index out of bounds at the index 14 of the stack. With `-` in place of `+`, the stack holds 13 nodes, and the new test and `testSigMemPassesForEachSchemeOfTheSuiteSampleAndEachPureSmallSet`, which signs with trees of height 14, both fail.
+
+### Equivalent mutants
+
+- `Hypertree.rs`, `chainDigits`, line 243: `-` replaced with `+` in `(8 - (checksumBits & 7)) & 7`. The port keeps the formula of FIPS 205, Algorithm 7, and of `wots_csum` of the C code. `checksumBits` is `len_2 lg_w`. `Parameters::checksumChainCount` gives 3 and `Parameters::winternitzBits` is 4 for every set, so `checksumBits` is 12 and `checksumBits & 7` is 4. The shift is `(8 - 4) & 7 = 4`, and with the mutant it is `(8 + 4) & 7 = 4`. So the checksum, its bytes and its digits are the same for every message. With `/` in place of `-` the shift is 2, and `chainDigitsOfTheZeroMessageCarryTheLargestChecksum` kills that mutant.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| A FORS node of every height up to a whole tree of the largest height is the node of the C code | `FORS::node`, line 30: `+` replaced with `*` or `-` in the size of the stack | `nodesOfEveryHeightUpToAWholeTreeAreTheNodesOfTheCFunction`, and for `-` also `testSigMemPassesForEachSchemeOfTheSuiteSampleAndEachPureSmallSet` |
+| The stack of `Hypertree::xmssNode` holds the whole top tree of height 9 of a key pair | `Hypertree::xmssNode`, line 102: `+` replaced with `*` or `-` | `testSigMemPassesForEachSchemeOfTheSuiteSampleAndEachPureSmallSet` |
+| The WOTS+ checksum adds w - 1 minus each digit, shifted so that its digits fill whole bytes | `Hypertree::chainDigits`, line 240: `-` replaced with `+`, line 243: `<<=` replaced with `>>=` | `chainDigitsOfTheZeroMessageCarryTheLargestChecksum` |
+| The tree and the leaf index take their bits after the FORS digest | `SLHDSA::treeAndLeafIndex`: each operator replaced | `treeAndLeafIndexTakeTheirBitsAfterTheFORSDigest` |
+| A context of 255 bytes signs and verifies, and a longer one is refused | `signWithContext`, line 395, and `isValidSignatureWithContext`, line 420: `>` replaced with `>=` | `aContextOfMoreThan255BytesIsRefusedAfterTheRandomRequest`, `testSigPassesForEachPureSchemeOfTheSuiteSample` and 2 more |
+| Only the SHA2 sets of categories 3 and 5 use SHA-512 | `Parameters::usesSHA512`, line 98: `>` replaced with `==` | `onlyTheSHA2SetsAboveCategoryOneUseSHA512`, `sha2FunctionsHashTheSeedBlockTheCompressedAddressAndTheInput` |
+| `PRF_msg` and `H_msg` of a SHA2 set of category 3 or 5 use SHA-512 | `HashContext::prfMessage`, line 191, and `messageDigest`, line 229: the match guard replaced | `signatureVectorsOfTheFastSHA2SetsGiveTheirSignatures`, `verificationVectorsGiveTheirVerdicts` |
+| A verification compares the last root with `PK.root` | `Hypertree::isValid`, line 92: `==` replaced with `!=` | `hypertreeSignatureVerifiesAndAChangedMessageDoesNot` |
+| Each field of the address is a big-endian word at its place | `Address::setWord`: each operator replaced | `eachFieldIsABigEndianWordAtItsPlaceOfFIPS205Figure2`, `compressedAddressKeepsTheBytesOfFIPS205Section11Point2` and 9 more |
+
+## Latest result for CROSS
+
+The run of 2026-10-23 took the crate in the ten shards of the `Mutants` workflow of CI, on the code of the port before the new tests below: [the crate](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40026767245).
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-cross` | 888 | 795 | 1 | 86 | 6 |
+
+The [second run](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40043895118), on the commit of the new tests and the new join, had 888 mutants: 798 caught, 1 timeout, 86 unviable and 3 missed, the three equivalent mutants below. The timeout is the draw of 1 above. The run of the C oracle missed one mutant of the short signature copy of `verifiedSignature`: `<` replaced with `<=` resizes a signature of the scheme length to the same length, which changes nothing.
+
+The timeout replaces the body of `BitReader::draw` with 1. Seven unit tests failed before the time limit of 26 seconds, among them `drawsTakeTheBitsOfTheBufferFromTheLowEnd` and `rejectionKeepsOnlyTheDrawsBelowTheBound`, so it counts as caught. With each draw 1, the shuffle of the second challenge never ends. At its last place, only a candidate of 0 is below `t - current`, which is 1. Applied by hand, `theSecondChallengeIsTheShuffleOfTheCCode` was still running after 120 seconds.
+
+Of the 6 missed mutants, two are test gaps, one joined two disjoint bit fields with an or, and three are equivalent.
+
+- `Packing::isPaddingAccepted`, line 53: `<<` replaced with `>>` in the mask of the 3-bit check. The mask is then 7 for a remainder of 1, 3 for a remainder of 2, and 0 for the other remainders. The scheme unpacks 3-bit vectors of 127, 187 and 251 values, whose remainders are 7 and 3, but `generic_unpack_3_bit` takes any count. `eachPaddingCheckGivesTheFlagsOfItsCFunctionForEveryRemainder` compares the flags of the three checks for the counts 1 to 16 with the static C functions. The mutant refuses the counts 1, 2, 9 and 10 for bytes of all ones, which the C function accepts.
+- `Verifier::isValidSignature`, line 130: `&=` replaced with `|=` in the group check. Each test of the verification changed bytes of a signature. A changed exponent of a published vector also changes the first commitment of its round, so the digest of the commitments refused the signature as well. The second form z of a zero exponent gives the same arithmetic as 0, so a signer that leaves out the normalization of its published vectors makes a signature that only the group check refuses. A C program signed with copies of the clean code of `cross-rsdp-128-fast` and `cross-rsdpg-128-fast` without `fz_dz_norm_n` or `fz_dz_norm_m`. `CROSS_verify` of liboqs refused both signatures, and a copy of `CROSS_verify` without the group check accepted them. `aPublishedVectorWithTheSecondFormOfZeroIsRefusedByTheGroupCheckAlone` makes the same signatures with `Signer::keepingTheSecondFormOfZero` and compares their digests with the digests of the C program. The mutant accepts them.
+- `BitReader::draw`, line 39: `|` replaced with `^` in the fold of the refill. `word << 8` has its low 8 bits zero, and a byte has no other bits, so the two operators gave the same value. The fold now joins them with `+`, as the rule of disjoint bit fields in `Documentation/Learnings/MutationTesting.md` says. `+` gives the same value with no carry, and the known answers of each set pass, the `all` digests among them. Applied by hand, `+` replaced with `-` overflows on a byte that is not zero and fails 20 unit tests. `+` replaced with `*` makes each refill 0 and fails 10, among them the four tests of `BitReader`.
+
+### Equivalent mutants
+
+- `Packing.rs`, `isPaddingAccepted`, line 53: `*` replaced with `+` in `remainder * 3`. The check of line 49 returns for a remainder of 0, so line 53 runs only for a remainder from 1 to 7. The shift is then 3 to 21 bits, and with the mutant 4 to 10 bits. A shift of 3 bits or more clears the low 3 bits, so `& 0x7` gives 0 on both sides, as `0xFF << (n_remainder * 3) & 0x7` of `generic_unpack_3_bit` does. Applied by hand, the mutant passed every test of the crate.
+- `Problem.rs`, `fieldBits`, line 85: `-` replaced with `/` in `prime - 1`, and `restrictedBits`, line 90: `-` replaced with `/` in `restrictedOrder - 1`. Each function takes only the problem, which has two values. The bit length of `x - 1` differs from the bit length of `x` only when x is a power of 2, and none of the primes 127 and 509 and the orders 7 and 127 is one. `bitLength` gives 7 for 126 and 127, 9 for 508 and 509, and 3 for 6 and 7, so the widths stay 7 and 9 for p and 3 and 7 for z. `eachProblemHasTheConstantsOfItsParameterHeader` checks the four widths. Applied by hand, each mutant passed every test of the crate.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The 3-bit padding check accepts every input of every count, as `generic_unpack_3_bit` computes it | `Packing::isPaddingAccepted`, line 53: `<<` replaced with `>>` | `eachPaddingCheckGivesTheFlagsOfItsCFunctionForEveryRemainder` |
+| The verification refuses a published vector with an exponent outside the restricted group | `Verifier::isValidSignature`, line 130: `&=` replaced with `\|=` | `aPublishedVectorWithTheSecondFormOfZeroIsRefusedByTheGroupCheckAlone` |
+| The refill of the window takes its bytes from the low end | `BitReader::draw`, line 39: `+` replaced with `*` | `drawsTakeTheBitsOfTheBufferFromTheLowEnd`, `theWindowTakesFourBytesWhenAtMost32BitsAreLeft` and 8 more |
+
+## Latest result for UOV
+
+The run of 2026-10-23 on the branch `family/uov`, before the new tests below, in the ten shards of the `Mutants` workflow of CI: [the crate](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40032860172). The workflow starts each test program under a cap of 6 GiB on its address space.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-uov`, in CI | 435 | 411 | 0 | 19 | 5 |
+
+The [second run](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40041021297), on the commit of the new tests, had 435 mutants: 412 caught, no timeout, 19 unviable and 4 missed, the four equivalent mutants below.
+
+The earlier run [40026767322](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40026767322), on an earlier commit, lost shard 9 when the runner ran out of memory, because the mutant that replaces `+=` with `*=` in `Signer::firstSolution` keeps the attempt count at 0 while `theFirstSuccessGivesItsResultExceptAtTheLastAttempt` records each attempt in a list, and in this run the cap stops that test program with a failed allocation, so the mutant counts as caught. The cap also stops the unit tests of the mutant that replaces `+` with `*` in the length of P1 and P2 in `KeyGenerator::expandedPublicKey`, line 128, which asks for 13589233152 bytes.
+
+The run had no timeouts. Of the five missed mutants, one is a test gap. No caller gives `BatchedMatrix::checkShapes` a target or a triangle of another shape, so the mutant that replaces its body with `()` passed every test. `aTargetOfAnotherShapeIsRefused` and `aTriangleOfAnotherShapeIsRefused` now break each of its two assertions alone, and both fail with the mutant. The other four are equivalent.
+
+### Equivalent mutants
+
+- `GF16.rs`, `square`, line 11: `^=` replaced with `|=`. Line 10 sets `square` to `element & 1`, so only bit 0 of `square` can be set, and only bit 2 of `(element << 1) & 4` can be set. The two values share no set bit, so an or gives the same value as an exclusive or for every byte. The line keeps the form of `gf16_squ` in `gf16.h`, `r4 ^= (a << 1) & 4`. `everySquareIsTheProductOfTheElementWithItself` checks the square of each of the 16 elements and passes with the mutant.
+- `PublicMap.rs`, `evaluated`, line 32: `>` replaced with `>=` in `F::elementBits > 4`. GF(256) has 8 element bits, so `isWide` stays true for it. GF(16) has 4, so the mutant makes `isWide` true for GF(16) as well. Line 51 then also adds each entry to a sum of `highSums`, and line 72 adds each sum times `half << 4` to the value, for each half from 1 to 15. The low four bits of `half << 4` are zero, and for GF(16) the product of `scaledWord`, which `multiplyAdd` adds, reads only the bits 0 to 3 of the scalar (`FieldArithmetic.rs`, lines 75 and 76). So each product of line 72 is zero, and the value is the same for every public key and every point. For any byte `factor`, `factor >> 4` is at most 15, so line 52 stays inside the 16 sums of line 37, and the mutant cannot panic. `theMapOfEachShapeGivesTheBytesOfTheCCode` and the known-answer signatures of OV-Is pass with the mutant.
+- `Signer.rs`, `signature`, line 73: `+` replaced with `*` or with `-` in `oilValues.len() + saltLength`. These are two mutants. The line only requests capacity for the oil values and the salt. Lines 74 and 75 append the same bytes with any capacity, because `extend_from_slice` grows the vector when its capacity is short, so the bytes and the length of the signature stay the same. The standard library leaves the capacity after `reserve_exact` open, because the allocator may give more space than the request. `oilValues` is the solution of the system of line 57, which has o unknowns, so it has `F::byteLength(o)` bytes (`LinearSystem.rs`, lines 29 and 93), 32, 44, 72 or 96 bytes for the four shapes. So `oilValues.len() - 16` never falls below zero, which would panic in the test build, and `oilValues.len() * 16` asks for at most 1536 bytes.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The products of the batched matrices refuse a target or a triangle of another shape | `BatchedMatrix::checkShapes`: the body replaced with `()` | `aTargetOfAnotherShapeIsRefused`, `aTriangleOfAnotherShapeIsRefused` |
+| A success of the last attempt of a signature is a failure, as in `ov_sign` | `Signer::firstSolution`, lines 88 and 92: `<` replaced with `<=` | `theFirstSuccessGivesItsResultExceptAtTheLastAttempt` |
+| The verification folds the differences of the bytes with an or | `PublicMap::isValidSignature`, line 101: `\|` replaced with `^` | `randomSecretKeysSignAndHostileSignaturesAreRefused` in CI, and `theSameBitChangedInTwoBytesOfTheMapIsRefused` by hand |
+
+## Latest result for SNOVA
+
+The run of 2026-10-23 took the crate in the ten shards of the `Mutants` workflow of CI: [the crate](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40026767146). It ran on an earlier commit of the branch `family/snova`, whose SNOVA code is the code before the changes below.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-snova`, first run in CI | 1830 | 1800 | 0 | 24 | 6 |
+
+The [second run](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40039245883), on the commit of the new forms, had 1826 mutants: 1800 caught, no timeout, 25 unviable and 1 missed, the equivalent mutant of `Signer::solved` below.
+
+The run had no timeout.
+
+The six missed mutants are equivalent. Five of them are of two kinds that `Documentation/Learnings/MutationTesting.md` describes. In three of them, `|` or `^` joins two bit fields that cannot share a bit. In the other two, `^=` adds a whole sum to a zero. The code now joins those fields with `+` and assigns those sums, so the five mutants are gone. Applied by hand, each mutant of the new forms fails the exhaustive tests of the field arithmetic and the known answers of every set, except `+` replaced with `*` in the index of the product table, which does not build. The sixth mutant is in the back substitution, which keeps the loop of the C code. It stays, and a later run must show it, and only it, as missed.
+
+### Equivalent mutants
+
+The line numbers are those of the run. Where a line moved, the list also gives its line in the current code.
+
+- `FieldArithmetic.rs`, the constant `productTable`, line 32: `^` replaced with `|` in the index of an entry. Each entry of `powersOfX`, line 22, is from 1 to 15. So the first power four bits up has only the bits 4 to 7, the second power has only the bits 0 to 3, and the two operators give the same index. Line 34 now joins the two parts with `+`.
+- `FieldArithmetic.rs`, `product`, line 44: `^` replaced with `|` in `(left << 4) ^ right`. Both arguments are below 16 at every call, so the two parts of the index have disjoint bits, as on line 32. Every call outside the tests is in `MatrixRing.rs`. `multiply` takes the powers of S. S^0 holds 0 and 1, S^1 holds `8 - (i + j)` or 9, from 1 to 9, and each later power holds exclusive ors of entries of the table, which are below 16. `makeInvertible` multiplies `base`, from 1 to 9, with `factor`, from 1 to 15. `determinant` and `makeInvertible` take the matrices A and B of `PublicMap::generated` and of `PublicMap::fixedMatrices`, and `writeSumOfPowers` takes the coefficients of Q1 and Q2 of the same two functions. Each of them comes from `NibblePacking::unpacked`, which keeps the low 4 bits of each element. `lastCoefficient` gives the last coefficient when it is not zero, and else `16 - c0` or 15, which are from 1 to 15. `determinant` also multiplies products and exclusive ors of products, which are below 16 too. Line 52 now joins the two parts with `+`, and a debug assertion refuses an argument of 16 or more.
+- `FieldArithmetic.rs`, `element`, line 75: `|` replaced with `^` in `reduced | (reduced >> 4)`. `reduced` ends with the mask `elementBits`, line 69, so for every input it has only the bits 0, 3, 6 and 9, and its copy four bits down has only the bits 2 and 5. Line 85 now joins the two with `+`.
+- `Signer.rs`, `attemptedSolution`, lines 361 and 436: `^=` replaced with `|=`. Lines 346 and 420 set every entry of `oilProducts` to zero. The loop of line 347 writes the entry `termRow * oilLength + oil * rank + column` for each `termRow` below `alpha l`, each `oil` below o and each `column` below l. `oilLength` is `o l`, so the loop writes each entry once. The loop of line 422 does the same with `termColumn` and `row`. An or and an exclusive or with zero give the same value. The C code adds the products of its inner loop one at a time into `xtemp_int`, which `memset` sets to zero. The port computes that whole sum with `dotProduct`, so lines 362 and 437 now assign it, and the two zeroings are gone. Applied by hand, `oil * rank` replaced with `oil / rank` on either line still fails the known answers of the signature.
+- `Signer.rs`, `solved`, line 579, now line 580: `+` replaced with `*` in `row + 1`. The sum of a row then also adds `gauss[row * width + row] * solution[row]`. Line 576, now 577, sets every entry of `solution` to zero. The rows go from the last one to the first, and line 582, now 583, writes `solution[row]` after the sum of its own row. So the added product is zero, and the exclusive or keeps the sum. The back substitution of `sign_digest_core_opt` has the same loop over `xSolution`, which is zero at its declaration. Applied by hand, the mutant passed every test of the crate.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The product table holds the product of a and b at the entry `16 a + b` | `productTable`, line 34: `+` replaced with `-` in the index | `theTableHoldsThePolynomialProductsModuloX4PlusXPlus1`, `spreadProductsAreTheProductsOfTheTable` and the known answers of `KATSig.rs` for every set |
+| The product of two elements reads the entry `16 a + b` | `FieldArithmetic::product`, line 52: `+` replaced with `-` or `*` | `theTableHoldsThePolynomialProductsModuloX4PlusXPlus1`, `theDeterminantIsTheSumOverAllPermutations` and the known answers of `KATSig.rs` for every set |
+| An element has coefficient `i` of its reduced spread form at bit `i` | `FieldArithmetic::element`, line 85: `+` replaced with `-` or `*` | `theSpreadFormHoldsCoefficientIAtBit3I`, `spreadProductsAreTheProductsOfTheTable` and the known answers of `KATSig.rs` for every set |
+| Each oil product of F12 and of F21 is the dot product of its own row and column | `Signer::attemptedSolution`, lines 362 and 437: `oil * rank` replaced with `oil / rank` | `theSignatureOfADigestIsTheSignatureOfTheCFunction`, `aSingularSystemMovesTheSignatureToTheNextAttempt` |
+
+## Latest result for MQOM
+
+The run of 2026-10-24 is the `Mutants` workflow of CI, in ten shards, on the branch `mutants/oqs-native-mqom`, which holds the MQOM code of the branch `family/mqom`: [run 40045151708](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40045151708).
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-mqom` | 662 | 628 | 4 | 28 | 2 |
+| `oqs-native-mqom`, second run in CI | 654 | 623 | 3 | 28 | 0 |
+
+The [second run](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40057695265), on the commit `b22ee70` of the branch `mutants/oqs-native-mqom.2`, whose `Modules/MQOM` is the code of the new test input and the new forms below, had 654 mutants: 623 caught, 3 timeouts, 28 unviable and no missed mutant. The three timeouts are the mutant of the challenge, line 132, `&` replaced with `|`, whose search of the nonces does not end, and `XOF::absorb` and `XOF::hash` replaced with `()`, which fail the known answers first. The timeout of `SeedCipher::encrypt` and the two missed mutants of the first run are gone.
+
+Two of the four timeouts failed a test first. `XOF::absorb` and `XOF::hash` replaced with `()` each failed the known answers of `theEquationsAreTheEquationsOfTheCFunctionForEverySet`, `theKeysTheChallengeAndTheSignatureAreThoseOfTheCFunctions` and `theCommitmentItsOpeningAndItsEvaluationsAreThoseOfTheCFunctions`. The challenge then no longer depends on the nonce, so the search of every 32-bit nonce in `aNonceThatFailsTheProofOfWorkIsRefusedAlthoughItsProofIsValid` or in a signature does not end.
+
+The other two timeouts had no failed test. Each was applied by hand and ran the suite of the crate for 450 seconds, ten times the 41 seconds of the unmutated suite.
+
+- `InternalAlgorithms::challenge`, line 132: `&` replaced with `|` in `values[repetitionCount] & workMask == 0`. The work bits of every set are from 3 to 12, so `workMask` is not zero, and the or of a value with it is never zero. No nonce meets the proof of work, and each signature searches all 2^32 nonces. The suite did not end, and four tests that sign were still running. The search ends with a failure only after 2^32 challenge hashes, so the mutant counts as caught. `&` replaced with `^` at the same place failed `theKeysTheChallengeAndTheSignatureAreThoseOfTheCFunctions` and `aSignatureTriesTheNoncesFromZero`.
+- `SeedCipher::encrypt`, line 68: `/` replaced with `*` in `seeds.len() / 24`. The truncated Rijndael-256 of the level 3 then encrypts 576 times the blocks of its seeds. The seeds fill only the first blocks, and the output takes only the first blocks, so every output stays the same and only the time grows. The suite did not end, and no test failed. The mutant is a missed mutant that the time limit hid. `encrypt` now builds the padded blocks from the seeds themselves, so no count of its own can grow the input of the cipher, and the mutant is gone. `theTruncatedFormIsRijndael256OfTheZeroPaddedKeyAndBlock` and the known answers of the level 3 sets check the new form.
+
+Of the two missed mutants, one is a test gap, and a new test input kills it.
+
+- `SeedCipher::tweaked`, line 57, now line 58: `^=` replaced with `|=` in `key[2] ^= (index >> 8) as u8`. An index of 256 or more comes only from the PRG of the equations of `EquationSystem::expanded`, whose stream of a level 3 or level 5 set of GF(2^16) has more than 256 blocks. That PRG has a zero salt, and an or into a zero byte is an exclusive or. Every other index of the callers is below 256, so its high byte is zero. The one other index above 255 is the index 0x0201 of `theTweakAddsTheSelectorTheRepetitionAndTheIndex`. Its salt bytes were 0x10, which share no set bit with 0x02, so the or and the exclusive or gave the same key. The salt bytes are now 0x13, which share a set bit with each of the three tweak bytes, and the test compares with the key 0x04, 0x12, 0x11 that `TweakSalt` of `common.h` gives, written by hand. Applied by hand, the mutant failed the test, and so did `|=` in place of `^=` at the lines of the bytes 0 and 1.
+
+The other one is equivalent, and the code no longer has its line.
+
+### Equivalent mutants
+
+- `GGMTree.rs`, `partialLeaves`, line 134: `+` replaced with `*` in `(hiddenLeaf + 1) * seedLength`. The range of the clear of the hidden leaf is then empty, so the hidden leaf keeps its value. Line 96 sets every node to zero, and no line writes the hidden leaf. The loop of line 99 writes only the siblings of the ancestors of the leaf, node `index ^ 1` for each ancestor `index`, and nodes 0 and 1 when the path is longer than the tree. A sibling is never an ancestor, because each level holds one ancestor, and its sibling is another node of that level. The loop of line 105 writes the children of a known parent of the levels 1 to `treeDepth - 1`, which are the nodes 2 and up. By induction on the level, no ancestor is known: an ancestor of level 1 is node 2 or 3, which only the first loop could write, and an ancestor of a lower level is a child of an ancestor, which is not known. So the hidden leaf is still zero before the clear, and the clear changes nothing. The callers give a hidden leaf below the leaf count, the masked value of `InternalAlgorithms::challenge`, and a larger one panics in the first loop with both forms. `GGMTree_PartiallyExpand` clears the hidden leaf because its array `node` is not initialized. The port leaves out the clear, and `theLeavesSumToDeltaAndThePathGivesEveryOtherLeaf` checks that the hidden leaf is zero for the hidden leaves 0, 1, N / 2 and N - 1. A deliberate write of 1 into the hidden leaf failed that test and `theLeavesThePathAndThePartialLeavesAreThoseOfTheCFunctions`.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The tweak of a salt adds the selector, the repetition and the 16-bit index with an exclusive or | `SeedCipher::tweaked`, lines 56 to 58: `^=` replaced with `\|=` on each byte | `theTweakAddsTheSelectorTheRepetitionAndTheIndex` |
+| A signature searches the nonces until one meets the proof of work | `InternalAlgorithms::challenge`, line 132: `&` replaced with `^` | `theKeysTheChallengeAndTheSignatureAreThoseOfTheCFunctions`, `aSignatureTriesTheNoncesFromZero` |
+| The truncated Rijndael-256 pads each seed of 24 bytes with eight zeros | `SeedCipher::encrypt`: the body replaced with `()`, as in the run | `theTruncatedFormIsRijndael256OfTheZeroPaddedKeyAndBlock` and the known answers of the level 3 sets |
+| The partial leaves give every leaf off the path and a zero hidden leaf | `GGMTree::partialLeaves`: a written hidden leaf, by hand | `theLeavesSumToDeltaAndThePathGivesEveryOtherLeaf`, `theLeavesThePathAndThePartialLeavesAreThoseOfTheCFunctions` |
+
+## Latest result for Classic McEliece
+
+The run of 2026-10-23 is the `Mutants` workflow of CI, in ten shards, on the branch `mutants/oqs-native-classic-mceliece`, which holds the code of the branch `family/classic-mceliece`: [run 40030259136](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40030259136).
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-classic-mceliece` | 1195 | 1112 | 20 | 32 | 31 |
+
+The [second run](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40045653640), on the commit of the new tests and the new forms, had 1199 mutants: 1137 caught, 20 timeouts, 32 unviable and 10 missed, the ten equivalent mutants below that keep the form of the C code.
+
+The 20 timeouts are endless loops of the error vector. Each of them failed a unit test first, and the unit test binary then stayed in `syndromesGiveTheKnownAnswersOfTheCFunction`. There `randomErrorVector` draws attempts until one gives `t` distinct positions below `n`, as `gen_e` does. With each mutant no attempt gives them, or almost none does, so the loop does not end.
+
+- `Encryption::positions`: the body replaced with `None`, `<` replaced with `==` or `>` in the test of a candidate against `n` (line 34), `<` replaced with `==` or `<=` in the count of the positions (line 38), and `==` replaced with `!=` in the test of a repeated position (line 45).
+- `GaloisField::mask`, line 21: the body replaced with 0 or 1, and `-` replaced with `+` or `/`. Each loaded value is then one of at most four values, so the positions repeat.
+- `GaloisField::loaded`, line 26: the body replaced with 0 or 1, and `&` replaced with `|` or `^`. The values then repeat, or almost none of them is below `n`.
+- `Parameters::errorRequestLength`: the body replaced with 0 or 1, and `*` replaced with `+` or `/` at the lines 159 and 161. The request then holds fewer than `t` values.
+
+Of the 31 missed mutants, six are test gaps, and new tests kill them.
+
+- `ControlBits::minimum`, line 32: `^=` replaced with `|=`, and `^` replaced with `&` or `|` in `difference ^ right`. The recursion gives `minimum` only values from 0 up, and each mutant changes the result only for two values of opposite signs. `theMinimumIsTheSmallerValueForAnyTwoValuesAsCryptoInt32Min` compares the function with the definition and with `crypto_int32_min` of liboqs for every pair of edge values and for 20000 seeded pairs, as the rule "An input that the caller never gives hides a mutant" asks.
+- `ClassicMcEliece::hasZeroPublicKeyPadding`, line 158: `|` replaced with `^` in the fold of the last bytes of the rows. Each padding case of the test set one bit in one row. The new case sets bit 6 in the rows 2 and 1546, which an exclusive or cancels, as the rule "A rejection test that changes one byte cannot see an exclusive or" asks.
+- `ParityCheckMatrix::generatedKey`, line 55: `>>` replaced with `<<` on the left or on the right of the test of two equal order values, so that the test sees no pair of equal values. The test of the rule changed one value of a random input whose matrix had no systematic form, so the key generation gave no key without the check as well. `twoEqualOrderValuesGiveNoKeyAlsoWhenTheirOrderGivesAKey` starts from the input of a known key and gives the index 991 the value of the index 283, which comes just before it in the order. The order of the indices, and with it the matrix, stays the same, and `pk_gen` of liboqs returns -1.
+
+The other 25 are equivalent. The list below gives the proof for each mutant at the lines of the run. The lines of 15 of them now add their two terms or leave out a factor that an earlier line fixes, and the mutants of the new forms change the output: applied by hand, each of the 97 mutants of these lines fails at least one unit test. The changed lines have had no second run of the workflow. The other 10 keep the form of the C code, and a later run must show them as missed.
+
+### Equivalent mutants
+
+- `GaloisField.rs`, `square12`, lines 103 to 106: `|` replaced with `^` in `(spread | (spread << s)) & B`. The value has 16 bits. At each line the value and its shifted copy overlap only in bits that the mask of the line clears: the bits 8 to 15 at line 103, the bits 4 to 7 and 20 to 23 at line 104, the bits 2, 3, 10, 11, 18, 19, 26 and 27 at line 105, and the bits `4 k + 1` at line 106. So the or and the exclusive or agree in every bit that the line keeps. An addition would carry from the overlap into a kept bit, so each line now adds the low half of each group of bits and the high half moved up, which have no bit in common.
+- `GaloisField.rs`, `square12`, line 108: `^=` replaced with `|=` in `spread ^= high >> 9`. After line 106 the spread value has bits at even places only. `high` takes its bits 14 to 22, so `high >> 9` has bits at odd places only, and the two have no bit in common. The line now adds them.
+- `GaloisField.rs`, `squareSquared13`, lines 165 to 168: `|` replaced with `^`. At each line the value and its shifted copy have no bit in common: the bits 0 to 15 and 24 to 39 at line 165, the bits 0 to 7 and 32 to 39 and the bits 12 to 19 and 44 to 51 at line 166, the nibbles from the bits 0, 16, 32 and 48 and the nibbles from the bits 6, 22, 38 and 54 at line 167, and the pairs from the bits `8 k` and the pairs from the bits `8 k + 3` at line 168. The lines now add the two terms.
+- `GaloisField.rs`, `squareSquaredProduct13`, line 211: `^=` replaced with `|=` in `spread ^= spread << 21`. The value has 16 bits, and its copy has the bits 21 to 36 only. The line now adds the copy.
+- `BenesNetwork.rs`, `transpose`, lines 42 and 44: `|` replaced with `^`. Each new word joins a term in the bits of `masks[0]` and a term in the bits of `masks[1]`, which is `masks[0] << stride`. The two masks of a step have no bit in common. The lines now add the two terms.
+- `ParityCheckMatrix.rs`, `window`, line 162: `|` replaced with `^`. `words[index] >> shift` has the bits 0 to `63 - shift` only, and `words[index + 1] << (64 - shift)` the bits `64 - shift` to 63 only. The line now adds the two parts.
+- `ParityCheckMatrix.rs`, `trailingZeroCount`, line 202: `^` replaced with `|` in `(isSeen ^ 1) & (isSet ^ 1)`, which makes the second factor 1. Line 201 sets `isSeen` when `isSet` is 1, so the first factor is 0 wherever the second factor is 0, and the result of the and is `isSeen ^ 1` in both forms. The line now adds `isSeen ^ 1`.
+- `ParityCheckMatrix.rs`, `publicKey`, line 281: `|` replaced with `^`. The shift of a `u8` drops the bits above 7, so `bytes[index] >> tail` has the bits 0 to `7 - tail` only and `bytes[index + 1] << (8 - tail)` the bits `8 - tail` to 7 only. The line now adds the two terms.
+- `ParityCheckMatrix.rs`, `movedColumns`, line 243: `+` replaced with `*` in `offset + 1..64`. The loop then also takes `other = offset`, and that step swaps the entry `start + offset` with itself, so the difference of line 245 is zero.
+- `ParityCheckMatrix.rs`, `publicKey`, line 280: `-` replaced with `+` or with `/` in `(rowCount - 1) / 8`. Only the 6960119 sets take this loop, and their `m t` is 1547. 1546 / 8, 1548 / 8 and 1547 / 8 are all 193, so the range of the loop does not change.
+- `ControlBits.rs`, `addBit`, line 38: `^=` replaced with `|=`. Line 22 sets each byte of the bits to zero. A call of `recursion` at `position` with the step `s` writes the `n / 2` positions from `position` and the `n / 2` positions from `position + (2 w - 2) s n / 2`, at the step `s` (lines 138, 143 and 149). Line 154 gives its two halves the starts `position + s n / 2` and one step later, with the step `2 s`. By induction on `w`, the halves write the `(2 w - 3) n / 2` positions between, so a call writes each of its `(2 w - 1) n / 2` positions once. Each write is one bit. Lines 135 and 146 take bit 0 of an entry. Line 54 writes the first value of a permutation of two elements: the input of `ofPermutation` for `w = 1`, or a half that a call with `n = 4` made at line 157 or 158. A half holds the low 16 bits of the entries of `a` divided by 2, and lines 150 and 151 take those bits from the entries of `b`, which lines 139 and 140 set from the values `fx` and `fx ^ 1` below `n`. So the value is 0 or 1, and each write sets a bit that is still zero.
+- `ControlBits.rs`, `recursion`, lines 79 and 101: `-` replaced with `+` or with `/` in `1..logarithm - 1`, and line 109: `<` replaced with `<=`, and `-` replaced with `+` in `round < logarithm - 2`. The rounds of lines 79 and 101 find, for each `x`, the smallest element `c(x)` of the cycle of `x` under the permutation `pibar` of line 60, by doubling. Line 65 starts `c(x)` as the smaller of `x` and `pibar(x)`, and line 77 or 99 starts `p` as `pibar^2`, which the sort of line 74 gives. Each round sets `c` to the minimum of `c` and `c o p`, and `p` to `p^2`, so after `r` rounds `c(x)` is the smallest of the first `2^(r + 1)` elements of the orbit of `x`. `pibar` is `t s`, where `s` maps `x` to `x xor 1` and `t` is `pi s pi^-1`, two involutions without a fixed point. `s` maps each cycle of `t s` to another cycle of the same length: `s (t s) s` is the inverse of `t s`, and a cycle that `s` maps to itself would hold a fixed point of `s` or of `t`. So a cycle has at most `n / 2` elements, and the `w - 2` rounds of the code reach every element of it. In a later round `p(x)` is on the cycle of `x`, so `c` does not change. The mutants of lines 79 and 101 add one or two rounds. Lines 95 and 125 keep only `c`, and in the loop of line 101 the condition of line 109 is false in an added round, so that round only takes the minimum again. The two mutants of line 109 also square `p` in the last round, which changes only the upper half of `B`. Line 121 compares two entries with the same upper half, and line 125 clears it. The proof needs `pi` to be a permutation at each level. The key generation gives the indices of the sorted order values, `movedColumns` only swaps them, and the recursion of Nassimi and Sahni, which `controlbits.c` follows, makes a permutation of each half of a permutation.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The minimum of the control bits is the smaller value also for two values of opposite signs | `ControlBits::minimum`, line 32: `^=` replaced with `\|=`, and `^` replaced with `&` or `\|` | `theMinimumIsTheSmallerValueForAnyTwoValuesAsCryptoInt32Min` |
+| The padding check of a public key gathers the last bytes of the rows with an or | `ClassicMcEliece::hasZeroPublicKeyPadding`, line 158: `\|` replaced with `^` | `aPublicKeyWithAPaddingBitIsRefusedByThe6960119SetsAfterTheRandomRequest`, case `rows [2, 1546] bit 6` |
+| Two equal order values give no key, also where their order gives a key | `ParityCheckMatrix::generatedKey`, line 55: `>>` replaced with `<<` on either side | `twoEqualOrderValuesGiveNoKeyAlsoWhenTheirOrderGivesAKey` |
+| The square of GF(2^12) adds the low half of each group of bits and the high half moved up | `GaloisField::square12`: each operator of the four spreads and of the first fold replaced, by hand | `fieldFunctionsGiveTheKnownAnswersOfTheCFunctions`, `inversesAndQuotientsAreTheInversesOfTheField` and 4 more |
+| The squares of GF(2^13) add each spread value and its shifted copy | `GaloisField::squareSquared13` and `squareSquaredProduct13`: each operator of the spreads replaced, by hand | `fieldFunctionsGiveTheKnownAnswersOfTheCFunctions`, `inversesAndQuotientsAreTheInversesOfTheField` and 4 more |
+| The transpose adds the two terms of each new word | `BenesNetwork::transpose`: each operator of the two new words replaced, by hand | `transposeSwapsRowsAndColumns`, `networksAndSupportsGiveTheKnownAnswersOfTheCFunctions` and 4 more |
+| A window of a row adds its two parts | `ParityCheckMatrix::window`: each operator of the two parts replaced, by hand | `windowsReadAndWriteSixtyFourBitsFromAnyColumn`, `thePivotSearchOrsTheOldBitsIntoTheFirstByteOfAWindowInsideAByte` and 2 more |
+| The trailing zeros count the places below the first set bit | `ParityCheckMatrix::trailingZeroCount`: each operator of the loop replaced, by hand | `trailingZerosAndSameMasksFollowTheCFunctions`, `aWindowOfRank32MovesOnlyAPivotOutsideTheDiagonal` and 2 more |
+| A shifted byte of a 6960119 public key adds its two parts | `ParityCheckMatrix::publicKey`, line 281: each operator replaced, by hand | `generatedKeysGiveTheKnownAnswersOfTheCFunction` |
+
+## Latest result for the stateful test programs and the stateful parity
+
+The runs of 2026-10-23 are the `Mutants` workflow of CI, in ten shards, on the commit `a9da132` of the branch `foundation/stateful-parity`, before the new tests below: [`oqs-native-algorithm-tests`](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40038683831), [`oqs-native-c-oracle`](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40038683841) and [`oqs-native-parity`](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40038683197).
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-algorithm-tests` | 423 | 392 | 6 | 21 | 4 |
+| `oqs-native-algorithm-tests`, second run in CI | 424 | 398 | 5 | 21 | 0 |
+| `oqs-native-c-oracle` | 175 | 143 | 0 | 30 | 2 |
+| `oqs-native-parity` | 249 | 230 | 0 | 18 | 1 |
+| `oqs-native-parity`, third run in CI | 258 | 235 | 0 | 22 | 1 |
+
+The six timeouts of the test support are endless loops of a reader. Each log shows the unit tests of the reader still running after 60 seconds, and every other test of the program passed. Applied by hand, the unit test program of each mutant ran under the cap of the address space until the limit of 300 seconds, ten times the time of the whole suite of the crate, and did not end. The same tests were still running.
+
+- `JSONValue.rs`, `Reader::skipSpace`, line 96, and `Reader::number`, line 186: `+=` replaced with `*=`. The position stays where it is, so the loop reads the same space or digit for ever.
+- `JSONValue.rs`, `Reader::string`, line 202: the arm of `"` deleted. A quote goes to the arm of the plain text, whose run ends at the quote itself, so the position stays at the quote.
+- `JSONValue.rs`, `Reader::string`, line 203: the arm of `\` deleted. A backslash goes to the arm of the plain text in the same way, and the position stays at the backslash.
+- `JSONValue.rs`, `Reader::string`, line 239: `+` replaced with `*` in `start + offset`. A run of one character before a quote gives the end `start`, so the position goes back to the start of the run, and the same run comes again.
+- `ResponseFile.rs`, `ResponseFile::value`, line 36 of that run: `+=` replaced with `*=`. The position stays where it is, so the reader reads the same digit for ever. The line is line 35 since the reader places the digits in one pass.
+
+The lines of `JSONValue.rs` came with the port of ML-KEM, and the lines of `ResponseFile.rs` with the known-answer program of the stateful schemes.
+
+Of the 7 missed mutants, three were test gaps, two joined disjoint bit fields with an or, and two are equivalent.
+
+- `StatefulTreeHeight::largest`, line 25: `>` replaced with `>=` in `layers > 0`. `total.is_multiple_of(0)` is true only for a total of 0, so the mutant divides by zero only for a name of 0 layers and a total of 0. `theNameGivesTheHeightOfTheLargestTree` now also refuses `XMSSMT-SHA2_20/0_256` and `XMSSMT-SHA2_0/0_256`, which are not names of liboqs. The mutant panics on the second.
+- `StatefulSignatureFuzzTest::run`, line 67: `%` replaced with `/` in `bytes(1)[0] % 3`. Each quotient picks an order too, and the property of every order holds for a correct scheme, so `run` gave the same result. `fuzz_test_sig_stfl_lms.c` takes the field selector `fuzz_data[0] % 3`. The test now gives the selector byte to `overwritten`, which takes it modulo 3, and `theFuzzBytesFillTheFieldsInTheOrderThatTheSelectorPicksModulo3` checks the selectors 3, 5, 7 and 255 by hand. The mutant fails it, because 3 / 3 is 1 and 5 / 3 is 1.
+- `ResponseFile::value`, lines 41 and 43 of that run: `|` replaced with `^` where a digit shifted into the value. The equivalence is in the section of the known-answer program of the stateful schemes above. The reader no longer shifts each digit through the value. It now places the last digits of the line in one pass, and joins the two halves of a byte with `+=`, as the rule of disjoint bit fields in `Documentation/Learnings/MutationTesting.md` says. Applied by hand, `+=` replaced with `-=` or with `*=` on that line fails five of the seven tests of `ResponseFile`, `eachValueIsTheValueThatTheShiftsOfTheCReaderGive` among them.
+- `COracle.rs`, `Drop for OracleWorkingKey`, line 1225: the body replaced with `()`. The working key of hash-sigs then stays in the memory of the C library, and no output shows it. The shim now counts the working keys that each thread loaded and did not free, and `COracle::liveWorkingKeyCount` reads the count. `aDroppedWorkingKeyReleasesItsMemoryInTheCLibrary` checks that a load adds one, that the drop takes it away, and that a refused load adds none. Applied by hand, the mutant fails it with the count 1 in place of 0. `aTwoLevelWorkingKeySignsAcrossItsBottomTreesAsTheCLibraryDoes` checks that each new load at a boundary frees the working key that it replaces.
+
+The [second run of `oqs-native-algorithm-tests`](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40050762272), on the commit `4e856f4` of the branch `mutants/oqs-native-algorithm-tests.2`, after the new tests and the new reader, had no missed mutant. Its 5 timeouts are the five mutants of `JSONValue.rs` above, whose file did not change, with the same tests of the reader still running in each log. The mutant of `ResponseFile::value`, line 35, `+=` replaced with `*=`, no longer runs forever: the reader that places the digits in one pass fails a test, and the run caught it. The four missed mutants of the first run are caught.
+
+The [third run of `oqs-native-parity`](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40057615535), on the commit `109200a` of the branch `mutants/oqs-native-parity.3`, after the LMS sets sign with a working key on the Rust side, had 258 mutants: 235 caught, no timeout, 22 unviable and 1 missed. The missed mutant is `VariationGenerator::usesContextForm`, line 81, `==` replaced with `!=`, the fair coin below.
+
+### Equivalent mutants
+
+- `oqs-native-c-oracle`, `verifiedSignature`, line 327: `<` replaced with `<=`. The CROSS section records it. For a signature of the scheme length, the mutant resizes the buffer to the length that it already has, which changes nothing.
+- `oqs-native-parity`, `VariationGenerator::usesContextForm`: the fair coin that the section of the oracle, the known-answer programs, the registry and the parity harness records.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| A name of zero layers has no height | `StatefulTreeHeight::largest`, line 25: `>` replaced with `>=` | `theNameGivesTheHeightOfTheLargestTree` |
+| The LMS fuzz program picks the order of the fields with the selector byte modulo 3 | `StatefulSignatureFuzzTest::overwritten`: `%` replaced with `/`, by hand | `theFuzzBytesFillTheFieldsInTheOrderThatTheSelectorPicksModulo3` |
+| A response value keeps the last digits of its line, as the shifts of `ReadHex` leave them | `ResponseFile::value`: `+=` replaced with `-=` or `*=`, by hand | `eachValueIsTheValueThatTheShiftsOfTheCReaderGive`, `aValueKeepsTheLastDigitsWithZerosInFrontOfAShortOne` and 3 more |
+| The drop of a working key frees it in the C library | `Drop for OracleWorkingKey`: body replaced with `()` | `aDroppedWorkingKeyReleasesItsMemoryInTheCLibrary` |
+
+## Latest result for XMSS and XMSS^MT
+
+The run of 2026-10-24 is the `Mutants` workflow of CI, in ten shards, on the branch `mutants/oqs-native-xmss`, at the commit `4e856f4` of the code of the branch `family/xmss`: [run 40050761803](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40050761803). The branch then moved onto the current stack. The move changed no file of `Modules/XMSS` or of `Modules/AlgorithmTests`.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-xmss` | 868 | 777 | 1 | 71 | 19 |
+| `oqs-native-xmss`, second run in CI | 868 | 790 | 1 | 71 | 6 |
+
+The [second run](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40058461162), on the commit `b42cc8a` of the branch `mutants/oqs-native-xmss.2`, whose `Modules/XMSS` is the code of the new tests below, had 868 mutants: 790 caught, 1 timeout, 71 unviable and 6 missed. The six missed mutants are the six equivalent mutants below, at the same lines, and the timeout is the mutant of `WOTS::chain`, line 48, below.
+
+The timeout is `WOTS::chain`, line 48: `+=` replaced with `*=`. The step stays at its start, so a chain from step 0 never ends, and every key pair, signature and verification starts its chains at step 0. The log shows no failed test. Applied by hand, the suite of the crate ran under the cap of the address space until the limit of 300 seconds, fifteen times the 20 seconds of the whole suite, and did not end. The unit test program alone was still in `keysSignaturesAndRecoveredKeysAreThoseOfTheCFunctions`, `eachLeafIsTheLeafOfTheCFunction` and `anUnfinishedInstanceUsesAnUpdateAndTheLowestInstanceGoesFirst` after 150 seconds, where it ends in under a second.
+
+Of the 19 missed mutants, 13 are test gaps, and new tests kill them. Each new test failed with its mutant applied by hand and passed with the code.
+
+- `CoreAlgorithms::multiTreeSignature`, line 271: `<` replaced with `<=` in the test of the next tree of the lowest layer. The two sides are equal only at leaf 0 of the last tree of the layer, the index 2^20 - 32 of XMSSMT-SHA2_20/4_256, where the mutant adds a leaf to a next tree that does not exist. No test signed there.
+- `CoreAlgorithms::multiTreeSignature`, line 308: `<` replaced with `<=` in the test of the next leaf of a next tree, and `BDSState::nextLeaf` replaced with 0 or with 1. `addNextLeaf` stops at the leaf 2^(h/d), so only a forged state has the next leaf 2^h. With the next leaf 2^20 in the next tree of layer 1, the C library gives that tree no leaf, and each mutant gives it one.
+- `CoreAlgorithms::multiTreeSignature`, line 346: `+` replaced with `-` in `states[next + layer]`. At the end of a tree of layer 1 or above, the mutant restarts the current tree of layer d - layer in place of the next tree of the layer. The tests signed at the ends of trees with fresh keys, whose counters are zero, so both restarts changed nothing.
+- `BDSState::minimumHeightOnStack` replaced with `Ok(1)`. The order of the treehash updates in the sequences of signatures did not depend on the minimum.
+- `BDSState::addNextLeaf`, line 542: `<` replaced with `<=` in `nodeHeight < treeHeight`. Only a forged stack merges two nodes of the height of the tree. The code refuses that merge, where the C code shifts by a negative amount, and the mutant looks up a treehash instance past the last one and panics.
+- `BDSState::swap`, line 667: `<` replaced with `==`. Every signature swaps the next tree of a layer, whose index is above, with its current tree, so the order of the two states was always the same.
+- `copyWithinKey`, line 66: `<` replaced with `<=`, `swapWithinKey`, line 80: `||` replaced with `&&`, line 83: `<` replaced with `==`, and line 89: `>` replaced with `>=`. In the signatures of the tests, the source of a copy never starts where its target ends, the two places of a swap are never the same place or next to each other, and a swap always gives the later place first.
+- `WOTS::chain`, line 45: `<` replaced with `<=` in `step < w`. Every chain of the code ends at step 15, so the bound of `gen_chain` at w = 16 never stops a chain.
+
+### Equivalent mutants
+
+- `BDSState.rs`, `initializeTree`, line 358: `<` replaced with `<=` in `nodeHeight < height`. The stack of the function is its own buffer, and each level on it comes from the merges of the function. A node of level L covers 2^L leaves, and the nodes on the stack cover different leaves of the 2^height leaves of the tree. So two nodes of level `height` never meet, each merge has children of a level of at most `height - 1`, and the condition holds on both sides.
+- `BDSState.rs`, `minimumHeightOnStack`, line 394: `<` replaced with `<=`. The mutant also assigns a level that equals the minimum, which leaves the same value.
+- `BDSState.rs`, `advanceAuthenticationPath`, line 620: `<` replaced with `<=` in `startIndex < 1 << treeHeight`. The sides are equal only when `leafIndex + 1 + 3 * 2^i = 2^h` for a height i below tau. Lines 578 to 580 make bits 0 to tau - 1 of the leaf index 1 and bit tau 0, or tau equal to h, so `leafIndex + 1` is a multiple of 2^tau, and so of 2^(i + 1). For i up to h - 2, `2^h - 3 * 2^i` is 2^i times the odd number `2^(h - i) - 3`, and for i = h - 1 it is negative, so it is never a multiple of 2^(i + 1). The proof needs a leaf index below 2^h and a sum without a wrap. XMSS calls the function only for an index below 2^h - 1 (`CoreAlgorithms.rs`, line 195), XMSS^MT masks the leaf index with `leafMask`, and h is at most 20, so the sum stays below 2^32.
+- `BDSState.rs`, `swap`, line 667: `<` replaced with `<=`. Line 641 returns when the two states are the same, so the two operators agree on every pair that reaches line 667.
+- `BDSState.rs`, `swapWithinKey`, line 83: `<` replaced with `<=`. Line 80 returns when the two places are the same, so the two operators agree on every pair that reaches line 83.
+- `MerkleTree.rs`, `isValidSignature`, line 130: `+` replaced with `*` in the end of R, `indexLength + hashLength`. `KeyedHash::messageHash` reads only the first n bytes of R (line 117). The index has at least 3 bytes, so the slice of the mutant, from `indexLength` to `indexLength * n`, holds at least n bytes, and its first n bytes are R. It ends at 256 bytes at most, and `Scheme::isValidSignature` checks the length of the set first, which is at least 1492 bytes. So the hash is the same and no slice panics.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| The last tree of the lowest layer gives no leaf to a next tree | `multiTreeSignature`, line 271: `<` replaced with `<=` | `theNextTreesOfXMSSMTGetTheirLeavesWithinTheLimitsOfTheCCode`, case `index 2^20 - 32` |
+| A next tree at the next leaf 2^h gets no leaf, and its update goes to the layer above | `multiTreeSignature`, line 308: `<` replaced with `<=`, `BDSState::nextLeaf` replaced with 0 or 1 | `theNextTreesOfXMSSMTGetTheirLeavesWithinTheLimitsOfTheCCode`, case `state 5 at the next leaf 2^20` |
+| A tree that ends restarts the next tree of its own layer | `multiTreeSignature`, line 346: `+` replaced with `-` | `theNextTreesOfXMSSMTGetTheirLeavesWithinTheLimitsOfTheCCode`, case `index 1023 with state 1 at the next leaf 7` |
+| The minimum height of an instance is the lowest level of its nodes on the stack | `BDSState::minimumHeightOnStack` replaced with `Ok(1)` | `theMinimumHeightIsTheLowestLevelOfTheNodesOfTheInstanceOnTheStack` |
+| A merge of two nodes of the height of the tree is refused | `BDSState::addNextLeaf`, line 542: `<` replaced with `<=` | `aForgedStateThatLeavesTheKeyIsRefusedAndKeepsTheKey` |
+| A swap of two states gives the same key in either order | `BDSState::swap`, line 667: `<` replaced with `==` | `aSwapExchangesTheContentsAndTheCountersOfTwoStates` |
+| Places that touch do not overlap, a place swaps with itself as `memswap` does, and the order of two places does not matter | `copyWithinKey`, line 66, and `swapWithinKey`, lines 80, 83 and 89 | `overlappingCopiesAndSwapsAreUndefinedAndTheOthersMoveTheBytes` |
+| A chain takes no step from w on, as `gen_chain` | `WOTS::chain`, line 45: `<` replaced with `<=` | `aChainTakesNoStepFromWOnAsGenChainDoes` |
+
+## Latest result for LMS
+
+The runs of 2026-10-24 are the `Mutants` workflow of CI, in ten shards, on the commit `109200a` of the branches `mutants/oqs-native-lms`, `mutants/oqs-native-sha2.lms` and `mutants/oqs-native.lms`, before the new tests below: [the crate](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40057614001), [`oqs-native-sha2`](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40057617251) and [the facade](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40057618838). The commit has the code of `Modules/LMS`, `Modules/SHA2`, `Modules/OQSNative` and `Tools/Parity` of the branch `family/lms`. The facade ran with the tests of `oqs-native-parity` and a timeout of 900 seconds.
+
+| Crate | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `oqs-native-lms` | 681 | 557 | 4 | 79 | 41 |
+| `oqs-native-sha2` | 136 | 134 | 1 | 0 | 0 |
+| `oqs-native`, with the tests of `oqs-native-parity` | 45 | 15 | 1 | 29 | 0 |
+
+The second run of the crate is the `Mutants` workflow of CI, in ten shards, on the branch `mutants/oqs-native-lms.2`, on the commit of the new tests and the checked splits: [run 40067123423](https://github.com/DeveloperBeau/liboqs-rust/actions/runs/40067123423). It had 656 mutants: 565 caught, 4 timeouts, 78 unviable and 9 missed. The 9 missed mutants are the 9 equivalent mutants below, at their lines in the current code: `isHSSPublicKey`, lines 47, 51 and 52, `publicKeyLevels`, line 63, `AuxiliaryData::savedDepths`, lines 34 and 45, and `TreeBuilder::step`, line 122. The 4 timeouts are the 4 of the first run. No length check of the verification is left to mutate.
+
+Three of the four timeouts of the crate failed a test first. `TreeBuilder::step` replaced with `()`, `TreeBuilder::isComplete` replaced with `false`, and `+=` replaced with `*=` in the count of built leaves of `step`, line 125, each failed `aBuilderStepsOneLeafAtATimeAndKeepsTheTopAndTheChosenSubtrees`. With each of them the builder never completes, so `TreeBuilder::complete` does not end.
+
+The fourth timeout had no failed test. `ParameterSet::compressed`, line 67: `+=` replaced with `*=`. The index stays at 0, so the loop never ends. Applied by hand, the suite of the crate ran under the cap of the address space until the limit of 150 seconds, about 18 times the 8 seconds of the whole suite, and did not end. `compressedSetsAndIdentifiersFollowTheLayoutOfHashSigsAndLiboqs` and the three tests of `LMSWorkingKey` were still running.
+
+The timeout of `oqs-native-sha2` replaces the body of `SHA256::withInitialState`, line 43, with `Default::default()`, as in the ML-DSA run. `default` calls `new`, which calls `withInitialState` again, so the calls never end. Applied by hand, the four tests of `KnownAnswers.rs` were still running after 150 seconds, where the whole suite of the crate ends in under a second.
+
+The timeout of the facade is `joined`, line 199: `+=` replaced with `*=` in `first += 1`. The search for the first group that holds an algorithm then stays at group 0. The first group of each list of the registry holds algorithms, so the constants of the registry build and stay the same. Only `groupsJoinInTheirOrderAndSkipEmptyGroups` calls `joined` with an empty first group, at run time. Applied by hand, that test was still running after 150 seconds, where the unit tests of the facade end in under a second.
+
+Of the 41 missed mutants, 17 were test gaps, three joined disjoint bit fields with an or, 12 were length checks whose mutants a later check covers, and 9 are equivalent. The line numbers are those of the run. Where a line moved, the text also gives its line in the current code.
+
+- `SignatureVerification::isValidForPaddedKey`, line 40, now 47, and line 78, now 87: `>` replaced with `>=` or `==` in the test of the level count against 8. The mutants refuse a signature of exactly eight levels. liboqs has sets of one and two levels only, and no set has room for the signature of eight levels, but the verification of hash-sigs accepts one. A C program made a key of eight levels of `LMS_SHA256_H5_W4` with `OQS_LMS_NAMESPACE_hss_generate_private_key` and signed with `OQS_LMS_NAMESPACE_hss_generate_signature`, and `OQS_SIG_STFL_verify` accepted the signature of 19180 bytes. `aSignatureOfEightLevelsIsValidAsTheCLibraryAcceptsIt` signs with the same key through a working key of a test scheme with room for it, compares the digests of the public key and the signature with those of the C program, and asserts that the signature is valid. Each of the four mutants fails it.
+- `SignatureVerification::isValidForPaddedKey`, line 78, now 87: `||` replaced with `&&`. The mutant verifies a signature of two levels under the raw LMS public key of its top tree, which gives one level. `OQS_SIG_STFL_verify` refused it. `aRawLMSPublicKeyVerifiesASignatureOfOneLevelOnlyAsTheCLibraryDecides` fails with the mutant.
+- `TreeState::builder`, line 37: `-` replaced with `+` in the subtree count, and line 40: `<` replaced with `<=`, and `TreeState::advance`, line 162, now 164: `/` replaced with `*` in the subtree count, and line 163, now 165: `<` replaced with `<=`. With each mutant a state keeps or builds a subtree past the last subtree of the tree. Such a subtree has no leaf of the tree, and no signature reads it, so every output stays the same. Line 44: `-` replaced with `+` in the limit of the top part. The builder then keeps every node of the tree, which is 2^31 nodes of 32 bytes for a tree of height 20, but no signature reads the extra nodes. For a tree of height 25 the shifts of the mutants of lines 37 and 44 overflow, which the test build refuses with a panic, but no test of the dev profile loads a tree above height 10. `TreeBuilder::completedSubtree`, line 92: `<<` replaced with `>>`. The subtree whose nodes are known then counts as not built, and the state builds its leaves again. `aStateKeepsTheTopAndBuildsOnlyTheSubtreesInsideTheTree` checks the length of the top part, that a computed state gets the subtree after the next one complete, and that the next subtree and the subtree in building exist at each leaf exactly when they are inside the tree. Each of the six mutants fails it.
+- `SignatureVerification.rs`, lines 88, 92 and 95 and lines 166 and 180: `<` replaced with `==`, `>` replaced with `==`, and `||` replaced with `&&` on line 92. These six mutants let a signature that is too short reach the split or the read of the field, which panics. No test gave a signature that ended inside a field. `eachPrefixOfASignatureIsRefusedAsTheCLibraryRefusesIt` gives the prefixes of a valid signature of one level and of two levels that end at each edge of their fields, and every length up to 13. `OQS_SIG_STFL_verify` refused every prefix of the two signatures. Applied by hand, each of the six mutants failed the test.
+
+The three joins of disjoint bit fields are `TreeBuilder::keep`, line 145, `TreeState::authenticationPath`, line 121, and `AuxiliaryData::savedDepths`, line 46: `|` replaced with `^`. The first two join `1 << depth` with the bits below it, and the third joins the flag of bit 31 with the bit of a saved depth, which is below 9. The code now joins the fields with `+`, as the rule of disjoint bit fields in `Documentation/Learnings/MutationTesting.md` says, and a comment on each line says why the fields cannot meet. Applied by hand, `+` replaced with `-` or with `*` on each line fails the tests of the traversal or of the saved depths and the known answers.
+
+The 12 mutants of length checks are `<` replaced with `<=` on lines 68, 92, 154, 166 and 180 of `SignatureVerification.rs` and on line 155 of `OneTimeSignature.rs`, `>` replaced with `>=` on lines 88 and 95, `<` replaced with `<=` or with `==` in `rest.len() < 8 + hashLength`, line 120, `+` replaced with `*` on the same line, and `<` replaced with `==` on line 154. At its bound each of the first eight refuses a signature that the next check refuses as well. Line 120 checked a length that the length check of the one-time signature, line 166, covers before the message hash reads the bytes, and line 154 could not see a signature shorter than the 40 bytes of line 120. Applied by hand, each of the 12 mutants passed every test of the crate. The verification now splits each field with `split_at_checked`, `split_first_chunk` or `first_chunk`, so that the length check and the split are one step, and line 120 is gone. The checked splits leave no operator to mutate, and `eachPrefixOfASignatureIsRefusedAsTheCLibraryRefusesIt` proves that each one still refuses a short field without a panic.
+
+### Equivalent mutants
+
+- `SignatureVerification.rs`, `isHSSPublicKey`, line 40, now 47: `||` replaced with `&&`, line 44, now 51, and line 45, now 52: `&&` replaced with `||`, and `publicKeyLevels`, line 56, now 63: `&&` replaced with `||`. For lines 44 and 45 the mutant of the run is the text of its diff, so `a || b && c` groups as `a || (b && c)`. The first three mutants make `isHSSPublicKey` true for some keys where it is false, and the fourth makes `publicKeyLevels` 1 for some keys where it is 0. The verification refuses each such input with the code and with the mutant:
+  - With the code, `isHSSPublicKey` false gives a `publicKeyLevels` of 0 or 1, and 1 needs a raw key, whose word 0 is a tree typecode and whose word 1 is a one-time typecode. The tree typecodes are 5 to 9 and the one-time typecodes are 1 to 4, so the two sets do not meet. The first mutant passes a key only when the three checks of lines 50 to 52 hold, so its word 1 is a tree typecode, the key is not raw, and the count is 0. The other two pass a key only when its word 0 equals the level count L of the signature, and the count 0 or 1 differs from L, because a raw key has L of 5 or more. So line 87 refuses each such input with the code.
+  - The first mutant differs from the code only for a key whose first word equals a level count above 8, or a key whose first word differs from a level count of at most 8. The count of `publicKeyLevels` is then the first word, so either the level count is above 8 or the count differs from it, and line 87 refuses.
+  - With the second and third mutants, one of the three checks of lines 50 to 52 fails, and the verification takes bytes 4 to 59 as the top LMS public key. A word 1 that is not a tree typecode fails `levelType` in the loop or `TreeType::ofCode` in `isValidLMSSignature`. A word 2 that is not a one-time typecode fails `levelType` or the check of line 128. A word 2 that differs from word 2 of the signature, which is the typecode of the first one-time signature, fails `candidatePublicKey`, which compares that typecode with the type of the key.
+  - With the fourth mutant, the key has the raw form, so its word 0 is the tree typecode and its word 1 the one-time typecode of the verification. A signature of more than one level differs from the count 1, and for one level the unknown typecode fails line 128 or `TreeType::ofCode` in `isValidLMSSignature`.
+
+  The checks copy `is_hss_public_key` and `public_key_levels` of liboqs, which also check the typecodes that `lm_validate_signature` checks later. Applied by hand, each mutant passed every test of the crate.
+- `AuxiliaryData.rs`, `savedDepths`, line 34: `-` replaced with `+` at either place in `auxiliaryDataLength - 4 - hashLength`, and `-` replaced with `/` in `4 - hashLength`, and line 45: `-=` replaced with `+=`. The room of the original is 10880 bytes, and the mutants give 10888, 10944 and 10916 bytes, or a room that grows. The saved depths of a height are every second depth from 1 or from 2, and the nodes of depth d take `32 * 2^d` bytes. From depth 2 the depths up to 8 take 10880 bytes, exactly the room, and depth 10 takes 32768 bytes. From depth 1 the depths up to 7 take 5440 bytes, and depth 9 takes 16384 bytes. The largest room of the four mutants leaves 64 bytes after depth 8 and 5504 bytes after depth 7, and the growing room leaves 21760 and 16320 bytes. So each mutant saves the depths of the original for every tree height, and `savedDepthsAreTheAuxLevelsOfHashSigsForTheBufferOfLiboqs` checks the five heights against `hss_optimal_aux_level`.
+- `TreeBuilder.rs`, `step`, line 122: `<` replaced with `<=`. The mutant also pushes the root of the range onto the stack. The range is aligned to its size, so the loop of line 115 climbs to the height of the range only for the last leaf of the range. After that step `builtCount` is `2^rangeHeight`, so each later call of `step` returns at once, and no line reads the stack again. Applied by hand, the mutant passed every test of the crate.
+
+| Rule | Mutant | Killed by |
+|---|---|---|
+| A signature of eight levels, the most that hash-sigs reads, is valid | `isHSSPublicKey`, line 47, and `isValidForPaddedKey`, line 87: `>` replaced with `>=` or `==` | `aSignatureOfEightLevelsIsValidAsTheCLibraryAcceptsIt` |
+| A raw LMS public key verifies a signature of one level only | `isValidForPaddedKey`, line 87: `\|\|` replaced with `&&` | `aRawLMSPublicKeyVerifiesASignatureOfOneLevelOnlyAsTheCLibraryDecides` |
+| Each prefix of a signature is refused without a panic | `isValidForPaddedKey` and `isValidLMSSignature`, each length check of the run: `<` or `>` replaced with `==`, by hand | `eachPrefixOfASignatureIsRefusedAsTheCLibraryRefusesIt` |
+| A state keeps the top part and builds only the subtrees inside the tree | `TreeState::builder`, lines 37, 40 and 44, `TreeState::advance`, lines 164 and 165, and `TreeBuilder::completedSubtree`, line 92 | `aStateKeepsTheTopAndBuildsOnlyTheSubtreesInsideTheTree` |
+| The place of a node in a subtree adds its low bits to the bit of its depth | `TreeBuilder::keep`, line 146, and `TreeState::authenticationPath`, line 123: `+` replaced with `-` or `*`, by hand | `aBuilderStepsOneLeafAtATimeAndKeepsTheTopAndTheChosenSubtrees`, `eachLeafHasTheAuthenticationPathOfTheDefinitionAcrossEverySubtree` and the known answers |
+| The saved depths set the flag of bit 31 and the bit of each depth | `AuxiliaryData::savedDepths`, line 47: `+` replaced with `-` or `*`, by hand | `savedDepthsAreTheAuxLevelsOfHashSigsForTheBufferOfLiboqs` |
+
+## History
+
+| Run | Code | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|---|
+| 1 | First version of the tool | 758 | 492 | 111 | 19 | 136 |
+| 2 | Token trees, `run` and `Report`, new tests | 564 | 512 | 14 | 33 | 5 |
+| 3 | The five survivors removed or killed | 544 | 503 | 8 | 33 | 0 |
+| 4 | `NamingCheck.rs` only, after the module rule change | 37 | 33 | 0 | 4 | 0 |
+
+`Documentation/Learnings/MutationTesting.md` records what the first two runs taught.

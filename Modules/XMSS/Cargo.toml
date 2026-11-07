@@ -1,0 +1,46 @@
+[package]
+name = "oqs-native-xmss"
+description = "XMSS and XMSS^MT of RFC 8391, a native port of the stateful XMSS signatures of liboqs."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# The port is under MIT. The XMSS code of liboqs, by SandboxAQ after the reference code of
+# Andreas Hülsing and Joost Rijneveld, is under (Apache-2.0 OR MIT) AND CC0-1.0.
+license = "MIT AND (Apache-2.0 OR MIT) AND CC0-1.0"
+authors.workspace = true
+repository.workspace = true
+readme = "README.md"
+keywords = ["xmss", "hash-based", "signature", "post-quantum", "liboqs"]
+categories.workspace = true
+# The tests use the unpublished test crates, so the package leaves them out.
+exclude = ["tests/"]
+
+[package.metadata]
+ring = "features"
+
+[lib]
+name = "OQSNativeXMSS"
+path = "src/lib.rs"
+
+[dependencies]
+oqs-native-domain = { workspace = true }
+oqs-native-entities = { workspace = true }
+oqs-native-sha2 = { workspace = true }
+oqs-native-sha3 = { workspace = true }
+
+[dev-dependencies]
+oqs-native-algorithm-tests = { path = "../AlgorithmTests" }
+oqs-native-kat-random = { path = "../KATRandom" }
+
+[features]
+default = ["std"]
+# Without `std` the crate builds with `core` and `alloc` only.
+std = [
+    "oqs-native-domain/std",
+    "oqs-native-entities/std",
+    "oqs-native-sha2/std",
+    "oqs-native-sha3/std",
+]
+
+[lints]
+workspace = true
