@@ -1,7 +1,8 @@
 name: Check for liboqs updates
 
 # Compares LIBOQS_VERSION with the latest liboqs release. A newer release opens
-# one issue. An open issue with the same title is left as it is.
+# one issue for the pinned version, or updates the open issue for that pin.
+# A closed issue with the same title is not opened again.
 on:
   schedule:
     # Every Monday at 09:00 UTC.
@@ -22,6 +23,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Compare the pinned version with the latest release
         env:
           GH_TOKEN: ${{ github.token }}
