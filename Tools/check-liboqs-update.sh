@@ -46,6 +46,10 @@ is_actions_author() {
   esac
 }
 
+if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
+  return 0 2>/dev/null || exit 0
+fi
+
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 version_file="${root}/LIBOQS_VERSION"
 
@@ -81,7 +85,7 @@ if [[ ! "${latest}" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
   exit 1
 fi
 
-if [[ "${latest}" == "${pinned}" ]]; then
+if ! version_is_newer "${latest}" "${pinned}" && ! version_is_newer "${pinned}" "${latest}"; then
   echo "liboqs ${pinned} is current"
   exit 0
 fi
@@ -105,7 +109,9 @@ if [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
 fi
 
 # One bounded search of open and closed notices for this pin.
-notice_re="^liboqs [0-9]+([.][0-9]+)* is available \\(pinned ${pinned}\\)$"
+# Dots in the pin are literal, so 0.16.0 does not match 0x16y0.
+pinned_re="${pinned//./\\.}"
+notice_re="^liboqs [0-9]+([.][0-9]+)* is available \\(pinned ${pinned_re}\\)$"
 
 if ! issue_rows="$(gh issue list "${repo_args[@]}" --state all --limit 50 --search "in:title \"is available (pinned ${pinned})\"" --json number,state,title,author --jq '.[] | [.number, .state, .title, .author.login] | @tsv')"; then
   echo "the call to list issues failed" >&2
