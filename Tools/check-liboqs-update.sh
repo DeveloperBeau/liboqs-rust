@@ -31,6 +31,23 @@ version_is_newer() {
   return 1
 }
 
+# True when neither version is newer. Extra zeros do not make a new version.
+versions_are_equal() {
+  ! version_is_newer "$1" "$2" && ! version_is_newer "$2" "$1"
+}
+
+# Reads the two versions from a notice title. The pin is not pasted into the
+# pattern, so a dot matches only a dot.
+title_is_notice() {
+  local text="$1"
+  if [[ "${text}" =~ ^liboqs\ ([0-9]+(\.[0-9]+)*)\ is\ available\ \(pinned\ ([0-9]+(\.[0-9]+)*)\)$ ]]; then
+    notice_latest="${BASH_REMATCH[1]}"
+    notice_pin="${BASH_REMATCH[3]}"
+    return 0
+  fi
+  return 1
+}
+
 # True when the login is the GitHub Actions app.
 # `gh issue list --json author` reports that app as app/github-actions.
 # github-actions[bot] and github-actions are the other logins of the same app.
@@ -85,7 +102,7 @@ if [[ ! "${latest}" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
   exit 1
 fi
 
-if ! version_is_newer "${latest}" "${pinned}" && ! version_is_newer "${pinned}" "${latest}"; then
+if versions_are_equal "${latest}" "${pinned}"; then
   echo "liboqs ${pinned} is current"
   exit 0
 fi
@@ -108,12 +125,9 @@ if [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
   repo_args=(--repo "${GITHUB_REPOSITORY}")
 fi
 
-# One bounded search of open and closed notices for this pin.
-# Dots in the pin are literal, so 0.16.0 does not match 0x16y0.
-pinned_re="${pinned//./\\.}"
-notice_re="^liboqs [0-9]+([.][0-9]+)* is available \\(pinned ${pinned_re}\\)$"
-
-if ! issue_rows="$(gh issue list "${repo_args[@]}" --state all --limit 50 --search "in:title \"is available (pinned ${pinned})\"" --json number,state,title,author --jq '.[] | [.number, .state, .title, .author.login] | @tsv')"; then
+# One bounded search of open and closed notices. The pin is compared by value
+# after the list returns, so 0.16.0 and 0.016.0 are the same pin.
+if ! issue_rows="$(gh issue list "${repo_args[@]}" --state all --limit 50 --search "in:title \"is available (pinned\"" --json number,state,title,author --jq '.[] | [.number, .state, .title, .author.login] | @tsv')"; then
   echo "the call to list issues failed" >&2
   exit 1
 fi
@@ -126,16 +140,22 @@ while IFS=$'\t' read -r number issue_state existing_title author_login; do
   if ! is_actions_author "${author_login}"; then
     continue
   fi
+  if ! title_is_notice "${existing_title}"; then
+    continue
+  fi
+  if ! versions_are_equal "${notice_pin}" "${pinned}"; then
+    continue
+  fi
   state_name="${issue_state^^}"
-  if [[ "${existing_title}" == "${title}" && "${state_name}" == "CLOSED" ]]; then
+  if versions_are_equal "${notice_latest}" "${latest}" && [[ "${state_name}" == "CLOSED" ]]; then
     echo "a closed issue already has the title: ${title}"
     exit 0
   fi
-  if [[ "${existing_title}" == "${title}" && "${state_name}" == "OPEN" ]]; then
+  if versions_are_equal "${notice_latest}" "${latest}" && [[ "${state_name}" == "OPEN" ]]; then
     echo "an open issue already has the title: ${title}"
     exit 0
   fi
-  if [[ -z "${open_match}" && "${state_name}" == "OPEN" && "${existing_title}" =~ ${notice_re} ]]; then
+  if [[ -z "${open_match}" && "${state_name}" == "OPEN" ]] && version_is_newer "${latest}" "${notice_latest}"; then
     open_match="${number}"
   fi
 done <<< "${issue_rows}"

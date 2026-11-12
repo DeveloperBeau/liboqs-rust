@@ -363,7 +363,7 @@ fn nullAuthorIsNotOurs() {
 
 #[test]
 fn valueEqualTagPrintsCurrent() {
-    for tag in ["v0.16", "v0.16.0.0", "v0.16.00", "00.16.0"] {
+    for tag in ["v0.16", "v0.16.0.0", "v0.16.00", "00.16.0", "0.016.0"] {
         let outcome = run(Some("0.16.0\n"), tag, "ok", "");
         assert_eq!(outcome.status, 0, "{tag}: {}", outcome.standardError);
         assert_eq!(
@@ -372,6 +372,25 @@ fn valueEqualTagPrintsCurrent() {
         );
         assert!(!created(&outcome), "{tag}: {}", outcome.ghLog);
     }
+}
+
+#[test]
+fn valueEqualOpenTitleIsTheSameNotice() {
+    let rows = row(
+        "5",
+        "OPEN",
+        "liboqs 0.017.0 is available (pinned 0.016.0)",
+        actionsAuthor,
+    );
+    let outcome = run(Some("0.16.0\n"), "0.17.0", "ok", &rows);
+    assert_eq!(outcome.status, 0, "{}", outcome.standardError);
+    assert!(
+        outcome
+            .standardOutput
+            .contains("an open issue already has the title")
+    );
+    assert!(!created(&outcome), "{}", outcome.ghLog);
+    assert!(edited(&outcome).is_empty(), "{:?}", edited(&outcome));
 }
 
 #[test]
@@ -390,7 +409,11 @@ fn wildcardPinTitleIsNotEdited() {
 
 #[test]
 fn versionIsNewerMatchesIntegerTuples() {
-    let seed: u64 = 0x160A_1107;
+    // LIBOQS_UPDATE_SEED replays one run. Without it the seed is fixed.
+    let seed = std::env::var("LIBOQS_UPDATE_SEED")
+        .ok()
+        .and_then(|text| text.parse::<u64>().ok())
+        .unwrap_or(0x160A_1107);
     println!("seed {seed}");
     let script = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../check-liboqs-update.sh");
     let mut pairs = vec![
