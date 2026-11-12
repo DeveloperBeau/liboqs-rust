@@ -28,6 +28,10 @@ if [[ "$1" == issue && "$2" == edit ]]; then
   exit 0
 fi
 if [[ "$1" == issue && "$2" == create ]]; then
+  if [[ "$STUB_MODE" == create-fail ]]; then
+    echo "create failed" >&2
+    exit 1
+  fi
   exit 0
 fi
 echo "unexpected gh call: $*" >&2

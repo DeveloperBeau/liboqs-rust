@@ -64,7 +64,7 @@ is_actions_author() {
 }
 
 if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
-  return 0 2>/dev/null || exit 0
+  return 0
 fi
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

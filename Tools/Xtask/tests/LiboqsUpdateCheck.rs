@@ -102,11 +102,16 @@ fn run(version: Option<&str>, tag: &str, mode: &str, rows: &str) -> Outcome {
     Run::new(version).execute(tag, mode, rows)
 }
 
-fn created(outcome: &Outcome) -> bool {
+fn createCalls(outcome: &Outcome) -> usize {
     outcome
         .ghLog
         .lines()
-        .any(|line| line.starts_with("issue create"))
+        .filter(|line| line.starts_with("issue create"))
+        .count()
+}
+
+fn created(outcome: &Outcome) -> bool {
+    createCalls(outcome) > 0
 }
 
 fn edited(outcome: &Outcome) -> Vec<String> {
@@ -188,6 +193,18 @@ fn listFailureExitsWithStatusOne() {
             .contains("the call to list issues failed")
     );
     assert!(!created(&outcome));
+}
+
+#[test]
+fn createFailureExitsWithStatusOne() {
+    let outcome = run(Some("0.16.0\n"), "v0.17.0", "create-fail", "");
+    assert_eq!(outcome.status, 1, "{}", outcome.standardError);
+    assert!(
+        outcome
+            .standardError
+            .contains("the call to open the liboqs update issue failed")
+    );
+    assert_eq!(createCalls(&outcome), 1, "{}", outcome.ghLog);
 }
 
 #[test]
