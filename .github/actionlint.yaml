@@ -1,0 +1,5 @@
+# actionlint 1.7.12 does not list the GitHub-hosted image ubuntu-26.04.
+paths:
+  .github/workflows/update-liboqs.yml:
+    ignore:
+      - 'label "ubuntu-26\.04" is unknown'
