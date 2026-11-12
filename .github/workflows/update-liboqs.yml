@@ -1,8 +1,9 @@
 name: Check for liboqs updates
 
 # Compares LIBOQS_VERSION with the latest liboqs release. A newer release opens
-# one issue for the pinned version, or updates the open issue for that pin.
-# A closed issue with the same title is not opened again.
+# one issue for the pinned version, or updates the open issue that the Actions
+# app opened for that pin. A closed issue from that app with the same title is
+# not opened again. An issue from anyone else is left as it is.
 on:
   schedule:
     # Every Monday at 09:00 UTC.

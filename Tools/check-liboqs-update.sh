@@ -31,6 +31,21 @@ version_is_newer() {
   return 1
 }
 
+# True when the login is the GitHub Actions app.
+# `gh issue list --json author` reports that app as app/github-actions.
+# github-actions[bot] and github-actions are the other logins of the same app.
+is_actions_author() {
+  local login="${1,,}"
+  case "${login}" in
+    app/github-actions | 'github-actions[bot]' | github-actions)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 version_file="${root}/LIBOQS_VERSION"
 
@@ -92,14 +107,17 @@ fi
 # One bounded search of open and closed notices for this pin.
 notice_re="^liboqs [0-9]+([.][0-9]+)* is available \\(pinned ${pinned}\\)$"
 
-if ! issue_rows="$(gh issue list "${repo_args[@]}" --state all --limit 50 --search "in:title \"is available (pinned ${pinned})\"" --json number,state,title --jq '.[] | [.number, .state, .title] | @tsv')"; then
+if ! issue_rows="$(gh issue list "${repo_args[@]}" --state all --limit 50 --search "in:title \"is available (pinned ${pinned})\"" --json number,state,title,author --jq '.[] | [.number, .state, .title, .author.login] | @tsv')"; then
   echo "the call to list issues failed" >&2
   exit 1
 fi
 
 open_match=""
-while IFS=$'\t' read -r number issue_state existing_title; do
+while IFS=$'\t' read -r number issue_state existing_title author_login; do
   if [[ -z "${number}" ]]; then
+    continue
+  fi
+  if ! is_actions_author "${author_login}"; then
     continue
   fi
   state_name="${issue_state^^}"
