@@ -17,6 +17,10 @@ Each version of this port matches one version of liboqs. The tests always compar
 
 `cargo xtask check-versions` fails when a copy disagrees with `LIBOQS_VERSION`.
 
+## A newer upstream release
+
+The workflow `Check for liboqs updates` (`.github/workflows/update-liboqs.yml`) runs every Monday at 09:00 UTC and on demand. `Tools/check-liboqs-update.sh` reads `LIBOQS_VERSION` and the tag of the latest release of [liboqs](https://github.com/open-quantum-safe/liboqs). A leading `v` on either version is ignored. When the versions are equal, the script prints that the pin is current and exits. When the upstream release is newer, it opens one issue titled `liboqs <latest> is available (pinned <current>)`. The issue links to the release notes. It says that a bump must land in liboqs-swift, liboqs-zig and liboqs-rust together and keep parity, snapshot and known answers green. An open issue with that title is left as it is. A failed call to the GitHub API fails the job.
+
 ## A fix to the port alone
 
 A fix that does not come from a new liboqs release keeps the version. It ships with the next liboqs release. If a fix cannot wait, it gets a git tag such as `v0.16.0-port.1` and is not published to the registry.
