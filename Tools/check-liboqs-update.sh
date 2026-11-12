@@ -89,37 +89,32 @@ if [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
   repo_args=(--repo "${GITHUB_REPOSITORY}")
 fi
 
-# One open notice for this pin. A closed issue with this exact title stays closed.
+# One bounded search of open and closed notices for this pin.
 notice_re="^liboqs [0-9]+([.][0-9]+)* is available \\(pinned ${pinned}\\)$"
 
-if ! closed_titles="$(gh issue list "${repo_args[@]}" --state closed --limit 20 --search "in:title \"${title}\"" --json title --jq '.[].title')"; then
-  echo "the call to list closed issues failed" >&2
-  exit 1
-fi
-
-if printf '%s\n' "${closed_titles}" | grep -Fxq -- "${title}"; then
-  echo "a closed issue already has the title: ${title}"
-  exit 0
-fi
-
-if ! open_rows="$(gh issue list "${repo_args[@]}" --state open --limit 20 --search "in:title \"is available (pinned ${pinned})\"" --json number,title --jq '.[] | [.number, .title] | @tsv')"; then
-  echo "the call to list open issues failed" >&2
+if ! issue_rows="$(gh issue list "${repo_args[@]}" --state all --limit 50 --search "in:title \"is available (pinned ${pinned})\"" --json number,state,title --jq '.[] | [.number, .state, .title] | @tsv')"; then
+  echo "the call to list issues failed" >&2
   exit 1
 fi
 
 open_match=""
-while IFS=$'\t' read -r number existing_title; do
+while IFS=$'\t' read -r number issue_state existing_title; do
   if [[ -z "${number}" ]]; then
     continue
   fi
-  if [[ "${existing_title}" == "${title}" ]]; then
+  state_name="${issue_state^^}"
+  if [[ "${existing_title}" == "${title}" && "${state_name}" == "CLOSED" ]]; then
+    echo "a closed issue already has the title: ${title}"
+    exit 0
+  fi
+  if [[ "${existing_title}" == "${title}" && "${state_name}" == "OPEN" ]]; then
     echo "an open issue already has the title: ${title}"
     exit 0
   fi
-  if [[ -z "${open_match}" && "${existing_title}" =~ ${notice_re} ]]; then
+  if [[ -z "${open_match}" && "${state_name}" == "OPEN" && "${existing_title}" =~ ${notice_re} ]]; then
     open_match="${number}"
   fi
-done <<< "${open_rows}"
+done <<< "${issue_rows}"
 
 if [[ -n "${open_match}" ]]; then
   if ! gh issue edit "${repo_args[@]}" "${open_match}" --title "${title}" --body "${body}"; then
