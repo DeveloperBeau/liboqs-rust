@@ -14,7 +14,7 @@ impl NibblePacking {
     /// Writes the elements of bytes, `convert_bytes_to_GF16s`.
     pub(crate) fn unpack(bytes: &[u8], elements: &mut [u8]) {
         let count = elements.len();
-        for (pair, byte) in elements.chunks_exact_mut(2).zip(bytes) {
+        for (pair, byte) in elements.as_chunks_mut::<2>().0.iter_mut().zip(bytes) {
             pair[0] = byte & 0x0F;
             pair[1] = (byte >> 4) & 0x0F;
         }

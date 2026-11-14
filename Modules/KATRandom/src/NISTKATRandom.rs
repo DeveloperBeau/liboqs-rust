@@ -57,7 +57,7 @@ impl NISTKATRandom {
     fn update(&mut self, providedData: Option<&[u8; 48]>) {
         let cipher = AES256::new(&self.key);
         let mut temporary = [0u8; 48];
-        for block in temporary.chunks_exact_mut(16) {
+        for block in temporary.as_chunks_mut::<16>().0 {
             self.incrementCounter();
             cipher.encryptBlocks(&self.counter, block);
         }

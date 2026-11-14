@@ -275,7 +275,7 @@ impl<'parameters> ParityCheckMatrix<'parameters> {
         let mut publicKey = Vec::with_capacity(rowCount * rowLength);
         let mut bytes = vec![0u8; 8 * self.rowWords];
         for row in self.rows.chunks_exact(self.rowWords) {
-            for (target, word) in bytes.chunks_exact_mut(8).zip(row) {
+            for (target, word) in bytes.as_chunks_mut::<8>().0.iter_mut().zip(row) {
                 target.copy_from_slice(&word.to_le_bytes());
             }
             if tail == 0 {

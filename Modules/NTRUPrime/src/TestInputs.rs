@@ -71,7 +71,9 @@ pub(crate) fn modulusSequence(seed: u32) -> Vec<i16> {
 /// The 32-bit words of a sequence, each from two values, the high half first.
 pub(crate) fn wordSequence(seed: u32) -> Vec<u32> {
     sequence(2 * 761, seed)
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .map(|pair| (u32::from(pair[0]) << 16) + u32::from(pair[1]))
         .collect()
 }

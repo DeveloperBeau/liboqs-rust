@@ -63,7 +63,7 @@ impl ReedMuller {
     /// `expand_and_sum`.
     fn bitCounts(copies: &[u64]) -> [i16; codewordBits] {
         let mut counts = [0i16; codewordBits];
-        for copy in copies.chunks_exact(2) {
+        for copy in copies.as_chunks::<2>().0 {
             for (position, count) in counts.iter_mut().enumerate() {
                 *count += ((copy[position / 64] >> (position % 64)) & 1) as i16;
             }
@@ -76,7 +76,7 @@ impl ReedMuller {
         let mut source = counts;
         for _ in 0..7 {
             let mut target = [0i16; codewordBits];
-            for (index, pair) in source.chunks_exact(2).enumerate() {
+            for (index, pair) in source.as_chunks::<2>().0.iter().enumerate() {
                 target[index] = pair[0] + pair[1];
                 target[index + 64] = pair[0] - pair[1];
             }

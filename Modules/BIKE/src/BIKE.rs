@@ -80,7 +80,9 @@ impl BIKE {
         let mut secretKey = vec![0u8; parameters.description.secretKeyLength];
         for (block, blockPositions) in positions.iter().enumerate() {
             for (bytes, position) in secretKey[parameters.positionsRange(block)]
-                .chunks_exact_mut(4)
+                .as_chunks_mut::<4>()
+                .0
+                .iter_mut()
                 .zip(blockPositions)
             {
                 bytes.copy_from_slice(&position.to_le_bytes());

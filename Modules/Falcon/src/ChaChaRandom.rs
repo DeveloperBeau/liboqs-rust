@@ -40,8 +40,8 @@ impl ChaChaRandom {
         let mut seed = [0u8; 56];
         reader.squeeze(&mut seed);
         let mut keyWords = [0u32; 12];
-        for (word, bytes) in keyWords.iter_mut().zip(seed.chunks_exact(4)) {
-            *word = u32::from_le_bytes(bytes.try_into().expect("4 bytes"));
+        for (word, bytes) in keyWords.iter_mut().zip(seed.as_chunks::<4>().0) {
+            *word = u32::from_le_bytes(*bytes);
         }
         let counter = u64::from_le_bytes(seed[48..].try_into().expect("8 bytes"));
         Self::withState(keyWords, counter)

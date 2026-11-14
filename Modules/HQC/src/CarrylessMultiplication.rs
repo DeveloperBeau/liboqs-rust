@@ -202,7 +202,7 @@ mod tests {
         check(u64::MAX, u64::MAX);
         check(u64::MAX, 0x8000_0000_0000_0001);
         let values = words(1, 2000);
-        for pair in values.chunks_exact(2) {
+        for pair in values.as_chunks::<2>().0 {
             check(pair[0], pair[1]);
         }
         assert_eq!(CarrylessMultiplication::wordProduct(0b11, 0b11), (0b101, 0));

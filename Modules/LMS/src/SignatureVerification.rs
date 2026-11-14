@@ -199,8 +199,7 @@ impl SignatureVerification {
         }
         let mut nodeNumber = (1 << height) + q as u32;
         let mut node = MerkleTree::leafNodeOfKey(identifier, nodeNumber, &candidate);
-        for sibling in path.chunks_exact(hashLength) {
-            let sibling: &[u8; hashLength] = sibling.try_into().expect("32 bytes");
+        for sibling in path.as_chunks::<hashLength>().0 {
             let (left, right) = if nodeNumber % 2 == 1 {
                 (sibling, &node)
             } else {

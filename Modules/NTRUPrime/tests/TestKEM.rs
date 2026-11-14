@@ -74,7 +74,9 @@ fn rejectionSecret(secretKey: &[u8], ciphertext: &[u8]) -> Vec<u8> {
 /// `Small_encode`.
 fn encodedShort(request: &[u8]) -> Vec<u8> {
     let mut words: Vec<u32> = request
-        .chunks_exact(4)
+        .as_chunks::<4>()
+        .0
+        .iter()
         .enumerate()
         .map(|(index, word)| {
             let word = u32::from_le_bytes([word[0], word[1], word[2], word[3]]);

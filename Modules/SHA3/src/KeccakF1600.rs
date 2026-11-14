@@ -67,8 +67,8 @@ impl KeccakF1600 {
                 carried = moved;
             }
             // Chi: the only non-linear step, within each row.
-            for row in state.chunks_exact_mut(5) {
-                let original = [row[0], row[1], row[2], row[3], row[4]];
+            for row in state.as_chunks_mut::<5>().0 {
+                let original = *row;
                 for (column, lane) in row.iter_mut().enumerate() {
                     *lane = original[column]
                         ^ (!original[(column + 1) % 5] & original[(column + 2) % 5]);

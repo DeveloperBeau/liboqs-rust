@@ -19,7 +19,7 @@ impl<'parameters> Encoding<'parameters> {
     pub(crate) fn smallBytes(&self, small: &[i8]) -> Vec<u8> {
         let p = self.parameters.degree;
         let mut bytes = Vec::with_capacity(self.parameters.smallLength());
-        for group in small[..p / 4 * 4].chunks_exact(4) {
+        for group in small[..p / 4 * 4].as_chunks::<4>().0 {
             let byte = group
                 .iter()
                 .enumerate()
@@ -37,7 +37,12 @@ impl<'parameters> Encoding<'parameters> {
     pub(crate) fn smallPolynomial(&self, bytes: &[u8]) -> Vec<i8> {
         let p = self.parameters.degree;
         let mut small = vec![0i8; p];
-        for (group, byte) in small[..p / 4 * 4].chunks_exact_mut(4).zip(bytes) {
+        for (group, byte) in small[..p / 4 * 4]
+            .as_chunks_mut::<4>()
+            .0
+            .iter_mut()
+            .zip(bytes)
+        {
             for (index, coefficient) in group.iter_mut().enumerate() {
                 *coefficient = ((byte >> (2 * index)) & 3) as i8 - 1;
             }

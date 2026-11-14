@@ -165,7 +165,10 @@ impl OneTimeSignature {
         publicKeyHash.absorb(&q.to_be_bytes());
         publicKeyHash.absorb(&publicKeyDomain);
         let mut chain = Self::chainInput(identifier, q);
-        let elements = signature[4 + hashLength..].chunks_exact(hashLength);
+        let elements = signature[4 + hashLength..]
+            .as_chunks::<hashLength>()
+            .0
+            .iter();
         for (i, element) in (0u16..).zip(elements) {
             chain[identifierLength + 7..].copy_from_slice(element);
             let digit = Self::coefficient(&representative, u32::from(i), w);

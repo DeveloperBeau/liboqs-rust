@@ -30,8 +30,10 @@ impl<'parameters> Sampler<'parameters> {
     /// The little-endian 32-bit words of bytes.
     pub(crate) fn words(bytes: &[u8]) -> Vec<u32> {
         bytes
-            .chunks_exact(4)
-            .map(|word| u32::from_le_bytes([word[0], word[1], word[2], word[3]]))
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|word| u32::from_le_bytes(*word))
             .collect()
     }
 
@@ -84,7 +86,9 @@ mod tests {
 
     fn words(seed: u32) -> Vec<u32> {
         sequence(2 * 761, seed)
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|pair| (u32::from(pair[0]) << 16) + u32::from(pair[1]))
             .collect()
     }

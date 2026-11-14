@@ -77,7 +77,7 @@ impl HashAddress {
     /// The 32 bytes of the address: each word in big-endian order, as `addr_to_bytes`.
     pub(crate) fn bytes(&self) -> [u8; 32] {
         let mut bytes = [0u8; 32];
-        for (chunk, word) in bytes.chunks_exact_mut(4).zip(self.words) {
+        for (chunk, word) in bytes.as_chunks_mut::<4>().0.iter_mut().zip(self.words) {
             chunk.copy_from_slice(&word.to_be_bytes());
         }
         bytes

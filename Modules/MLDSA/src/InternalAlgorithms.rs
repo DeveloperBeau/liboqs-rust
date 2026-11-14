@@ -108,8 +108,11 @@ impl<'parameters> InternalAlgorithms<'parameters> {
         let mut publicKey = vec![0u8; parameters.description.publicKeyLength];
         publicKey[..seedLength].copy_from_slice(&publicSeed);
         let mut lowPacked = vec![0u8; packedLowLength * rowCount];
-        let highChunks = publicKey[seedLength..].chunks_exact_mut(packedHighLength);
-        let lowChunks = lowPacked.chunks_exact_mut(packedLowLength);
+        let highChunks = publicKey[seedLength..]
+            .as_chunks_mut::<packedHighLength>()
+            .0
+            .iter_mut();
+        let lowChunks = lowPacked.as_chunks_mut::<packedLowLength>().0.iter_mut();
         for (((matrixRow, error), highChunk), lowChunk) in matrix
             .iter()
             .zip(&errorVector)
@@ -387,7 +390,10 @@ impl<'parameters> InternalAlgorithms<'parameters> {
         challenge.transform();
         let commitmentLength = parameters.packedCommitmentLength();
         let mut highPacked = vec![0u8; commitmentLength * parameters.rowCount];
-        let highChunks = publicKey[seedLength..].chunks_exact(packedHighLength);
+        let highChunks = publicKey[seedLength..]
+            .as_chunks::<packedHighLength>()
+            .0
+            .iter();
         for (((matrixRow, highChunk), hint), chunk) in matrix
             .iter()
             .zip(highChunks)
@@ -461,9 +467,7 @@ mod tests {
         let algorithms = InternalAlgorithms::new(&mldsa44);
         let mut low = vec![Polynomial::zero; 4];
         let high = vec![Polynomial::zero; 4];
-        for place in 0..80 {
-            low[1].coefficients[place] = mldsa44.gamma2 + 1;
-        }
+        low[1].coefficients[..80].fill(mldsa44.gamma2 + 1);
         let mut packed = vec![0u8; 84];
         assert!(algorithms.packedHints(&low, &high, &mut packed));
         low[3].coefficients[0] = mldsa44.gamma2 + 1;

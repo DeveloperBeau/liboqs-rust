@@ -62,8 +62,10 @@ impl<'parameters> Decoder<'parameters> {
         let parameters = self.parameters;
         let positions = [0, 1].map(|block| {
             secretKey[parameters.positionsRange(block)]
-                .chunks_exact(4)
-                .map(|bytes| u32::from_le_bytes(bytes.try_into().expect("4 bytes")))
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .map(|bytes| u32::from_le_bytes(*bytes))
                 .collect::<Vec<u32>>()
         });
         self.decoded(
@@ -410,7 +412,9 @@ mod tests {
             ];
             let mut edgeKey = secretKey.to_vec();
             for (index, bytes) in edgeKey[..8 * parameters.blockWeight]
-                .chunks_exact_mut(4)
+                .as_chunks_mut::<4>()
+                .0
+                .iter_mut()
                 .enumerate()
             {
                 bytes.copy_from_slice(&edges[index % edges.len()].to_le_bytes());

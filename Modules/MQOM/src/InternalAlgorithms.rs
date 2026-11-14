@@ -120,8 +120,10 @@ impl<'parameters> InternalAlgorithms<'parameters> {
         let mut stream = vec![0u8; 2 * repetitionCount + 2];
         XOF::hash(parameters, &[&[0x05], hash, nonce], &mut stream);
         let values: Vec<u16> = stream
-            .chunks_exact(2)
-            .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| u16::from_le_bytes(*pair))
             .collect();
         let leafMask = (1u16 << parameters.treeDepth) - 1;
         let workMask = (1u16 << parameters.workBits) - 1;

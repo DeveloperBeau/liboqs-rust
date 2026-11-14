@@ -149,7 +149,7 @@ pub(crate) fn systemMatrix(parameters: &Parameters, vinegarL: &mut [u64]) -> Vec
     }
     let reductionRows = vectorCount * (vectorCount + 1) / 2;
     let usedWordRows = (equationCount + reductionRows).div_ceil(16);
-    for block in words[..width * usedWordRows].chunks_exact_mut(16) {
+    for block in words[..width * usedWordRows].as_chunks_mut::<16>().0 {
         transposeNibbles(block);
     }
     // The products of each coefficient of the tail of f(z) with 1, x, x^2 and x^3.

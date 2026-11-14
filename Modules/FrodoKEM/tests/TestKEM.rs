@@ -208,8 +208,10 @@ fn theKeysHoldTheRandomValuesTheHashesAndASmallSecretMatrix() {
         let matrix = &secretKey[matrixStart..secretKey.len() - secretLength];
         assert_eq!(matrix.len(), 2 * 8 * facts.dimension, "{name}");
         let samples: Vec<i16> = matrix
-            .chunks_exact(2)
-            .map(|pair| i16::from_le_bytes([pair[0], pair[1]]))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| i16::from_le_bytes(*pair))
             .collect();
         assert!(
             samples

@@ -212,7 +212,9 @@ impl Polynomial {
     /// check of FIPS 203, Section 7.2.
     pub(crate) fn isCanonicalEncoding(input: &[u8]) -> bool {
         input
-            .chunks_exact(3)
+            .as_chunks::<3>()
+            .0
+            .iter()
             .all(|triple| twelveBitPair(triple).iter().all(|value| *value < modulus))
     }
 
@@ -254,7 +256,7 @@ impl Polynomial {
         let mut block = [0u8; 168];
         while count < coefficientCount {
             reader.squeeze(&mut block);
-            for triple in block.chunks_exact(3) {
+            for triple in block.as_chunks::<3>().0 {
                 for candidate in twelveBitPair(triple) {
                     if candidate < modulus && count < coefficientCount {
                         polynomial.coefficients[count] = candidate;

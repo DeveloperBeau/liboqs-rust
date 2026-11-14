@@ -394,8 +394,8 @@ fn theSecretKeyHoldsTheSeedThePivotsThePolynomialAndTheValueS() {
         } else {
             assert_eq!(pivots, 0xFFFF_FFFF, "{name}");
         }
-        for coefficient in secretKey[40..40 + 2 * weight].chunks_exact(2) {
-            assert!(u16::from_le_bytes([coefficient[0], coefficient[1]]) >> bits == 0);
+        for coefficient in secretKey[40..40 + 2 * weight].as_chunks::<2>().0 {
+            assert!(u16::from_le_bytes(*coefficient) >> bits == 0);
         }
     }
 }

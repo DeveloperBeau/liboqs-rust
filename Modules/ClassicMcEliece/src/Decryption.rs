@@ -126,7 +126,9 @@ impl<'parameters> Decryption<'parameters> {
         let field = self.field;
         let goppaLength = parameters.goppaPolynomialLength();
         let mut goppaPolynomial: Vec<u16> = secretKey[..goppaLength]
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|pair| field.loaded(pair))
             .collect();
         goppaPolynomial.push(1);

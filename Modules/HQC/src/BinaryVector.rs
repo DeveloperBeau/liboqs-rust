@@ -163,10 +163,12 @@ fn rejectionSupport(
 fn supportWithoutRejection(block: &[u8], vectorLength: usize) -> Vec<u32> {
     let vectorLength = vectorLength as u64;
     let mut support: Vec<u32> = block
-        .chunks_exact(4)
+        .as_chunks::<4>()
+        .0
+        .iter()
         .enumerate()
         .map(|(index, chunk)| {
-            let random = u64::from(u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]));
+            let random = u64::from(u32::from_le_bytes(*chunk));
             let index = index as u64;
             (index + ((random * (vectorLength - index)) >> 32)) as u32
         })
@@ -354,11 +356,12 @@ mod tests {
                 let mut block = vec![0u8; 4 * weightCount];
                 expander(seed).squeeze(&mut block);
                 let mut expected: Vec<usize> = block
-                    .chunks_exact(4)
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
                     .enumerate()
                     .map(|(index, chunk)| {
-                        let random =
-                            u64::from(u32::from_le_bytes(chunk.try_into().expect("4 bytes")));
+                        let random = u64::from(u32::from_le_bytes(*chunk));
                         let scaled = (random * (parameters.vectorLength - index) as u64) >> 32;
                         index + scaled as usize
                     })
