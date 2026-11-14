@@ -425,6 +425,66 @@ fn wildcardPinTitleIsNotEdited() {
 }
 
 #[test]
+fn sourcingDefinesTheComparisonAndDoesNotRunTheCheck() {
+    let run = Run::new(None);
+    let script = run.directory.join("Tools/check-liboqs-update.sh");
+    let path = format!(
+        "{}:{}",
+        run.directory.join("Tools/bin").display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+    let ghLog = run.directory.join("gh.log");
+    let child = Command::new("bash")
+        .arg("-c")
+        .arg(
+            "source \"$1\"\n\
+echo \"source-status:$?\"\n\
+echo sourced-ok\n\
+if version_is_newer 0.17.0 0.16.0; then echo comparison-newer; else echo comparison-not; fi\n",
+        )
+        .arg("bash")
+        .arg(&script)
+        .env("PATH", path)
+        .env("GH_LOG", &ghLog)
+        .env("STUB_TAG", "v0.17.0")
+        .env("STUB_MODE", "ok")
+        .env("STUB_ROWS", run.directory.join("rows.tsv"))
+        .env_remove("GH_TOKEN")
+        .env_remove("GITHUB_TOKEN")
+        .env_remove("GITHUB_REPOSITORY")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("bash sources the check");
+    let (sender, receiver) = mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = sender.send(child.wait_with_output());
+    });
+    let output = receiver
+        .recv_timeout(Duration::from_secs(30))
+        .expect("sourcing the check did not end within 30 seconds")
+        .expect("sourcing the check gives its output");
+    let standardOutput = String::from_utf8_lossy(&output.stdout);
+    let standardError = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(output.status.code(), Some(0), "{standardError}");
+    assert!(
+        standardOutput.contains("source-status:0"),
+        "{standardOutput}"
+    );
+    assert!(standardOutput.contains("sourced-ok"), "{standardOutput}");
+    assert!(
+        standardOutput.contains("comparison-newer"),
+        "{standardOutput}"
+    );
+    assert!(
+        !standardError.contains("LIBOQS_VERSION is missing"),
+        "{standardError}"
+    );
+    let ghText = fs::read_to_string(&ghLog).unwrap_or_default();
+    assert!(ghText.is_empty(), "{ghText}");
+}
+
+#[test]
 fn versionIsNewerMatchesIntegerTuples() {
     // LIBOQS_UPDATE_SEED replays one run. Without it the seed is fixed.
     let seed = std::env::var("LIBOQS_UPDATE_SEED")
