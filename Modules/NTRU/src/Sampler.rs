@@ -149,10 +149,16 @@ mod tests {
     }
 
     #[test]
-    fn aFixedTypeHasTheWeightOfTheSetAndPlacesThatFollowTheKeys() {
-        for parameters in [&ntruHPS2048509, &ntruHPS4096821] {
+    fn aFixedTypeHasTheWeightOfTheSetAndPlacesThatFollowTheKeysAndIgnoresBytesAfterThem() {
+        // The 15 bytes after the stream are a whole group of keys that the sampler must not read.
+        for (parameters, extra) in [
+            (&ntruHPS2048509, 0),
+            (&ntruHPS4096821, 0),
+            (&ntruHPS2048509, 15),
+            (&ntruHPS4096821, 15),
+        ] {
             let sampler = Sampler::new(parameters);
-            let bytes = sequenceBytes(parameters.fixedTypeSampleLength(), 17);
+            let bytes = sequenceBytes(parameters.fixedTypeSampleLength() + extra, 17);
             let polynomial = sampler.fixedTypePolynomial(&bytes);
             let half = usize::from(parameters.weight() / 2);
             assert_eq!(polynomial.iter().filter(|value| **value == 1).count(), half);
