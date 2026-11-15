@@ -46,8 +46,10 @@ pub(crate) fn sequenceRows(
 /// tree depth.
 pub(crate) fn sequenceHiddenLeaves(parameters: &Parameters, seed: u32) -> Vec<u16> {
     sequenceBytes(2 * parameters.repetitionCount, seed)
-        .chunks_exact(2)
-        .map(|pair| u16::from_le_bytes([pair[0], pair[1]]) & (parameters.leafCount() as u16 - 1))
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|pair| u16::from_le_bytes(*pair) & (parameters.leafCount() as u16 - 1))
         .collect()
 }
 

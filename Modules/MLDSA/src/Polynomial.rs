@@ -389,7 +389,7 @@ impl Polynomial {
         let mut block = [0u8; SHAKE128::rate];
         while count < coefficientCount {
             reader.squeeze(&mut block);
-            for triple in block.chunks_exact(3) {
+            for triple in block.as_chunks::<3>().0 {
                 if count == coefficientCount {
                     break;
                 }
@@ -1090,7 +1090,9 @@ mod tests {
             let mut stream = [0u8; 5 * SHAKE128::rate];
             sponge.finalize().squeeze(&mut stream);
             let candidates: Vec<u32> = stream
-                .chunks_exact(3)
+                .as_chunks::<3>()
+                .0
+                .iter()
                 .map(|triple| u32::from_le_bytes([triple[0], triple[1], triple[2], 0]) & 0x7F_FFFF)
                 .collect();
             let place = candidates

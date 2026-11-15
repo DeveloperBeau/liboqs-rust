@@ -93,10 +93,7 @@ mod tests {
     /// Rijndael with a 256-bit block and key, byte by byte, from the Rijndael proposal: the
     /// state byte (row, column) is byte `4 column + row` of the block.
     fn definedEncryption(key: &[u8; 32], plaintext: &[u8; 32]) -> [u8; 32] {
-        let mut words: Vec<[u8; 4]> = key
-            .chunks_exact(4)
-            .map(|chunk| chunk.try_into().expect("four bytes"))
-            .collect();
+        let mut words: Vec<[u8; 4]> = key.as_chunks::<4>().0.to_vec();
         let mut roundConstant = 1u8;
         for index in 8..120 {
             let mut temporary = words[index - 1];
@@ -131,7 +128,7 @@ mod tests {
                 }
             }
             if round != 14 {
-                for column in state.chunks_exact_mut(4) {
+                for column in state.as_chunks_mut::<4>().0 {
                     let [a, b, c, d] = [column[0], column[1], column[2], column[3]];
                     column[0] = product(a, 2) ^ product(b, 3) ^ c ^ d;
                     column[1] = a ^ product(b, 2) ^ product(c, 3) ^ d;
@@ -192,10 +189,10 @@ mod tests {
             let plaintext = blocks.concat();
             let mut ciphertext = vec![0u8; plaintext.len()];
             cipher.encryptBlocks(&plaintext, &mut ciphertext);
-            for (block, encrypted) in blocks.iter().zip(ciphertext.chunks_exact(32)) {
+            for (block, encrypted) in blocks.iter().zip(ciphertext.as_chunks::<32>().0) {
                 assert_eq!(
-                    encrypted,
-                    definedEncryption(&key, block).as_slice(),
+                    *encrypted,
+                    definedEncryption(&key, block),
                     "case {case} of seed {blockSeed:#x}"
                 );
             }

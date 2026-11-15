@@ -64,7 +64,7 @@ impl<'parameters> Sampler<'parameters> {
         let count = parameters.coefficientCount - 1;
         // Each group of 15 bytes gives four keys of 30 bits, in the bits 2 to 31 of a word.
         let mut keys: Vec<i32> = Vec::with_capacity(count);
-        for group in bytes.chunks_exact(15).take(count / 4) {
+        for group in bytes.as_chunks::<15>().0.iter().take(count / 4) {
             let byte = |index: usize| u32::from(group[index]);
             keys.push(
                 ((byte(0) << 2) + (byte(1) << 10) + (byte(2) << 18) + (byte(3) << 26)) as i32,

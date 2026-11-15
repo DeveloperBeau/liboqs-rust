@@ -85,7 +85,7 @@ pub(crate) fn receivedWord(
     for block in words.chunks_exact_mut(2 * multiplicity) {
         let message = nextByte(sequence);
         let threshold = nextByte(sequence) >> shift;
-        for copy in block.chunks_exact_mut(2) {
+        for copy in block.as_chunks_mut::<2>().0 {
             for position in 0..128u8 {
                 let parity = (message & position & 0x7F).count_ones() & 1;
                 let flip = u32::from(nextByte(sequence) < threshold);

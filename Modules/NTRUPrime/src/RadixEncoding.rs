@@ -156,7 +156,7 @@ mod tests {
     fn quotientAndRemainderAreExactForEveryDivisorBelowTwoToTheFourteen() {
         let values = sequence(400, 3);
         for divisor in (1..16384u16).step_by(7).chain([1, 2, 3, 1531, 4591, 16383]) {
-            for pair in values.chunks_exact(2) {
+            for pair in values.as_chunks::<2>().0 {
                 let value = (u32::from(pair[0]) << 16) + u32::from(pair[1]);
                 for value in [value, value >> 13, u32::MAX - value] {
                     assert_eq!(

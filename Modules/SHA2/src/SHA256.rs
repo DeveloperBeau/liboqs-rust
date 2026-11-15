@@ -61,11 +61,10 @@ impl SHA256 {
             return;
         }
         compress(&mut self.state, &self.block);
-        let mut blocks = input[fill..].chunks_exact(Self::blockLength);
-        for block in &mut blocks {
-            compress(&mut self.state, block.try_into().expect("64 bytes"));
+        let (blocks, rest) = input[fill..].as_chunks::<{ Self::blockLength }>();
+        for block in blocks {
+            compress(&mut self.state, block);
         }
-        let rest = blocks.remainder();
         self.block[..rest.len()].copy_from_slice(rest);
         self.blockLength = rest.len();
     }
@@ -78,7 +77,7 @@ impl SHA256 {
         lengthBlock[56..].copy_from_slice(&bitLength.to_be_bytes());
         compress(&mut self.state, &lengthBlock);
         let mut digest = [0u8; 32];
-        for (chunk, word) in digest.chunks_exact_mut(4).zip(self.state) {
+        for (chunk, word) in digest.as_chunks_mut::<4>().0.iter_mut().zip(self.state) {
             chunk.copy_from_slice(&word.to_be_bytes());
         }
         digest
@@ -112,8 +111,8 @@ impl Default for SHA256 {
 /// The compression function: mixes one block of 64 bytes into the state.
 fn compress(state: &mut [u32; 8], block: &[u8; 64]) {
     let mut schedule = [0u32; 64];
-    for (word, bytes) in schedule.iter_mut().zip(block.chunks_exact(4)) {
-        *word = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+    for (word, bytes) in schedule.iter_mut().zip(block.as_chunks::<4>().0) {
+        *word = u32::from_be_bytes(*bytes);
     }
     for index in 16..64 {
         let previous15 = schedule[index - 15];

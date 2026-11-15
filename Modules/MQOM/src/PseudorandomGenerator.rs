@@ -69,7 +69,12 @@ mod tests {
         let generator = PseudorandomGenerator::new(&salt, 5, 60);
         let mut outputs = vec![0u8; 3 * 60];
         generator.fill(&seeds, &mut outputs);
-        for (seed, output) in seeds.chunks_exact(24).zip(outputs.chunks_exact(60)) {
+        for (seed, output) in seeds
+            .as_chunks::<24>()
+            .0
+            .iter()
+            .zip(outputs.as_chunks::<60>().0)
+        {
             let mut expected = Vec::new();
             for block in 0..3 {
                 let mut derived = [0u8; 24];

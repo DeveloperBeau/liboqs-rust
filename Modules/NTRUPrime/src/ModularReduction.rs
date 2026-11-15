@@ -105,7 +105,9 @@ mod tests {
         let limit = i32::MAX / 14;
         let span = 2 * i64::from(limit) + 1;
         let sample: Vec<i32> = sequence(20_000, 41)
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|pair| {
                 let word = (i64::from(pair[0]) << 16) + i64::from(pair[1]);
                 (word % span - i64::from(limit)) as i32

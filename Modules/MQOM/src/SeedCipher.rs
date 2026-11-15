@@ -70,12 +70,19 @@ impl SeedCipher {
                 // come from the seeds themselves, so the cipher encrypts exactly the blocks
                 // that the seeds fill.
                 let padded: Vec<u8> = seeds
-                    .chunks_exact(24)
+                    .as_chunks::<24>()
+                    .0
+                    .iter()
                     .flat_map(|seed| seed.iter().copied().chain([0u8; 8]))
                     .collect();
                 let mut encrypted = vec![0u8; padded.len()];
                 cipher.encryptBlocks(&padded, &mut encrypted);
-                for (block, out) in encrypted.chunks_exact(32).zip(output.chunks_exact_mut(24)) {
+                for (block, out) in encrypted
+                    .as_chunks::<32>()
+                    .0
+                    .iter()
+                    .zip(output.as_chunks_mut::<24>().0)
+                {
                     out.copy_from_slice(&block[..24]);
                 }
             }
@@ -124,7 +131,12 @@ mod tests {
         let mut paddedKey = [0u8; 32];
         paddedKey[..24].copy_from_slice(&key);
         let cipher = Rijndael256::new(&paddedKey);
-        for (seed, encrypted) in seeds.chunks_exact(24).zip(output.chunks_exact(24)) {
+        for (seed, encrypted) in seeds
+            .as_chunks::<24>()
+            .0
+            .iter()
+            .zip(output.as_chunks::<24>().0)
+        {
             let mut block = [0u8; 32];
             block[..24].copy_from_slice(seed);
             let mut full = [0u8; 32];

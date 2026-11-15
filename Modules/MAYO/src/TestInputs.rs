@@ -40,8 +40,10 @@ pub(crate) fn inputNibbles(seed: u32, length: usize) -> Vec<u8> {
 /// fills an array of words.
 pub(crate) fn inputWords(seed: u32, count: usize) -> Vec<u64> {
     inputBytes(seed, 8 * count)
-        .chunks_exact(8)
-        .map(|chunk| u64::from_le_bytes(chunk.try_into().expect("8 bytes")))
+        .as_chunks::<8>()
+        .0
+        .iter()
+        .map(|chunk| u64::from_le_bytes(*chunk))
         .collect()
 }
 

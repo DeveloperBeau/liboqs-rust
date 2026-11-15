@@ -12,8 +12,8 @@
 
 /// Reads little-endian 32-bit words, as `br_range_dec32le` does.
 pub fn decodeLittleEndian(bytes: &[u8], words: &mut [u32]) {
-    for (word, chunk) in words.iter_mut().zip(bytes.chunks_exact(4)) {
-        *word = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+    for (word, chunk) in words.iter_mut().zip(bytes.as_chunks::<4>().0) {
+        *word = u32::from_le_bytes(*chunk);
     }
 }
 
@@ -271,7 +271,7 @@ pub fn scheduleKey(compressedKeys: &mut [u64; 30], key: &[u8]) {
     }
     for (index, pair) in (0..totalWords)
         .step_by(4)
-        .zip(compressedKeys.chunks_exact_mut(2))
+        .zip(compressedKeys.as_chunks_mut::<2>().0)
     {
         let mut q = [0u64; 8];
         let (low, high) = interleaveIn(&schedule[index..index + 4]);
@@ -305,7 +305,7 @@ pub fn expandScheduledKey(
     let count = (rounds + 1) * 2;
     for (compressed, expanded) in compressedKeys[..count]
         .iter()
-        .zip(expandedKeys.chunks_exact_mut(4))
+        .zip(expandedKeys.as_chunks_mut::<4>().0)
     {
         let x0 = compressed & 0x1111111111111111;
         let x1 = (compressed & 0x2222222222222222) >> 1;
@@ -395,7 +395,9 @@ pub fn encryptFourBlocks(
     for block in 0..4 {
         let words = interleaveOut(q[block], q[block + 4]);
         for (chunk, word) in output[block * 16..block * 16 + 16]
-            .chunks_exact_mut(4)
+            .as_chunks_mut::<4>()
+            .0
+            .iter_mut()
             .zip(words)
         {
             chunk.copy_from_slice(&word.to_le_bytes());
@@ -483,8 +485,12 @@ pub fn rijndael256RoundKeys(key: &[u8; 32]) -> [u64; 120] {
         schedule[index] = schedule[index - 8] ^ temporary;
     }
     let mut roundKeys = [0u64; 120];
-    for (words, roundKey) in schedule.chunks_exact(8).zip(roundKeys.chunks_exact_mut(8)) {
-        let words: &[u32; 8] = words.try_into().expect("eight words");
+    for (words, roundKey) in schedule
+        .as_chunks::<8>()
+        .0
+        .iter()
+        .zip(roundKeys.as_chunks_mut::<8>().0)
+    {
         roundKey.copy_from_slice(&rijndael256Bitsliced(words, words));
     }
     roundKeys
@@ -509,8 +515,11 @@ pub fn encryptTwoRijndael256Blocks(blocks: &[u8; 64], roundKeys: &[u64; 120]) ->
     shiftRows256(&mut q);
     addRoundKey(&mut q, &roundKeys[rijndael256Rounds * 8..]);
     let mut output = [0u8; 64];
-    for (block, chunk) in rijndael256Blocks(q).iter().zip(output.chunks_exact_mut(32)) {
-        for (word, bytes) in block.iter().zip(chunk.chunks_exact_mut(4)) {
+    for (block, chunk) in rijndael256Blocks(q)
+        .iter()
+        .zip(output.as_chunks_mut::<32>().0)
+    {
+        for (word, bytes) in block.iter().zip(chunk.as_chunks_mut::<4>().0) {
             bytes.copy_from_slice(&word.to_le_bytes());
         }
     }

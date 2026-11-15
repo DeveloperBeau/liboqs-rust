@@ -106,7 +106,9 @@ impl ClassicMcEliece {
             input[1..].copy_from_slice(&expanded[nextSeedStart..]);
             let elementStart = nextSeedStart - 2 * weight;
             let element: Vec<u16> = expanded[elementStart..nextSeedStart]
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .map(|pair| field.loaded(pair))
                 .collect();
             let Some(goppaPolynomial) =
@@ -116,8 +118,10 @@ impl ClassicMcEliece {
             };
             let orderStart = elementStart - 4 * size;
             let orderValues: Vec<u32> = expanded[orderStart..elementStart]
-                .chunks_exact(4)
-                .map(|bytes| u32::from_le_bytes(bytes.try_into().expect("4 bytes")))
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .map(|bytes| u32::from_le_bytes(*bytes))
                 .collect();
             let Some(GeneratedKey {
                 publicKey,

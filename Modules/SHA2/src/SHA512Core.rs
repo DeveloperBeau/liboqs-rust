@@ -129,7 +129,7 @@ impl SHA512Core {
         self.block[112..].copy_from_slice(&bitLength.to_be_bytes());
         compress(&mut self.state, &self.block);
         let mut digest = [0u8; 64];
-        for (chunk, word) in digest.chunks_exact_mut(8).zip(self.state) {
+        for (chunk, word) in digest.as_chunks_mut::<8>().0.iter_mut().zip(self.state) {
             chunk.copy_from_slice(&word.to_be_bytes());
         }
         digest
@@ -139,10 +139,8 @@ impl SHA512Core {
 /// The compression function: mixes one block of 128 bytes into the state.
 fn compress(state: &mut [u64; 8], block: &[u8; 128]) {
     let mut schedule = [0u64; 80];
-    for (word, bytes) in schedule.iter_mut().zip(block.chunks_exact(8)) {
-        let mut array = [0u8; 8];
-        array.copy_from_slice(bytes);
-        *word = u64::from_be_bytes(array);
+    for (word, bytes) in schedule.iter_mut().zip(block.as_chunks::<8>().0) {
+        *word = u64::from_be_bytes(*bytes);
     }
     for index in 16..80 {
         let previous15 = schedule[index - 15];

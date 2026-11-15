@@ -59,8 +59,8 @@ impl ExtensionField {
                 }
             }
             ExtensionField::gf65536 => {
-                for (element, pair) in elements.iter_mut().zip(bytes.chunks_exact(2)) {
-                    *element = u16::from_le_bytes([pair[0], pair[1]]);
+                for (element, pair) in elements.iter_mut().zip(bytes.as_chunks::<2>().0) {
+                    *element = u16::from_le_bytes(*pair);
                 }
             }
         }
@@ -82,7 +82,7 @@ impl ExtensionField {
                 }
             }
             ExtensionField::gf65536 => {
-                for (pair, element) in bytes.chunks_exact_mut(2).zip(elements) {
+                for (pair, element) in bytes.as_chunks_mut::<2>().0.iter_mut().zip(elements) {
                     pair.copy_from_slice(&element.to_le_bytes());
                 }
             }

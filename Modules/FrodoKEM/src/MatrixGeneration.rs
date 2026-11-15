@@ -37,12 +37,12 @@ impl MatrixGeneration {
                 let cipher = AES128::new(seed);
                 // Block `j` of a row holds the row index and then the column `8 j`.
                 let mut blocks = vec![0u8; 2 * dimension];
-                for (blockIndex, block) in blocks.chunks_exact_mut(16).enumerate() {
+                for (blockIndex, block) in blocks.as_chunks_mut::<16>().0.iter_mut().enumerate() {
                     block[2..4].copy_from_slice(&((8 * blockIndex) as u16).to_le_bytes());
                 }
                 for rowIndex in 0..dimension {
                     let rowWord = (rowIndex as u16).to_le_bytes();
-                    for block in blocks.chunks_exact_mut(16) {
+                    for block in blocks.as_chunks_mut::<16>().0 {
                         block[..2].copy_from_slice(&rowWord);
                     }
                     cipher.encryptBlocks(&blocks, &mut rowBytes);
@@ -92,7 +92,7 @@ mod tests {
             block[2..4].copy_from_slice(&(columnStart as u16).to_le_bytes());
             let mut encrypted = [0u8; 16];
             cipher.encryptBlocks(&block, &mut encrypted);
-            for (offset, pair) in encrypted.chunks_exact(2).enumerate() {
+            for (offset, pair) in encrypted.as_chunks::<2>().0.iter().enumerate() {
                 assert_eq!(
                     rows[rowIndex][columnStart + offset],
                     u16::from_le_bytes([pair[0], pair[1]]),
@@ -114,8 +114,10 @@ mod tests {
             let mut bytes = vec![0u8; 2 * 976];
             SHAKE128::hash(&input, &mut bytes);
             let expected: Vec<u16> = bytes
-                .chunks_exact(2)
-                .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|pair| u16::from_le_bytes(*pair))
                 .collect();
             assert_eq!(rows[rowIndex], expected, "row {rowIndex}");
         }

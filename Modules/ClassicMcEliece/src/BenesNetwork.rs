@@ -98,13 +98,13 @@ impl<'parameters> BenesNetwork<'parameters> {
     /// The network of 4096 bits of the sets with m = 12, `apply_benes` with `rev = 0`.
     fn applied4096(row: &mut [u8], bits: &[u8]) {
         let mut words = [0u64; 64];
-        for (word, bytes) in words.iter_mut().zip(row.chunks_exact(8)) {
+        for (word, bytes) in words.iter_mut().zip(row.as_chunks::<8>().0) {
             *word = Self::loadedWord(bytes);
         }
         let mut offset = 0;
         let transposedConditions = |offset: usize| {
             let mut conditions = [0u64; 64];
-            for (condition, bytes) in conditions.iter_mut().zip(bits[offset..].chunks_exact(4)) {
+            for (condition, bytes) in conditions.iter_mut().zip(bits[offset..].as_chunks::<4>().0) {
                 *condition = Self::loadedHalfWord(bytes);
             }
             Self::transpose(&mut conditions);
@@ -112,7 +112,7 @@ impl<'parameters> BenesNetwork<'parameters> {
         };
         let directConditions = |offset: usize| {
             let mut conditions = [0u64; 32];
-            for (condition, bytes) in conditions.iter_mut().zip(bits[offset..].chunks_exact(8)) {
+            for (condition, bytes) in conditions.iter_mut().zip(bits[offset..].as_chunks::<8>().0) {
                 *condition = Self::loadedWord(bytes);
             }
             conditions
@@ -133,7 +133,7 @@ impl<'parameters> BenesNetwork<'parameters> {
             offset += 256;
         }
         Self::transpose(&mut words);
-        for (bytes, word) in row.chunks_exact_mut(8).zip(words) {
+        for (bytes, word) in row.as_chunks_mut::<8>().0.iter_mut().zip(words) {
             bytes.copy_from_slice(&word.to_le_bytes());
         }
     }
@@ -142,21 +142,21 @@ impl<'parameters> BenesNetwork<'parameters> {
     fn applied8192(row: &mut [u8], bits: &[u8]) {
         // The two halves of `r_int_v` hold the bytes 0 to 7 and 8 to 15 of each 16 bytes.
         let mut vertical = [[0u64; 64]; 2];
-        for (index, bytes) in row.chunks_exact(16).enumerate() {
+        for (index, bytes) in row.as_chunks::<16>().0.iter().enumerate() {
             vertical[0][index] = Self::loadedWord(&bytes[..8]);
             vertical[1][index] = Self::loadedWord(&bytes[8..]);
         }
         let mut offset = 0;
         let conditions = |offset: usize| {
             let mut words = [0u64; 64];
-            for (word, bytes) in words.iter_mut().zip(bits[offset..].chunks_exact(8)) {
+            for (word, bytes) in words.iter_mut().zip(bits[offset..].as_chunks::<8>().0) {
                 *word = Self::loadedWord(bytes);
             }
             words
         };
         let transposed = |halves: &[[u64; 64]; 2]| {
             let mut words = [0u64; 128];
-            for (half, target) in halves.iter().zip(words.chunks_exact_mut(64)) {
+            for (half, target) in halves.iter().zip(words.as_chunks_mut::<64>().0) {
                 let mut block = *half;
                 Self::transpose(&mut block);
                 target.copy_from_slice(&block);
@@ -165,7 +165,7 @@ impl<'parameters> BenesNetwork<'parameters> {
         };
         let untransposed = |words: &[u64; 128]| {
             let mut halves = [[0u64; 64]; 2];
-            for (half, source) in halves.iter_mut().zip(words.chunks_exact(64)) {
+            for (half, source) in halves.iter_mut().zip(words.as_chunks::<64>().0) {
                 half.copy_from_slice(source);
                 Self::transpose(half);
             }
@@ -191,7 +191,7 @@ impl<'parameters> BenesNetwork<'parameters> {
             offset += 512;
         }
         vertical = untransposed(&horizontal);
-        for (index, bytes) in row.chunks_exact_mut(16).enumerate() {
+        for (index, bytes) in row.as_chunks_mut::<16>().0.iter_mut().enumerate() {
             bytes[..8].copy_from_slice(&vertical[0][index].to_le_bytes());
             bytes[8..].copy_from_slice(&vertical[1][index].to_le_bytes());
         }

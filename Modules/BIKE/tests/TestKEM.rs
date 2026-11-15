@@ -229,8 +229,8 @@ fn aPositionPlusRWithinTheReachOfTheRotationCountsAsThePosition() {
             .expect("encapsulation");
         let mut changed = keyPair.secretKey.bytes().to_vec();
         let mut movedCount = 0;
-        for bytes in changed[..8 * d].chunks_exact_mut(4) {
-            let position = u32::from_le_bytes(bytes.try_into().expect("4 bytes")) as usize;
+        for bytes in changed[..8 * d].as_chunks_mut::<4>().0 {
+            let position = u32::from_le_bytes(*bytes) as usize;
             if position + r <= reach {
                 bytes.copy_from_slice(&((position + r) as u32).to_le_bytes());
                 movedCount += 1;
@@ -319,7 +319,12 @@ fn decapsulationsOfHostileInputsGiveTheSecretsOfTheCLibrary() {
             64 * 2 * step + 5,
         ];
         let mut edgeKey = secretKey.to_vec();
-        for (index, bytes) in edgeKey[..8 * d].chunks_exact_mut(4).enumerate() {
+        for (index, bytes) in edgeKey[..8 * d]
+            .as_chunks_mut::<4>()
+            .0
+            .iter_mut()
+            .enumerate()
+        {
             bytes.copy_from_slice(&edges[index % edges.len()].to_le_bytes());
         }
         let cases = [
@@ -487,8 +492,10 @@ fn theSecretKeyHoldsThePositionsTheBlocksThePublicKeyAndSigma() {
         let secretKey = keyPair.secretKey.bytes();
         for block in 0..2 {
             let mut positions: Vec<usize> = secretKey[4 * d * block..4 * d * (block + 1)]
-                .chunks_exact(4)
-                .map(|bytes| u32::from_le_bytes(bytes.try_into().expect("4 bytes")) as usize)
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .map(|bytes| u32::from_le_bytes(*bytes) as usize)
                 .collect();
             positions.sort_unstable();
             positions.dedup();

@@ -188,7 +188,7 @@ impl<'parameters> MatrixArithmetic<'parameters> {
         let modulusMask = u32::from(self.modulusMask());
         let valueMask = (1u32 << bits) - 1;
         let mut message = Vec::new();
-        for group in matrix.chunks_exact(Parameters::shortDimension) {
+        for group in matrix.as_chunks::<{ Parameters::shortDimension }>().0 {
             let word = group.iter().enumerate().fold(0u64, |word, (index, value)| {
                 let rounded = ((u32::from(*value) & modulusMask) + (1 << (shift - 1))) >> shift;
                 word + (u64::from(rounded & valueMask) << (bits as usize * index))

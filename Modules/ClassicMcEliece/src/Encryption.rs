@@ -26,7 +26,11 @@ impl<'parameters> Encryption<'parameters> {
         let parameters = self.parameters;
         let field = parameters.field();
         let weight = parameters.errorWeight;
-        let values = bytes.chunks_exact(2).map(|pair| field.loaded(pair));
+        let values = bytes
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| field.loaded(pair));
         let positions: Vec<u16> = if parameters.isFullLength() {
             values.collect()
         } else {

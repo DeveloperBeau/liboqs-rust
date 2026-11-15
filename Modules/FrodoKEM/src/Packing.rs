@@ -53,8 +53,8 @@ impl Packing {
     /// the output of a hash and the secret matrix of a secret key.
     pub(crate) fn decodeLittleEndian(bytes: &[u8], values: &mut [u16]) {
         debug_assert_eq!(bytes.len(), 2 * values.len());
-        for (value, pair) in values.iter_mut().zip(bytes.chunks_exact(2)) {
-            *value = u16::from_le_bytes([pair[0], pair[1]]);
+        for (value, pair) in values.iter_mut().zip(bytes.as_chunks::<2>().0) {
+            *value = u16::from_le_bytes(*pair);
         }
     }
 
