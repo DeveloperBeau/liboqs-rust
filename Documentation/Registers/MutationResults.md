@@ -561,7 +561,7 @@ Of the 43 timeouts of NTRU Prime, 35 failed a unit test before the limit: the 22
 - `PolynomialRing.rs`, `residueModuloThree`, line 31: `^` replaced with `|`. The mask of line 30 is 0 or -1, so one operand is 0. `residueModuloThreeIsTheRemainderForEverySixteenBitValue` checks every input and passes with the mutant.
 - `PolynomialRing.rs`, `ternaryFromModulus`, line 94: `-` replaced with `+` in `1 - (bits & 1)`. For the even exponents 12 and 14 both give the shift 1. For the odd exponents 11 and 13 the mutant adds 4 in place of 1 to a coefficient from `q / 2` up, which is the same modulo 3. Each value stays below `q + 4`, so the sum of line 70, in `reduceModuloThreeAndPhi`, stays below `3 (q + 4)` and does not wrap, and `reduceModuloThreeAndPhi` gives the same residues.
 - `PolynomialRing.rs`, `liftByXMinusOne`, line 143: `-` replaced with `/` in `3 - (count % 3)`, and line 152: `*` replaced with `/` in `2 * t`. Only `lift` of NTRU-HRSS calls the function (line 131), and `n` is 701 or 1373, both 2 modulo 3. So `t` is 1, which is also `3 / 2`, and `2 / t` equals `2 t`.
-- `Sampler.rs`, `fixedTypePolynomial`, line 64: `-` replaced with `+` or with `/` in `coefficientCount - 1`, and line 67: `/` replaced with `*` in `count / 4`. `count` sets only the capacity of `keys` and the number of groups that `take` keeps. Every set has `n = 1` modulo 4, so `n / 4` and `(n + 1) / 4` equal `(n - 1) / 4`. Every caller gives the function the `15 (n - 1) / 4` bytes of `fixedTypeSampleLength`: `NTRU.rs`, the lines 63 and 82, draw `sampleLength` bytes, and `Sampler.rs`, the lines 25 and 41, split them at `n - 1`. So `chunks_exact(15)` gives `(n - 1) / 4` groups, and a `take` of `4 (n - 1)` keeps each of them.
+- `Sampler.rs`, `fixedTypePolynomial`, line 64: `-` replaced with `+` or with `/` in `coefficientCount - 1`. `count` sets the capacity of `keys` and the number of groups that `take` keeps. Every set has `n = 1` modulo 4, so `n / 4` and `(n + 1) / 4` equal `(n - 1) / 4`. Every caller gives the function the `15 (n - 1) / 4` bytes of `fixedTypeSampleLength`: `NTRU.rs`, the lines 63 and 82, draw `sampleLength` bytes, and `Sampler.rs`, the lines 25 and 41, split them at `n - 1`. So `as_chunks::<15>` gives `(n - 1) / 4` groups, and a `take` of `4 (n - 1)` keeps each of them. Line 67: `/` replaced with `*` in `count / 4` is not equivalent, because a longer stream gives more groups. `aFixedTypeHasTheWeightOfTheSetAndPlacesThatFollowTheKeysAndIgnoresBytesAfterThem` gives 15 bytes more than the stream and kills it.
 - `Sampler.rs`, `correlatedPolynomial`, line 113: `-` replaced with `/` in `count - 1`. The map of line 114 then also takes the coefficient `n - 1`, which is 0, because `independentPolynomial` starts from `n` zeros (line 52) and every caller gives `n - 1` bytes: `keyPolynomials` splits the `2 (n - 1)` bytes of NTRU-HRSS at `n - 1` (line 25). The map takes 0 to 0.
 
 ### Equivalent mutants of the sorting network
@@ -947,6 +947,79 @@ The 12 mutants of length checks are `<` replaced with `<=` on lines 68, 92, 154,
 | A state keeps the top part and builds only the subtrees inside the tree | `TreeState::builder`, lines 37, 40 and 44, `TreeState::advance`, lines 164 and 165, and `TreeBuilder::completedSubtree`, line 92 | `aStateKeepsTheTopAndBuildsOnlyTheSubtreesInsideTheTree` |
 | The place of a node in a subtree adds its low bits to the bit of its depth | `TreeBuilder::keep`, line 146, and `TreeState::authenticationPath`, line 123: `+` replaced with `-` or `*`, by hand | `aBuilderStepsOneLeafAtATimeAndKeepsTheTopAndTheChosenSubtrees`, `eachLeafHasTheAuthenticationPathOfTheDefinitionAcrossEverySubtree` and the known answers |
 | The saved depths set the flag of bit 31 and the bit of each depth | `AuxiliaryData::savedDepths`, line 47: `+` replaced with `-` or `*`, by hand | `savedDepthsAreTheAuxLevelsOfHashSigsForTheBufferOfLiboqs` |
+
+## Latest result for the `as_chunks` rewrite of Rust 1.100.0
+
+The run of 2026-11-16 on `release` at the commit `7a53786`, after [pull request 39](https://github.com/DeveloperBeau/liboqs-rust/pull/39) rewrote `chunks_exact` as `as_chunks` in 43 module files. It is `cargo mutants --in-diff` of the diff of that pull request with `--workspace -j 2`, the variable `CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER` of the `Mutants` workflow and the oracle folder of `OQS_ORACLE_DIR`. The tool found 116 mutants, in 32 files, and set a limit of 1071 seconds for each test run.
+
+| File | Mutants | Caught | Timeout | Unviable | Missed |
+|---|---|---|---|---|---|
+| `Modules/AES/src/Bitsliced.rs` | 15 | 15 | 0 | 0 | 0 |
+| `Modules/BIKE/src/BIKE.rs` | 1 | 0 | 0 | 1 | 0 |
+| `Modules/BIKE/src/Decoder.rs` | 1 | 1 | 0 | 0 | 0 |
+| `Modules/ClassicMcEliece/src/BenesNetwork.rs` | 2 | 2 | 0 | 0 | 0 |
+| `Modules/ClassicMcEliece/src/ClassicMcEliece.rs` | 1 | 0 | 0 | 1 | 0 |
+| `Modules/ClassicMcEliece/src/Decryption.rs` | 1 | 0 | 0 | 1 | 0 |
+| `Modules/ClassicMcEliece/src/Encryption.rs` | 4 | 3 | 1 | 0 | 0 |
+| `Modules/ClassicMcEliece/src/ParityCheckMatrix.rs` | 3 | 3 | 0 | 0 | 0 |
+| `Modules/Falcon/src/ChaChaRandom.rs` | 1 | 0 | 0 | 1 | 0 |
+| `Modules/FrodoKEM/src/MatrixArithmetic.rs` | 3 | 3 | 0 | 0 | 0 |
+| `Modules/FrodoKEM/src/MatrixGeneration.rs` | 1 | 1 | 0 | 0 | 0 |
+| `Modules/FrodoKEM/src/Packing.rs` | 1 | 1 | 0 | 0 | 0 |
+| `Modules/HQC/src/BinaryVector.rs` | 3 | 3 | 0 | 0 | 0 |
+| `Modules/HQC/src/ReedMuller.rs` | 6 | 6 | 0 | 0 | 0 |
+| `Modules/KATRandom/src/NISTKATRandom.rs` | 1 | 1 | 0 | 0 | 0 |
+| `Modules/LMS/src/OneTimeSignature.rs` | 5 | 4 | 0 | 1 | 0 |
+| `Modules/LMS/src/SignatureVerification.rs` | 2 | 2 | 0 | 0 | 0 |
+| `Modules/MAYO/src/LinearSystem.rs` | 7 | 7 | 0 | 0 | 0 |
+| `Modules/MLDSA/src/InternalAlgorithms.rs` | 11 | 11 | 0 | 0 | 0 |
+| `Modules/MLDSA/src/Polynomial.rs` | 1 | 0 | 0 | 1 | 0 |
+| `Modules/MLKEM/src/Polynomial.rs` | 3 | 2 | 0 | 1 | 0 |
+| `Modules/MQOM/src/ExtensionField.rs` | 2 | 2 | 0 | 0 | 0 |
+| `Modules/MQOM/src/InternalAlgorithms.rs` | 6 | 6 | 0 | 0 | 0 |
+| `Modules/MQOM/src/SeedCipher.rs` | 1 | 1 | 0 | 0 | 0 |
+| `Modules/NTRU/src/Sampler.rs` | 5 | 4 | 0 | 0 | 1 |
+| `Modules/NTRUPrime/src/Encoding.rs` | 15 | 15 | 0 | 0 | 0 |
+| `Modules/NTRUPrime/src/Sampler.rs` | 3 | 2 | 1 | 0 | 0 |
+| `Modules/SHA2/src/SHA256.rs` | 4 | 4 | 0 | 0 | 0 |
+| `Modules/SHA2/src/SHA512Core.rs` | 3 | 3 | 0 | 0 | 0 |
+| `Modules/SHA3/src/KeccakF1600.rs` | 1 | 1 | 0 | 0 | 0 |
+| `Modules/SNOVA/src/NibblePacking.rs` | 1 | 1 | 0 | 0 | 0 |
+| `Modules/XMSS/src/HashAddress.rs` | 2 | 2 | 0 | 0 | 0 |
+| All | 116 | 106 | 2 | 7 | 1 |
+
+The one missed mutant is `fixedTypePolynomial` of NTRU, line 67: `/` replaced with `*` in `count / 4`. Every caller gives the function exactly the bytes of the stream, so `take` never cut a group. `aFixedTypeHasTheWeightOfTheSetAndPlacesThatFollowTheKeysAndIgnoresBytesAfterThem` now gives 15 bytes more than the stream, and the places must still follow the hand-written model of the first `n - 1` keys. A second run of the two mutants of line 67, `/` replaced with `*` and with `%`, caught both. The NTRU result above no longer lists the mutant as equivalent.
+
+The two timeouts each stop a retry loop, so the suite does not end. Applied by hand, each kept a test program running until a limit of 150 seconds or more, where the whole suite of the crate ends in seconds:
+
+- `Encryption::positions`, `Modules/ClassicMcEliece/src/Encryption.rs`, line 26, replaced with `None`: every attempt at an error vector fails, so the draw repeats for ever. `syndromesGiveTheKnownAnswersOfTheCFunction` was still running after 60 seconds.
+- `Sampler::words`, `Modules/NTRUPrime/src/Sampler.rs`, line 32, replaced with `vec![]`: no candidate `g` has an inverse, so the loop of the key pair never ends. `aCandidateGWithoutAnInverseIsDrawnAgain` and `theOperationsOfASequenceGiveTheBytesOfTheCCode` were still running after 60 seconds. The NTRU Prime result above records the same mutant of `Sampler::randomWords`.
+
+The seven unviable mutants do not build and prove nothing: one each in `BIKE.rs`, `ClassicMcEliece.rs`, `Decryption.rs`, `ChaChaRandom.rs`, `OneTimeSignature.rs`, `MLDSA/Polynomial.rs` and `MLKEM/Polynomial.rs`. No mutant is recorded as equivalent.
+
+## Expected result for `Tools/check-liboqs-update.sh`
+
+The run of 2026-11-16 on `release` at the commit `7a53786`. Each mutant is applied to a copy of the script, `cargo test -p xtask --test LiboqsUpdateCheck` runs, and the copy is restored. The sourcing test runs in a folder without `LIBOQS_VERSION`, so a sourced run that falls through the guard ends with the status 1 and the message that the file is missing, and the log of the gh stub must stay empty. Every mutant is caught, and the named test is among the tests that fail.
+
+| Mutant | Killed by | All failing tests |
+|---|---|---|
+| Sourcing guard, line 67: `return 0` replaced with `:` | `sourcingDefinesTheComparisonAndDoesNotRunTheCheck` | that test and `versionIsNewerMatchesIntegerTuples` |
+| Create failure, line 173: `exit 1` replaced with `exit 0` | `createFailureExitsWithStatusOne` | the same test only |
+| Create call without `if !`, message and exit | `createFailureExitsWithStatusOne` | the same test only, for the missing message |
+| Message of the create failure deleted | `createFailureExitsWithStatusOne` | the same test only |
+| First `>` becomes `>=` | `versionIsNewerMatchesIntegerTuples` | 16 tests |
+| Every `10#` dropped | `versionIsNewerMatchesIntegerTuples` | that test, `valueEqualOpenTitleIsTheSameNotice`, `valueEqualTagPrintsCurrent` |
+| `version_is_newer` arguments swapped | `newerReleaseCreatesOneIssue` | 14 tests |
+| API failure exits 0 | `apiFailureExitsWithStatusOne` | the same test only |
+| Closed-exact exit deleted | `closedExactBotTitleDoesNotCreate` | the same test only |
+| Edit branch deleted | `openOlderBotIssueIsEdited` | that test and `editFailureExitsWithStatusOne` |
+| `--state all` becomes `--state open` | `closedExactBotTitleDoesNotCreate` | 5 tests |
+| Author filter dropped | `humanIssueIsNotEdited` | that test, `missingAuthorIsNotOurs`, `nullAuthorIsNotOurs` |
+| Tag and pin compared as strings | `valueEqualTagPrintsCurrent` | the same test only |
+| Unescaped pin pasted into the title pattern | `wildcardPinTitleIsNotEdited` | 6 tests |
+| Pin text back in the title pattern and `notice_pin` set to the pin | `valueEqualOpenTitleIsTheSameNotice` | that test and `wildcardPinTitleIsNotEdited` |
+| Value-equal pair counts as newer | `versionIsNewerMatchesIntegerTuples` | 8 tests |
+| Version parts compared as strings | `versionIsNewerMatchesIntegerTuples` | 5 tests |
 
 ## History
 
